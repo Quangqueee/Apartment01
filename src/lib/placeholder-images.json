@@ -1,3 +1,76 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "1",
+      "description": "Modern living room with city view",
+      "imageUrl": "https://images.unsplash.com/photo-1600210491892-03d54c0aaf87?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxtb2Rlcm4lMjBsaXZpbmclMjByb29tfGVufDB8fHx8MTc2Mjk3MjQ4MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "modern living room"
+    },
+    {
+      "id": "2",
+      "description": "Cozy bedroom with natural light",
+      "imageUrl": "https://images.unsplash.com/photo-1622429420441-60dd67f737a6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjb3p5JTIwYmVkcm9vbXxlbnwwfHx8fDE3NjI5Njc1MTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "cozy bedroom"
+    },
+    {
+      "id": "3",
+      "description": "Sleek kitchen with marble countertops",
+      "imageUrl": "https://images.unsplash.com/photo-1622372738946-62e02505feb3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxtb2Rlcm4lMjBraXRjaGVufGVufDB8fHx8MTc2MjkxMDg0OHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "modern kitchen"
+    },
+    {
+      "id": "4",
+      "description": "Elegant apartment exterior",
+      "imageUrl": "https://images.unsplash.com/photo-1514895413746-feb3d266273d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxhcGFydG1lbnQlMjBleHRlcmlvcnxlbnwwfHx8fDE3NjI5MjgyMTZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "apartment exterior"
+    },
+    {
+      "id": "5",
+      "description": "Spacious studio apartment layout",
+      "imageUrl": "https://images.unsplash.com/photo-1633505765486-e404bbbec654?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzdHVkaW8lMjBhcGFydG1lbnR8ZW58MHx8fHwxNzYyODc3MjYxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "studio apartment"
+    },
+    {
+      "id": "6",
+      "description": "Luxury bathroom with bathtub",
+      "imageUrl": "https://images.unsplash.com/photo-1631889993959-41b4e9c6e3c5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxsdXh1cnklMjBiYXRocm9vbXxlbnwwfHx8fDE3NjI5NjkzMzJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "luxury bathroom"
+    },
+    {
+      "id": "7",
+      "description": "Apartment balcony with a view",
+      "imageUrl": "https://images.unsplash.com/photo-1631282904025-c058b0be45c8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8YmFsY29ueSUyMHZpZXd8ZW58MHx8fHwxNzYyOTUwMTY5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "balcony view"
+    },
+    {
+      "id": "8",
+      "description": "Minimalist dining area",
+      "imageUrl": "https://images.unsplash.com/photo-1758448500813-59f3770da00d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8ZGluaW5nJTIwYXJlYXxlbnwwfHx8fDE3NjI5ODE0MTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "dining area"
+    },
+    {
+      "id": "9",
+      "description": "High-rise apartment building at night",
+      "imageUrl": "https://images.unsplash.com/photo-1541423408854-5df732b6f6d1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxjaXR5JTIwc2t5bGluZXxlbnwwfHx8fDE3NjI5MjM2MjN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "city skyline"
+    },
+    {
+      "id": "10",
+      "description": "Two-bedroom apartment plan",
+      "imageUrl": "https://images.unsplash.com/photo-1761792430733-00e53d2a79b7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxhcGFydG1lbnQlMjBwbGFufGVufDB8fHx8MTc2Mjk4MTQxNHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "apartment plan"
+    },
+    {
+      "id": "11",
+      "description": "Apartment lobby area",
+      "imageUrl": "https://images.unsplash.com/photo-1758193783649-13371d7fb8dd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8bW9kZXJuJTIwbG9iYnl8ZW58MHx8fHwxNzYyODc4NDc0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "modern lobby"
+    },
+    {
+      "id": "12",
+      "description": "Apartment gym facilities",
+      "imageUrl": "https://images.unsplash.com/photo-1548690312-e3b507d8c110?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxneW0lMjBmaXRuZXNzfGVufDB8fHx8MTc2Mjk3MzI3M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "gym fitness"
+    }
+  ]
 }

@@ -1,0 +1,106 @@
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { getAllApartments } from "@/lib/data";
+import { formatPrice } from "@/lib/utils";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { deleteApartmentAction } from "../actions";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminDashboard() {
+  const apartments = await getAllApartments();
+
+  return (
+    <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
+      <div className="flex items-center justify-between space-y-2">
+        <h2 className="font-headline text-3xl font-bold tracking-tight">
+          Apartment Dashboard
+        </h2>
+        <div className="flex items-center space-x-2">
+          <Button asChild>
+            <Link href="/admin/apartments/new">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add New
+            </Link>
+          </Button>
+        </div>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>All Listings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>District</TableHead>
+                <TableHead>Room Type</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {apartments.map((apt) => (
+                <TableRow key={apt.id}>
+                  <TableCell className="font-medium">{apt.title}</TableCell>
+                  <TableCell>{apt.district}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="capitalize">{apt.roomType}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatPrice(apt.price)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/apartments/${apt.id}/edit`}>
+                            Edit
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/apartments/${apt.id}`} target="_blank">
+                            View
+                          </Link>
+                        </DropdownMenuItem>
+                        <form action={deleteApartmentAction} className="w-full">
+                           <input type="hidden" name="id" value={apt.id} />
+                           <button type="submit" className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full text-destructive">
+                             Delete
+                           </button>
+                         </form>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
