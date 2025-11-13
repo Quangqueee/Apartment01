@@ -41,7 +41,7 @@ export async function generateMetadata({ params }: ApartmentPageProps) {
 
   return {
     title: `${apartment.title} | Hanoi Residences`,
-    description: apartment.summary,
+    description: apartment.listingSummary,
   };
 }
 
@@ -118,23 +118,13 @@ export default async function ApartmentPage({ params }: ApartmentPageProps) {
           </div>
 
           <div className="mt-12 max-w-4xl">
-            <div className="mb-8">
-              <h2 className="mb-4 flex items-center font-headline text-2xl font-bold">
-                <Sparkles className="mr-3 h-6 w-6 text-primary" />
-                AI Generated Summary
-              </h2>
-              <p className="text-lg leading-relaxed text-foreground/80">
-                {apartment.summary}
-              </p>
-            </div>
-
             <div>
               <h2 className="mb-4 flex items-center font-headline text-2xl font-bold">
                 <FileText className="mr-3 h-6 w-6 text-primary" />
                 Detailed Information
               </h2>
               <div className="prose prose-lg max-w-none text-foreground/80 whitespace-pre-wrap">
-                {apartment.detailedInformation}
+                {apartment.details}
               </div>
             </div>
           </div>
