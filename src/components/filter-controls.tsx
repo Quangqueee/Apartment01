@@ -105,100 +105,104 @@ export default function FilterControls({ isAdmin = false }: FilterControlsProps)
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-1 gap-2 rounded-lg border bg-card p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-        <Input
-          placeholder={isAdmin ? "Tìm theo mã nội bộ..." : "Tìm kiếm theo tiêu đề..."}
-          value={filters.q}
-          onChange={(e) => handleFilterChange("q", e.target.value)}
-          className="lg:col-span-2"
-        />
-        <Select
-          value={filters.district}
-          onValueChange={(value) => handleFilterChange("district", value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Quận/Huyện" />
-          </SelectTrigger>
-          <SelectContent>
-            {HANOI_DISTRICTS.map((district) => (
-              <SelectItem key={district} value={district}>
-                {district}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={filters.price}
-          onValueChange={(value) => handleFilterChange("price", value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Khoảng giá" />
-          </SelectTrigger>
-          <SelectContent>
-            {PRICE_RANGES.map((range) => (
-              <SelectItem key={range.value} value={range.value}>
-                {range.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={filters.roomType}
-          onValueChange={(value) => handleFilterChange("roomType", value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Loại phòng" />
-          </SelectTrigger>
-          <SelectContent>
-            {ROOM_TYPES.map((type) => (
-              <SelectItem key={type.value} value={type.value}>
-                {type.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {!isAdmin && (
+      <div className="space-y-2 rounded-lg border bg-card p-4">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+           <div className="relative lg:col-span-2">
+             <Input
+                placeholder={isAdmin ? "Tìm theo mã nội bộ..." : "Tìm kiếm theo tiêu đề..."}
+                value={filters.q}
+                onChange={(e) => handleFilterChange("q", e.target.value)}
+                className="pr-12"
+             />
+             <Button onClick={handleSearch} size="icon" variant="ghost" className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2">
+                <Search className="h-4 w-4" />
+                <span className="sr-only">Xác nhận</span>
+            </Button>
+           </div>
           <Select
-            value={filters.sort}
-            onValueChange={(value) => handleFilterChange("sort", value)}
+            value={filters.district}
+            onValueChange={(value) => handleFilterChange("district", value)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Sắp xếp theo" />
+              <SelectValue placeholder="Quận/Huyện" />
             </SelectTrigger>
             <SelectContent>
-              {SORT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
+              {HANOI_DISTRICTS.map((district) => (
+                <SelectItem key={district} value={district}>
+                  {district}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        )}
-      </div>
-       <div className="flex flex-wrap items-center justify-end gap-2">
-           {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              onClick={handleReset}
-            >
-              <X className="mr-2 h-4 w-4" />
-              Xóa bộ lọc
-            </Button>
-          )}
+          <Select
+            value={filters.price}
+            onValueChange={(value) => handleFilterChange("price", value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Khoảng giá" />
+            </SelectTrigger>
+            <SelectContent>
+              {PRICE_RANGES.map((range) => (
+                <SelectItem key={range.value} value={range.value}>
+                  {range.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={filters.roomType}
+            onValueChange={(value) => handleFilterChange("roomType", value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Loại phòng" />
+            </SelectTrigger>
+            <SelectContent>
+              {ROOM_TYPES.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {!isAdmin && (
-             <Button
-              variant="outline"
-              onClick={handleSave}
+            <Select
+              value={filters.sort}
+              onValueChange={(value) => handleFilterChange("sort", value)}
             >
-              <Save className="mr-2 h-4 w-4" />
-              Lưu bộ lọc
-            </Button>
+              <SelectTrigger>
+                <SelectValue placeholder="Sắp xếp theo" />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
-          <Button onClick={handleSearch}>
-            <Search className="mr-2 h-4 w-4" />
-            Xác nhận
-          </Button>
         </div>
+         <div className="flex flex-wrap items-center justify-end gap-2">
+             {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                onClick={handleReset}
+              >
+                <X className="mr-2 h-4 w-4" />
+                Xóa bộ lọc
+              </Button>
+            )}
+            {!isAdmin && (
+               <Button
+                variant="outline"
+                onClick={handleSave}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Lưu bộ lọc
+              </Button>
+            )}
+          </div>
+      </div>
     </div>
   );
 }
