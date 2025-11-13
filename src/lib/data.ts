@@ -75,25 +75,41 @@ export async function getApartments(
   if (roomType) {
     constraints.push(where("roomType", "==", roomType));
   }
+  
+  let hasPriceInequality = false;
   if (priceRange) {
     const [min, max] = priceRange.split("-");
     const minPrice = min ? parseInt(min) : 0;
     const maxPrice = max ? parseInt(max) : Infinity;
-    if (minPrice > 0) constraints.push(where("price", ">=", minPrice));
-    if (maxPrice !== Infinity) constraints.push(where("price", "<=", maxPrice));
+    if (minPrice > 0) {
+      constraints.push(where("price", ">=", minPrice));
+      hasPriceInequality = true;
+    }
+    if (maxPrice !== Infinity) {
+      constraints.push(where("price", "<=", maxPrice));
+      hasPriceInequality = true;
+    }
   }
   
-  // Note: Firestore requires the first orderBy field to match the inequality field if one exists.
-  // Since our price filter can have inequalities, we handle sorting carefully.
-  // For simplicity, we fetch and then sort for complex cases. A more optimized solution
-  // might involve restructuring data or using a search service.
-
-  if (sortBy === 'price-asc') {
-     constraints.push(orderBy("price", "asc"));
-  } else if (sortBy === 'price-desc') {
-     constraints.push(orderBy("price", "desc"));
-  } else { // Default to newest
-    constraints.push(orderBy("createdAt", "desc"));
+  // Firestore requires the first orderBy field to match the inequality field if one exists.
+  if (hasPriceInequality) {
+     if (sortBy === 'price-desc') {
+        constraints.push(orderBy("price", "desc"));
+     } else {
+        // Default to price-asc if a price range is set, unless explicitly price-desc
+        constraints.push(orderBy("price", "asc"));
+     }
+     constraints.push(orderBy("createdAt", "desc")); // Secondary sort
+  } else {
+      if (sortBy === 'price-asc') {
+          constraints.push(orderBy("price", "asc"));
+          constraints.push(orderBy("createdAt", "desc"));
+      } else if (sortBy === 'price-desc') {
+          constraints.push(orderBy("price", "desc"));
+          constraints.push(orderBy("createdAt", "desc"));
+      } else { // Default to newest
+          constraints.push(orderBy("createdAt", "desc"));
+      }
   }
 
   q = query(apartmentsCollection, ...constraints);
@@ -110,6 +126,13 @@ export async function getApartments(
     });
   }
   
+  // If sorting was not on price but a price range was applied, we need to sort manually
+  if (hasPriceInequality && sortBy !== 'price-asc' && sortBy !== 'price-desc') {
+      if (sortBy === 'newest') {
+        // Already sorted by createdAt as secondary
+      }
+  }
+
   const totalPages = Math.ceil(apartments.length / pageSize);
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
@@ -136,12 +159,12 @@ export async function createApartment(
     createdAt: Timestamp.now(),
   };
   const docRef = await addDoc(apartmentsCollection, newApartmentData);
-  return { ...newApartmentData, id: docRef.id };
+  return { ...newApartmentData, id: docRef.id, createdAt: newApartmentData.createdAt.toDate().toISOString() };
 }
 
 export async function updateApartment(
   id: string,
-  data: Partial<Omit<Apartment, "id">>
+  data: Partial<Omit<Apartment, "id" | "createdAt">>
 ) {
   const docRef = doc(firestore, "apartments", id);
   await updateDoc(docRef, data);

@@ -123,6 +123,7 @@ export async function deleteApartmentAction(formData: FormData) {
                 const imageRef = ref(storage, url);
                 await deleteObject(imageRef);
             } catch (error: any) {
+                // Ignore 'object-not-found' errors
                 if (error.code !== 'storage/object-not-found') {
                     console.error(`Failed to delete image: ${url}`, error);
                 }
