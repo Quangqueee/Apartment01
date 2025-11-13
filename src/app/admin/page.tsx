@@ -105,7 +105,7 @@ export default function AdminDashboard() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Title</TableHead>
+                <TableHead>Địa chỉ</TableHead>
                 <TableHead>Mã nội bộ</TableHead>
                 <TableHead>District</TableHead>
                 <TableHead>SĐT Chủ nhà</TableHead>
@@ -118,7 +118,7 @@ export default function AdminDashboard() {
                 <TableRow key={apt.id}>
                   <TableCell className="font-medium">
                      <Link href={`/admin/apartments/${apt.id}/edit`} className="text-primary hover:underline">
-                        {apt.title}
+                        {apt.address}
                      </Link>
                   </TableCell>
                   <TableCell>{apt.sourceCode}</TableCell>
