@@ -33,6 +33,23 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useRef } from "react";
 import { Loader2, Sparkles, Trash2, Upload } from "lucide-react";
 import Image from "next/image";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = [
@@ -53,10 +70,53 @@ const formSchema = z.object({
     .min(20, "Detailed information must be at least 20 characters."),
   listingSummary: z.string().optional(),
   address: z.string().min(1, "Exact address is required."),
-  imageUrls: z
-    .array(z.string())
-    .min(1, "At least one image is required."),
+  imageUrls: z.array(z.string()).min(1, "At least one image is required."),
 });
+
+type SortableImageProps = {
+  src: string;
+  index: number;
+  removeImage: (index: number) => void;
+};
+
+const SortableImage = ({ src, index, removeImage }: SortableImageProps) => {
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: src });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="relative aspect-video touch-none"
+    >
+      <Image
+        src={src}
+        alt={`Preview ${index + 1}`}
+        fill
+        className="rounded-md object-cover"
+      />
+      <Button
+        type="button"
+        variant="destructive"
+        size="icon"
+        className="absolute right-1 top-1 z-10 h-6 w-6"
+        onClick={(e) => {
+          e.stopPropagation(); // Prevent dnd listeners from firing
+          removeImage(index);
+        }}
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+};
 
 type ApartmentFormProps = {
   apartment?: Apartment;
@@ -66,11 +126,17 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Store image previews which can be base64 data URIs or public URLs
   const [previews, setPreviews] = useState<string[]>(
     apartment?.imageUrls || []
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -101,7 +167,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       return;
     }
 
-
     const filePromises = files.map((file) => {
       return new Promise<string>((resolve, reject) => {
         if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
@@ -127,23 +192,37 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         toast({
           variant: "destructive",
           title: "Error uploading file",
-          description: typeof error === 'string' ? error : "An unexpected error occurred.",
+          description:
+            typeof error === "string" ? error : "An unexpected error occurred.",
         });
       });
   };
-  
+
   const removeImage = (index: number) => {
     const updatedPreviews = previews.filter((_, i) => i !== index);
     setPreviews(updatedPreviews);
     form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = previews.findIndex((p) => p === active.id);
+      const newIndex = previews.findIndex((p) => p === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const updatedPreviews = arrayMove(previews, oldIndex, newIndex);
+        setPreviews(updatedPreviews);
+        form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
+      }
+    }
+  };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     const result = await createOrUpdateApartmentAction(apartment?.id, values);
     if (result?.error) {
-       toast({
+      toast({
         variant: "destructive",
         title: "Error",
         description: result.error,
@@ -290,30 +369,31 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       </FormControl>
                       <FormDescription>
                         Upload one or more images (JPG, PNG, WebP). Max 5MB
-                        each. The first image will be the main one.
+                        each. Drag to reorder. The first image will be the main
+                        one.
                       </FormDescription>
-                      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                        {previews.map((src, index) => (
-                          <div key={index} className="relative aspect-video">
-                            <Image
-                              src={src}
-                              alt={`Preview ${index + 1}`}
-                              fill
-                              className="rounded-md object-cover"
-                            />
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              className="absolute right-1 top-1 h-6 w-6"
-                              onClick={() => removeImage(index)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <SortableContext
+                          items={previews}
+                          strategy={rectSortingStrategy}
+                        >
+                          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                            {previews.map((src, index) => (
+                              <SortableImage
+                                key={src}
+                                src={src}
+                                index={index}
+                                removeImage={removeImage}
+                              />
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                       <FormMessage />
+                        </SortableContext>
+                      </DndContext>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
