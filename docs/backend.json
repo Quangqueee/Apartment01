@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "Apartment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Apartment",
+      "type": "object",
+      "description": "Represents an apartment listing.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the apartment listing."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the apartment listing (as seen by users)."
+        },
+        "sourceCode": {
+          "type": "string",
+          "description": "The unique source code or internal identifier for the apartment."
+        },
+        "roomType": {
+          "type": "string",
+          "description": "The type of room (e.g., 1n1k, 2n1k, studio)."
+        },
+        "district": {
+          "type": "string",
+          "description": "The district in Hanoi where the apartment is located."
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the apartment."
+        },
+        "details": {
+          "type": "string",
+          "description": "Detailed information about the apartment."
+        },
+        "address": {
+          "type": "string",
+          "description": "The exact address of the apartment (admin-only)."
+        },
+        "imageUrls": {
+          "type": "array",
+          "description": "Array of URLs pointing to the apartment's images.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "listingSummary": {
+          "type": "string",
+          "description": "AI generated summary of the listing."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "sourceCode",
+        "roomType",
+        "district",
+        "price",
+        "details",
+        "address",
+        "imageUrls"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/apartments/{apartmentId}",
+        "definition": {
+          "entityName": "Apartment",
+          "schema": {
+            "$ref": "#/backend/entities/Apartment"
+          },
+          "description": "Stores apartment listing information. Includes all data required for display and admin management.",
+          "params": [
+            {
+              "name": "apartmentId",
+              "description": "Unique identifier for the apartment document."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "Given the requirements for displaying and managing apartment listings in \"Hanoi Residences,\" the following Firestore structure is recommended:\n\n*   **/apartments (Collection):** This collection stores all apartment documents. The structure prioritizes simplicity for public read access and admin write access. There is no user-specific data, so there is no need for subcollections under `/users/{userId}`.\n\n    *   **Authorization Independence:** All fields required for displaying the apartment information are contained within each apartment document, therefore rules do not need to query other collections.\n    *   **QAPs:** Segregation of data into a single collection with uniform security needs makes `list` operations secure, and filtering happens on the client side.\n\nThis design achieves **Authorization Independence** by ensuring each `apartment` document contains all necessary data, preventing the need for complex `get()` calls in security rules. It directly supports the QAPs by storing all apartment data in a single collection, facilitating secure and efficient `list` operations with client-side filtering. The structure supports the integrity of ownership (admin managed) and other data invariants through server-side validation and Firebase's atomic write operations.\n"
+  }
+}
