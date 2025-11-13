@@ -9,29 +9,36 @@ export default function Header() {
   const [lastScrollY, setLastScrollY] = useState(0);
   const [showFilters, setShowFilters] = useState(true);
 
-  const controlNavbar = () => {
-    if (typeof window !== "undefined") {
-      if (window.scrollY > lastScrollY && window.scrollY > 100) {
-        // if scroll down hide the navbar
-        setShowFilters(false);
-      } else {
-        // if scroll up show the navbar
-        setShowFilters(true);
-      }
-      // remember current page location to use in the next move
-      setLastScrollY(window.scrollY);
-    }
-  };
+  // A threshold after which the header starts hiding
+  const HIDE_THRESHOLD = 100;
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.addEventListener("scroll", controlNavbar);
+    const controlNavbar = () => {
+      if (typeof window !== "undefined") {
+        const currentScrollY = window.scrollY;
 
-      // cleanup function
-      return () => {
-        window.removeEventListener("scroll", controlNavbar);
-      };
-    }
+        // Determine scroll direction
+        if (currentScrollY > lastScrollY && currentScrollY > HIDE_THRESHOLD) {
+          // Scrolling down and past the threshold
+          setShowFilters(false);
+        } else {
+          // Scrolling up or at the top of the page
+          setShowFilters(true);
+        }
+        
+        // Remember current page location for the next move.
+        // Only update if it's a significant change to avoid excessive re-renders.
+        if (Math.abs(currentScrollY - lastScrollY) > 5) {
+          setLastScrollY(currentScrollY);
+        }
+      }
+    };
+    
+    window.addEventListener("scroll", controlNavbar, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", controlNavbar);
+    };
   }, [lastScrollY]);
 
   return (
