@@ -16,8 +16,6 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Apartment } from "@/lib/types";
 
@@ -55,14 +53,6 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
             </CarouselItem>
           ))}
         </CarouselContent>
-        <CarouselPrevious
-          onClick={(e) => e.stopPropagation()}
-          className="absolute left-2 opacity-0 transition-opacity group-hover:opacity-100"
-        />
-        <CarouselNext
-          onClick={(e) => e.stopPropagation()}
-          className="absolute right-2 opacity-0 transition-opacity group-hover:opacity-100"
-        />
       </Carousel>
       <Link
         href={`/apartments/${apartment.id}`}
