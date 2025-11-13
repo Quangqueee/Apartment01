@@ -17,16 +17,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
 import { getApartments } from "@/lib/data";
 import Link from "next/link";
 import { deleteApartmentAction } from "../actions";
 import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, FormEvent } from "react";
 import { Apartment } from "@/lib/types";
-import { useDebounce } from "@/hooks/use-debounce";
-
 
 export default function AdminDashboard() {
   const searchParams = useSearchParams();
@@ -36,18 +34,6 @@ export default function AdminDashboard() {
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState(searchParams.get("q") || "");
-  const debouncedQuery = useDebounce(query, 300);
-
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (debouncedQuery) {
-      params.set("q", debouncedQuery);
-    } else {
-      params.delete("q");
-    }
-    router.replace(`${pathname}?${params.toString()}`);
-  }, [debouncedQuery, router, pathname, searchParams]);
-
 
   useEffect(() => {
     startTransition(async () => {
@@ -64,6 +50,18 @@ export default function AdminDashboard() {
       setApartments(result.apartments);
     });
   }, [searchParams]);
+  
+  const handleSearch = (e: FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams(searchParams.toString());
+    if (query) {
+      params.set("q", query);
+    } else {
+      params.delete("q");
+    }
+    params.set("page", "1"); // Reset to first page on new search
+    router.push(`${pathname}?${params.toString()}`);
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
@@ -81,11 +79,18 @@ export default function AdminDashboard() {
         </div>
       </div>
       <div className="pb-4 space-y-4">
-        <Input 
-          placeholder="Tìm theo mã nội bộ..." 
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+        <form onSubmit={handleSearch} className="flex items-center gap-2">
+          <Input 
+            placeholder="Tìm theo mã nội bộ..." 
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="flex-1"
+          />
+          <Button type="submit">
+            <Search className="mr-2 h-4 w-4" />
+            Tìm kiếm
+          </Button>
+        </form>
       </div>
       <Card>
         <CardHeader>
@@ -157,4 +162,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
