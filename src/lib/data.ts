@@ -15,11 +15,10 @@ import {
   DocumentData,
   Timestamp,
 } from "firebase/firestore";
-import { getFirestore } from "firebase/firestore";
-import { initializeFirebase } from "@/firebase";
+import { firestore } from "@/firebase/server-init";
 import { Apartment } from "./types";
 
-const { firestore } = initializeFirebase();
+
 const apartmentsCollection = collection(firestore, "apartments");
 
 // Helper to convert Firestore timestamp to ISO string

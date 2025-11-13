@@ -13,10 +13,9 @@ import {
   getApartmentById,
 } from "@/lib/data";
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
-import { initializeFirebase } from "@/firebase";
+import { firebaseApp } from "@/firebase/server-init";
 
 // Initialize Firebase Storage
-const { firebaseApp } = initializeFirebase();
 const storage = getStorage(firebaseApp);
 
 
