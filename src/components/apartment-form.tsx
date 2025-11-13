@@ -65,6 +65,8 @@ type ApartmentFormProps = {
 export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Store image previews which can be base64 data URIs or public URLs
   const [previews, setPreviews] = useState<string[]>(
     apartment?.imageUrls || []
   );
@@ -138,14 +140,16 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
     const result = await createOrUpdateApartmentAction(apartment?.id, values);
-    if (result.error) {
+    if (result?.error) {
        toast({
         variant: "destructive",
         title: "Error",
         description: result.error,
       });
     }
+    setIsSubmitting(false);
   }
 
   const handleGenerateSummary = async () => {
@@ -430,8 +434,8 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
             </Card>
           </div>
         </div>
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting && (
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting && (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           )}
           {apartment ? "Update" : "Create"} Apartment

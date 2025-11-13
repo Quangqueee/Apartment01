@@ -3,12 +3,22 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
+import { v4 as uuidv4 } from 'uuid';
+
 import {
   createApartment,
   updateApartment,
-  deleteApartment,
+  deleteApartment as deleteApartmentFromDb,
+  getApartmentById,
 } from "@/lib/data";
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
+import { initializeFirebase } from "@/firebase";
+
+// Initialize Firebase Storage
+const { firebaseApp } = initializeFirebase();
+const storage = getStorage(firebaseApp);
+
 
 const formSchema = z.object({
   title: z.string().min(5),
@@ -22,6 +32,41 @@ const formSchema = z.object({
   imageUrls: z.array(z.string()).min(1, "At least one image is required."),
 });
 
+// Helper function to upload or update images
+async function uploadImages(imageUrls: string[]): Promise<string[]> {
+  const uploadedUrls = await Promise.all(
+    imageUrls.map(async (url) => {
+      if (url.startsWith('data:')) {
+        // This is a new image (base64 data URI)
+        const storageRef = ref(storage, `apartments/${uuidv4()}`);
+        const snapshot = await uploadString(storageRef, url, 'data_url');
+        return getDownloadURL(snapshot.ref);
+      }
+      // This is an existing URL
+      return url;
+    })
+  );
+  return uploadedUrls;
+}
+
+
+// Helper to delete images from storage that are no longer in use
+async function handleImageCleanup(existingUrls: string[], newUrls: string[]) {
+    const urlsToDelete = existingUrls.filter(url => !newUrls.includes(url));
+    await Promise.all(urlsToDelete.map(async (url) => {
+        try {
+            const imageRef = ref(storage, url);
+            await deleteObject(imageRef);
+        } catch (error: any) {
+            // Ignore 'object-not-found' errors, as it might have been deleted already
+            if (error.code !== 'storage/object-not-found') {
+                console.error(`Failed to delete image: ${url}`, error);
+            }
+        }
+    }));
+}
+
+
 export async function createOrUpdateApartmentAction(
   id: string | undefined,
   values: z.infer<typeof formSchema>
@@ -29,24 +74,28 @@ export async function createOrUpdateApartmentAction(
   const validatedFields = formSchema.safeParse(values);
 
   if (!validatedFields.success) {
-    // Manually construct a user-friendly error message
     const errorIssues = validatedFields.error.issues;
     const errorMessage = errorIssues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ');
     return { error: `Invalid fields! ${errorMessage}` };
   }
   
-  const data = {
-    ...validatedFields.data,
-    summary: validatedFields.data.summary || "", // Ensure summary is not undefined
-  };
+  const data = validatedFields.data;
 
   try {
+    const finalImageUrls = await uploadImages(data.imageUrls);
+
     if (id) {
-      await updateApartment(id, data);
+       // On update, check if we need to clean up old images
+      const existingApartment = await getApartmentById(id);
+      if (existingApartment) {
+        await handleImageCleanup(existingApartment.imageUrls, finalImageUrls);
+      }
+      await updateApartment(id, { ...data, imageUrls: finalImageUrls });
     } else {
-      await createApartment(data);
+      await createApartment({ ...data, imageUrls: finalImageUrls });
     }
   } catch (error) {
+    console.error("Database error:", error);
     return { error: "Database error. Failed to save apartment." };
   }
 
@@ -61,7 +110,11 @@ export async function deleteApartmentAction(formData: FormData) {
     return { error: "ID is required" };
   }
   try {
-    await deleteApartment(id);
+     const apartment = await getApartmentById(id);
+     if (apartment) {
+        await handleImageCleanup(apartment.imageUrls, []);
+     }
+    await deleteApartmentFromDb(id);
     revalidatePath("/admin");
     return { success: true };
   } catch (error) {

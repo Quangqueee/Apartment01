@@ -13,3 +13,8 @@ export interface Apartment {
   imageUrls: string[];
   createdAt: string; // ISO 8601 date string
 }
+
+export type UploadedImage = {
+  file: File;
+  preview: string;
+};

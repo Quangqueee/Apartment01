@@ -1,40 +1,13 @@
-/**
- * @fileoverview Firestore Security Rules for the "Hanoi Residences" application.
- *
- * Core Philosophy:
- * This ruleset provides public read access to apartment listings while restricting write access to prevent unauthorized modifications.
- *
- * Data Structure:
- * All apartment data is stored in the top-level `/apartments` collection.
- *
- * Key Security Decisions:
- * - Apartment listings are publicly readable.
- * - Only authenticated users are allowed to create, update, or delete listings. In a production app, a more restrictive mechanism like admin roles should be used.
- * - Data validation is minimal in this prototyping phase, focusing on authorization and relational integrity but not on specific field types or required properties.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * @description Grants public read access to apartment listings while restricting write access to authenticated users.
-     * @path /apartments/{apartmentId}
-     * @allow (get, list): Any user can read apartment listings.
-     * @allow (create): An authenticated user can create a listing.
-     * @allow (update, delete): An authenticated user can update or delete a listing.
-     * @deny (create, update, delete): An unauthenticated user cannot modify apartment listings.
-     * @principle Allows public read access to apartment listings. Restricts write access to authenticated users.
-     */
+    // Allow public read access to apartment listings
     match /apartments/{apartmentId} {
-      allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && resource != null;
-      allow delete: if isSignedIn() && resource != null;
-    }
-
-    // Helper function to check if a user is signed in.
-    function isSignedIn() {
-      return request.auth != null;
+      allow read: if true;
+      // Allow writes only for authenticated users.
+      // In a real app, you'd likely restrict this to admin roles.
+      allow write: if request.auth != null;
     }
   }
 }
