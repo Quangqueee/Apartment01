@@ -379,34 +379,28 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormControl>
                         <div
                           className={cn(
-                            "flex min-h-[200px] w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-input p-4 text-center transition-colors",
+                            "relative flex min-h-[200px] w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-input p-4 text-center transition-colors",
                             isDragging && "border-primary bg-accent"
                           )}
+                          onClick={() => fileInputRef.current?.click()}
                           onDragOver={handleDragOver}
                           onDragLeave={handleDragLeave}
                           onDrop={handleDrop}
                         >
-                           <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                            <Upload className="h-8 w-8" />
-                            <p className="font-semibold">Kéo và thả ảnh vào đây</p>
-                            <p className="text-sm">hoặc</p>
-                             <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => fileInputRef.current?.click()}
-                              className="z-10 bg-background"
-                            >
-                              Chọn tệp
-                            </Button>
-                          </div>
+                          <Upload className="mb-4 h-8 w-8 text-muted-foreground" />
+                          <p className="font-semibold text-muted-foreground">
+                            Kéo và thả hoặc nhấp để tải ảnh lên
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            (Recommended: below 5MB per image)
+                          </p>
                           <Input
                             type="file"
                             ref={fileInputRef}
                             multiple
                             onChange={handleFileChange}
                             accept={ACCEPTED_IMAGE_TYPES.join(",")}
-                            className="hidden"
+                            className="absolute inset-0 h-full w-full opacity-0"
                           />
                         </div>
                       </FormControl>
