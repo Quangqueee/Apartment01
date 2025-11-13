@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { getApartments } from "@/lib/data";
-import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
 import { deleteApartmentAction } from "../actions";
 import { Input } from "@/components/ui/input";
@@ -99,6 +98,7 @@ export default function AdminDashboard() {
                 <TableHead>Title</TableHead>
                 <TableHead>Mã nội bộ</TableHead>
                 <TableHead>District</TableHead>
+                <TableHead>SĐT Chủ nhà</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -106,11 +106,16 @@ export default function AdminDashboard() {
             <TableBody>
               {apartments.map((apt) => (
                 <TableRow key={apt.id}>
-                  <TableCell className="font-medium">{apt.title}</TableCell>
+                  <TableCell className="font-medium">
+                     <Link href={`/admin/apartments/${apt.id}/edit`} className="text-primary hover:underline">
+                        {apt.title}
+                     </Link>
+                  </TableCell>
                   <TableCell>{apt.sourceCode}</TableCell>
                   <TableCell>{apt.district}</TableCell>
+                  <TableCell>{apt.landlordPhoneNumber}</TableCell>
                   <TableCell className="text-right">
-                    {formatPrice(apt.price)}
+                    {apt.price} tr
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
