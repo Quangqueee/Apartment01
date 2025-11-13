@@ -78,19 +78,24 @@ export default function AdminDashboard() {
           </Button>
         </div>
       </div>
-      <div className="pb-4 space-y-4">
-        <form onSubmit={handleSearch} className="flex items-center gap-2">
-          <Input 
-            placeholder="Tìm theo mã nội bộ..." 
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="flex-1"
-          />
-          <Button type="submit">
-            <Search className="mr-2 h-4 w-4" />
-            Tìm kiếm
-          </Button>
-        </form>
+      <div className="pb-4">
+        <form onSubmit={handleSearch} className="relative w-full max-w-md">
+            <Input 
+              placeholder="Tìm theo mã nội bộ..." 
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pr-10"
+            />
+            <Button
+              type="submit"
+              size="icon"
+              variant="ghost"
+              className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+            >
+              <Search className="h-4 w-4" />
+              <span className="sr-only">Tìm kiếm</span>
+            </Button>
+          </form>
       </div>
       <Card>
         <CardHeader>
