@@ -26,10 +26,10 @@ const toApartment = (docSnap: DocumentData): Apartment => {
   // Firestore's Timestamp is an object with methods, which Next.js
   // cannot serialize from a Server Component to a Client Component.
   // We convert it to a plain object.
-  const createdAt = data.createdAt.toDate ? {
+  const createdAt = data.createdAt?.toDate ? {
     seconds: data.createdAt.seconds,
     nanoseconds: data.createdAt.nanoseconds,
-  } : data.createdAt;
+  } : { seconds: 0, nanoseconds: 0 }; // Provide a default if createdAt is missing
 
   return {
     id: docSnap.id,
@@ -62,8 +62,7 @@ export async function getApartments(
   } = options;
 
   // --- Step 1: Fetch ALL apartments from Firestore ---
-  // No server-side filtering or sorting to avoid needing composite indexes.
-  const q: Query<DocumentData> = query(apartmentsCollection);
+  const q = query(apartmentsCollection);
   const querySnapshot = await getDocs(q);
   let apartments = querySnapshot.docs.map(toApartment);
 
@@ -101,6 +100,8 @@ export async function getApartments(
       return fieldToSearch.toLowerCase().includes(lowercasedQuery);
     });
   }
+  
+  const totalResults = apartments.length;
 
   // Sorting
   if (sortBy === 'price-asc') {
@@ -118,7 +119,7 @@ export async function getApartments(
   const paginatedApartments = apartments.slice(start, end);
 
 
-  return { apartments: paginatedApartments, totalPages };
+  return { apartments: paginatedApartments, totalPages, totalResults };
 }
 
 export async function getApartmentById(id: string): Promise<Apartment | null> {

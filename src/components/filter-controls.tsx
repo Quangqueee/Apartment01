@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { HANOI_DISTRICTS, PRICE_RANGES, ROOM_TYPES, SORT_OPTIONS } from "@/lib/constants";
+import { HANOI_DISTRICTS, PRICE_RANGES, ROOM_TYPES } from "@/lib/constants";
 import { Button } from "./ui/button";
 import { X, Save, Search } from "lucide-react";
 import { useCallback, useState, useEffect } from "react";
@@ -33,39 +33,50 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
     district: searchParams.get("district") || "",
     price: searchParams.get("price") || "",
     roomType: searchParams.get("roomType") || "",
-    sort: searchParams.get("sort") || "",
   });
 
-  const applyFilters = useCallback((currentFilters: typeof filters) => {
-    const params = new URLSearchParams();
+  const applyFilters = useCallback((currentFilters: Omit<typeof filters, 'sort'>) => {
+    const params = new URLSearchParams(searchParams);
+    
     if (currentFilters.q) params.set("q", currentFilters.q);
+    else params.delete("q");
+
     if (currentFilters.district) params.set("district", currentFilters.district);
+    else params.delete("district");
+
     if (currentFilters.price) params.set("price", currentFilters.price);
+    else params.delete("price");
+
     if (currentFilters.roomType) params.set("roomType", currentFilters.roomType);
-    if (!isAdmin && currentFilters.sort) params.set("sort", currentFilters.sort);
+    else params.delete("roomType");
     
     params.set("page", "1"); // Reset to first page on new search
     
     router.push(pathname + "?" + params.toString());
-  }, [router, pathname, isAdmin]);
+  }, [router, pathname, searchParams]);
 
 
   useEffect(() => {
     // Load saved filters from localStorage on initial render
     try {
-      const savedFilters = localStorage.getItem(SAVED_FILTERS_KEY);
-      if (savedFilters) {
-        const parsedFilters = JSON.parse(savedFilters);
-        // We only apply saved filters if there are no filters in the URL
-        if (!searchParams.toString()) {
-            setFilters(parsedFilters);
-            applyFilters(parsedFilters);
+      if (isAdmin) return;
+      const savedFiltersJson = localStorage.getItem(SAVED_FILTERS_KEY);
+      if (savedFiltersJson) {
+        const savedFilters = JSON.parse(savedFiltersJson);
+        // Only apply if there are no filters in URL
+        const currentParams = new URLSearchParams(searchParams);
+        currentParams.delete("page");
+        currentParams.delete("sort");
+
+        if (currentParams.toString() === "") {
+          setFilters(savedFilters);
+          // Don't auto-apply, let user click search
         }
       }
     } catch (error) {
       console.error("Failed to load filters from local storage", error);
     }
-  }, [applyFilters, searchParams]); // Run only once on mount
+  }, [isAdmin, searchParams]);
 
   const handleFilterChange = (name: string, value: string) => {
     setFilters(prev => ({ ...prev, [name]: value }));
@@ -76,21 +87,26 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
   };
 
   const handleReset = () => {
-    const defaultFilters = { q: "", district: "", price: "", roomType: "", sort: "" };
+    const defaultFilters = { q: "", district: "", price: "", roomType: "" };
     setFilters(defaultFilters);
-    localStorage.removeItem(SAVED_FILTERS_KEY);
+    if (!isAdmin) {
+        localStorage.removeItem(SAVED_FILTERS_KEY);
+    }
     router.push(pathname);
-     toast({
-        title: "Bộ lọc đã được xóa",
-        description: "Tùy chọn tìm kiếm của bạn đã được đặt lại.",
-      });
   };
 
   const handleSave = () => {
     try {
-      localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filters));
-      // Apply filters immediately after saving
-      applyFilters(filters);
+      localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify({
+        q: filters.q,
+        district: filters.district,
+        price: filters.price,
+        roomType: filters.roomType
+      }));
+      toast({
+        title: "Bộ lọc đã được lưu",
+        description: "Tùy chọn tìm kiếm của bạn đã được lưu cho lần truy cập sau.",
+      });
       onFilterSave?.();
     } catch (error) {
       console.error("Failed to save filters to local storage", error);
@@ -107,7 +123,7 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
   return (
     <div className="space-y-2">
       <div className="space-y-2 rounded-lg border bg-card p-4">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4">
            <div className="relative lg:col-span-2">
              <Input
                 placeholder={isAdmin ? "Tìm theo mã nội bộ..." : "Tìm kiếm theo tiêu đề..."}
@@ -165,25 +181,8 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
               ))}
             </SelectContent>
           </Select>
-          {!isAdmin && (
-            <Select
-              value={filters.sort}
-              onValueChange={(value) => handleFilterChange("sort", value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sắp xếp theo" />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
         </div>
-         <div className="flex flex-wrap items-center justify-end gap-2">
+         <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
              {hasActiveFilters && (
               <Button
                 variant="ghost"
@@ -202,6 +201,12 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
                 Lưu bộ lọc
               </Button>
             )}
+             <Button
+                onClick={handleSearch}
+              >
+                <Search className="mr-2 h-4 w-4" />
+                Tìm kiếm
+              </Button>
           </div>
       </div>
     </div>
