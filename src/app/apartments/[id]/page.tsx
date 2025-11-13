@@ -26,6 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Apartment } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import ImageLightbox from "@/components/image-lightbox";
 
 type ApartmentPageProps = {
   params: {
@@ -37,6 +39,7 @@ export default function ApartmentPage({ params }: ApartmentPageProps) {
   const [apartment, setApartment] = useState<Apartment | null>(null);
   const [api, setApi] = useState<any>();
   const [current, setCurrent] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   useEffect(() => {
     const fetchApartment = async () => {
@@ -54,10 +57,10 @@ export default function ApartmentPage({ params }: ApartmentPageProps) {
       return;
     }
 
-    setCurrent(api.selectedScrollSnap() + 1);
+    setCurrent(api.selectedScrollSnap());
 
     api.on("select", () => {
-      setCurrent(api.selectedScrollSnap() + 1);
+      setCurrent(api.selectedScrollSnap());
     });
   }, [api]);
 
@@ -79,6 +82,10 @@ export default function ApartmentPage({ params }: ApartmentPageProps) {
     api?.scrollTo(index);
   }
 
+  const openLightbox = () => {
+    setIsLightboxOpen(true);
+  }
+
   return (
     <>
       <main className="flex-1">
@@ -91,39 +98,51 @@ export default function ApartmentPage({ params }: ApartmentPageProps) {
           </Button>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 lg:gap-12">
             <div className="lg:col-span-2">
-               <div className="group relative">
-                <Carousel setApi={setApi} className="w-full">
-                  <CarouselContent>
-                    {apartment.imageUrls.map((url, index) => (
-                      <CarouselItem key={index}>
-                        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg shadow-lg">
-                          <Image
-                            src={url}
-                            alt={`${apartment.title} image ${index + 1}`}
-                            fill
-                            className="object-cover"
-                            data-ai-hint="apartment interior"
-                          />
-                        </div>
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  <CarouselPrevious className="left-4 opacity-0 transition-opacity group-hover:opacity-100" />
-                  <CarouselNext className="right-4 opacity-0 transition-opacity group-hover:opacity-100" />
-                </Carousel>
-                
-                <div className="mt-4 hidden md:grid grid-cols-6 gap-2">
-                    {apartment.imageUrls.map((url, index) => (
-                        <div key={index} className="relative aspect-video cursor-pointer" onClick={() => handleThumbnailClick(index)}>
-                            <Image 
-                                src={url}
-                                alt={`Thumbnail ${index + 1}`}
-                                fill
-                                className={cn("object-cover rounded-md transition-all", (current -1) === index ? "border-2 border-primary" : "opacity-70 hover:opacity-100")}
+               <div className="space-y-4">
+                <div className="group relative">
+                  <Carousel setApi={setApi} className="w-full">
+                    <CarouselContent>
+                      {apartment.imageUrls.map((url, index) => (
+                        <CarouselItem key={index} onClick={openLightbox} className="cursor-pointer">
+                          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg shadow-lg">
+                            <Image
+                              src={url}
+                              alt={`${apartment.title} image ${index + 1}`}
+                              fill
+                              className="object-cover"
+                              data-ai-hint="apartment interior"
                             />
-                        </div>
-                    ))}
+                          </div>
+                        </CarouselItem>
+                      ))}
+                    </CarouselContent>
+                    <CarouselPrevious className="left-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                    <CarouselNext className="right-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                  </Carousel>
                 </div>
+                
+                <ScrollArea className="w-full whitespace-nowrap rounded-md">
+                    <div className="flex space-x-2 pb-2">
+                        {apartment.imageUrls.map((url, index) => (
+                            <div 
+                                key={index} 
+                                className="relative aspect-[4/3] h-24 shrink-0 cursor-pointer" 
+                                onClick={() => handleThumbnailClick(index)}
+                            >
+                                <Image 
+                                    src={url}
+                                    alt={`Thumbnail ${index + 1}`}
+                                    fill
+                                    className={cn(
+                                        "object-cover rounded-md transition-all", 
+                                        current === index ? "border-2 border-primary" : "opacity-70 hover:opacity-100"
+                                    )}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                    <ScrollBar orientation="horizontal" />
+                </ScrollArea>
 
               </div>
             </div>
@@ -184,6 +203,12 @@ export default function ApartmentPage({ params }: ApartmentPageProps) {
           Interested? Contact us at +84 123 456 789
         </p>
       </footer>
+       <ImageLightbox 
+        images={apartment.imageUrls}
+        selectedIndex={current}
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+      />
     </>
   );
 }
