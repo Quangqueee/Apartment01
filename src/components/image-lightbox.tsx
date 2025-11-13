@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -11,9 +12,11 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  type CarouselApi,
 } from "@/components/ui/carousel";
 import Image from "next/image";
 import { X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 type ImageLightboxProps = {
   images: string[];
@@ -28,12 +31,26 @@ export default function ImageLightbox({
   onClose,
   isOpen,
 }: ImageLightboxProps) {
+  const [api, setApi] = useState<CarouselApi>();
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    if (!api) {
+      return;
+    }
+    setCurrent(api.selectedScrollSnap() + 1);
+    api.on("select", () => {
+      setCurrent(api.selectedScrollSnap() + 1);
+    });
+  }, [api]);
+  
   if (!isOpen) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-screen-xl w-full h-full max-h-screen p-0 border-0 bg-black/90 flex items-center justify-center">
+      <DialogContent className="max-w-none w-screen h-screen p-0 border-0 bg-black/90 flex items-center justify-center">
         <Carousel
+          setApi={setApi}
           className="w-full h-full flex items-center justify-center"
           opts={{
             loop: true,
@@ -57,6 +74,9 @@ export default function ImageLightbox({
           <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 text-white" />
           <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 text-white" />
         </Carousel>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm bg-black/50 px-2 py-1 rounded-md">
+            {current} / {images.length}
+        </div>
         <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
           <X className="h-8 w-8 text-white" />
           <span className="sr-only">Close</span>
