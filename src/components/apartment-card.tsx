@@ -79,7 +79,7 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
           </div>
         </CardHeader>
         <CardContent className="flex flex-1 flex-col justify-end gap-4">
-           <div className="grid grid-cols-2 gap-2 text-sm">
+           <div className="flex items-center justify-between text-sm">
              <div className="flex items-center gap-2">
                <BedDouble className="h-5 w-5 text-primary" />
                <Badge variant="secondary" className="capitalize">

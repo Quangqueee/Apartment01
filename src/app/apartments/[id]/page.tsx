@@ -63,14 +63,25 @@ function ApartmentDetails({ apartment }: { apartment: Apartment }) {
                 <p className="text-3xl font-semibold text-primary">
                   {formatPrice(apartment.price)}
                 </p>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <BedDouble className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold">Loại phòng</p>
-                      <p className="capitalize text-muted-foreground">
-                        {getRoomTypeLabel(apartment.roomType)}
-                      </p>
+                <div className="flex flex-col gap-4 text-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BedDouble className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-semibold">Loại phòng</p>
+                        <p className="capitalize text-muted-foreground">
+                          {getRoomTypeLabel(apartment.roomType)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Ruler className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-semibold">Diện tích</p>
+                        <p className="text-muted-foreground">
+                          {apartment.area} m²
+                        </p>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -79,15 +90,6 @@ function ApartmentDetails({ apartment }: { apartment: Apartment }) {
                       <p className="font-semibold">Quận</p>
                       <p className="text-muted-foreground">
                         {apartment.district}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Ruler className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold">Diện tích</p>
-                      <p className="text-muted-foreground">
-                        {apartment.area} m²
                       </p>
                     </div>
                   </div>
