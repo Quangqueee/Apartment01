@@ -115,7 +115,7 @@ export async function deleteApartmentAction(formData: FormData) {
      }
     await deleteApartmentFromDb(id);
     revalidatePath("/admin");
-    return { success: true };
+    revalidatePath("/");
   } catch (error) {
     return { error: "Database error. Failed to delete apartment." };
   }

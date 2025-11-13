@@ -144,8 +144,7 @@ export async function updateApartment(
   return toApartment(updatedDoc);
 }
 
-export async function deleteApartment(id: string): Promise<boolean> {
+export async function deleteApartment(id: string): Promise<void> {
   const docRef = doc(firestore, "apartments", id);
   await deleteDoc(docRef);
-  return true;
 }
