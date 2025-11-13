@@ -1,0 +1,96 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { formatPrice } from "@/lib/utils";
+import { MapPin, BedDouble } from "lucide-react";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import { Apartment } from "@/lib/types";
+
+type ApartmentCardProps = {
+  apartment: Apartment;
+};
+
+export default function ApartmentCard({ apartment }: ApartmentCardProps) {
+  return (
+    <Card
+      key={apartment.id}
+      className="flex h-full flex-col overflow-hidden transition-shadow duration-300 hover:shadow-xl"
+    >
+      <Carousel
+        className="group relative w-full"
+        opts={{
+          loop: true,
+        }}
+      >
+        <CarouselContent>
+          {apartment.imageUrls.map((url, index) => (
+            <CarouselItem key={index}>
+              <Link href={`/apartments/${apartment.id}`}>
+                <div className="relative h-56 w-full">
+                  <Image
+                    src={url}
+                    alt={`${apartment.title} image ${index + 1}`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover"
+                    data-ai-hint="apartment exterior"
+                  />
+                </div>
+              </Link>
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        <CarouselPrevious
+          onClick={(e) => e.stopPropagation()}
+          className="absolute left-2 opacity-0 transition-opacity group-hover:opacity-100"
+        />
+        <CarouselNext
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-2 opacity-0 transition-opacity group-hover:opacity-100"
+        />
+      </Carousel>
+      <Link
+        href={`/apartments/${apartment.id}`}
+        className="flex flex-1 flex-col"
+      >
+        <CardHeader>
+          <CardTitle className="font-headline text-2xl tracking-tight">
+            {apartment.title}
+          </CardTitle>
+          <CardDescription className="flex items-center gap-2 pt-2 text-muted-foreground">
+            <MapPin className="h-4 w-4" />
+            <span>{apartment.district}</span>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col justify-end">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BedDouble className="h-5 w-5 text-primary" />
+              <Badge variant="secondary" className="capitalize">
+                {apartment.roomType}
+              </Badge>
+            </div>
+            <p className="text-xl font-semibold text-primary">
+              {formatPrice(apartment.price)}
+            </p>
+          </div>
+        </CardContent>
+      </Link>
+    </Card>
+  );
+}
