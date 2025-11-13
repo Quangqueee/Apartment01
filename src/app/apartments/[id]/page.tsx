@@ -121,28 +121,30 @@ export default function ApartmentPage({ params }: ApartmentPageProps) {
                   </Carousel>
                 </div>
                 
-                <ScrollArea className="w-full whitespace-nowrap rounded-md">
-                    <div className="flex space-x-2 pb-2">
-                        {apartment.imageUrls.map((url, index) => (
-                            <div 
-                                key={index} 
-                                className="relative aspect-[4/3] h-24 shrink-0 cursor-pointer" 
-                                onClick={() => handleThumbnailClick(index)}
-                            >
-                                <Image 
-                                    src={url}
-                                    alt={`Thumbnail ${index + 1}`}
-                                    fill
-                                    className={cn(
-                                        "object-cover rounded-md transition-all", 
-                                        current === index ? "border-2 border-primary" : "opacity-70 hover:opacity-100"
-                                    )}
-                                />
-                            </div>
-                        ))}
-                    </div>
-                    <ScrollBar orientation="horizontal" />
-                </ScrollArea>
+                <div className="hidden md:block">
+                  <ScrollArea className="w-full whitespace-nowrap rounded-md">
+                      <div className="flex space-x-2 pb-2">
+                          {apartment.imageUrls.map((url, index) => (
+                              <div 
+                                  key={index} 
+                                  className="relative aspect-[4/3] h-24 shrink-0 cursor-pointer" 
+                                  onClick={() => handleThumbnailClick(index)}
+                              >
+                                  <Image 
+                                      src={url}
+                                      alt={`Thumbnail ${index + 1}`}
+                                      fill
+                                      className={cn(
+                                          "object-cover rounded-md transition-all", 
+                                          current === index ? "border-2 border-primary" : "opacity-70 hover:opacity-100"
+                                      )}
+                                  />
+                              </div>
+                          ))}
+                      </div>
+                      <ScrollBar orientation="horizontal" />
+                  </ScrollArea>
+                </div>
 
               </div>
             </div>
