@@ -1,3 +1,6 @@
+
+"use client";
+
 import { getApartmentById } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Image from "next/image";
@@ -20,8 +23,9 @@ import {
   FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-export const dynamic = "force-dynamic";
+import { Apartment } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 
 type ApartmentPageProps = {
   params: {
@@ -29,31 +33,50 @@ type ApartmentPageProps = {
   };
 };
 
-export async function generateMetadata({ params }: ApartmentPageProps) {
-  const apartment = await getApartmentById(params.id);
+export default function ApartmentPage({ params }: ApartmentPageProps) {
+  const [apartment, setApartment] = useState<Apartment | null>(null);
+  const [api, setApi] = useState<any>();
+  const [current, setCurrent] = useState(0);
 
-  if (!apartment) {
-    return {
-      title: "Apartment Not Found",
+  useEffect(() => {
+    const fetchApartment = async () => {
+      const apt = await getApartmentById(params.id);
+      if (!apt) {
+        notFound();
+      }
+      setApartment(apt);
     };
-  }
+    fetchApartment();
+  }, [params.id]);
 
-  return {
-    title: `${apartment.title} | Hanoi Residences`,
-    description: apartment.details,
-  };
-}
+  useEffect(() => {
+    if (!api) {
+      return;
+    }
 
-export default async function ApartmentPage({ params }: ApartmentPageProps) {
-  const apartment = await getApartmentById(params.id);
+    setCurrent(api.selectedScrollSnap() + 1);
+
+    api.on("select", () => {
+      setCurrent(api.selectedScrollSnap() + 1);
+    });
+  }, [api]);
 
   if (!apartment) {
-    notFound();
+    // You can render a loading state here
+    return (
+       <div className="flex min-h-screen items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
   }
 
   const getRoomTypeLabel = (value: string) => {
-    const roomType = ROOM_TYPES.find(rt => rt.value === value);
+    const roomType = ROOM_TYPES.find((rt) => rt.value === value);
     return roomType ? roomType.label : "N/A";
+  };
+  
+  const handleThumbnailClick = (index: number) => {
+    api?.scrollTo(index);
   }
 
   return (
@@ -68,25 +91,41 @@ export default async function ApartmentPage({ params }: ApartmentPageProps) {
           </Button>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 lg:gap-12">
             <div className="lg:col-span-2">
-              <Carousel className="w-full">
-                <CarouselContent>
-                  {apartment.imageUrls.map((url, index) => (
-                    <CarouselItem key={index}>
-                      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg shadow-lg">
-                        <Image
-                          src={url}
-                          alt={`${apartment.title} image ${index + 1}`}
-                          fill
-                          className="object-cover"
-                           data-ai-hint="apartment interior"
-                        />
-                      </div>
-                    </CarouselItem>
-                  ))}
-                </CarouselContent>
-                <CarouselPrevious className="left-4" />
-                <CarouselNext className="right-4" />
-              </Carousel>
+               <div className="group relative">
+                <Carousel setApi={setApi} className="w-full">
+                  <CarouselContent>
+                    {apartment.imageUrls.map((url, index) => (
+                      <CarouselItem key={index}>
+                        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg shadow-lg">
+                          <Image
+                            src={url}
+                            alt={`${apartment.title} image ${index + 1}`}
+                            fill
+                            className="object-cover"
+                            data-ai-hint="apartment interior"
+                          />
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious className="left-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                  <CarouselNext className="right-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                </Carousel>
+                
+                <div className="mt-4 hidden md:grid grid-cols-6 gap-2">
+                    {apartment.imageUrls.map((url, index) => (
+                        <div key={index} className="relative aspect-video cursor-pointer" onClick={() => handleThumbnailClick(index)}>
+                            <Image 
+                                src={url}
+                                alt={`Thumbnail ${index + 1}`}
+                                fill
+                                className={cn("object-cover rounded-md transition-all", (current -1) === index ? "border-2 border-primary" : "opacity-70 hover:opacity-100")}
+                            />
+                        </div>
+                    ))}
+                </div>
+
+              </div>
             </div>
 
             <div className="space-y-6">
@@ -116,7 +155,7 @@ export default async function ApartmentPage({ params }: ApartmentPageProps) {
                     <p className="text-muted-foreground">{apartment.district}</p>
                   </div>
                 </div>
-                 <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <Ruler className="h-5 w-5 text-muted-foreground" />
                   <div>
                     <p className="font-semibold">Diện tích</p>
