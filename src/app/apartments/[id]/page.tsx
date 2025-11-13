@@ -30,6 +30,7 @@ export default function ApartmentPage({ params }: ApartmentPageProps) {
 
   useEffect(() => {
     const fetchApartment = async () => {
+      if (!params.id) return;
       const apt = await getApartmentById(params.id);
       if (!apt) {
         notFound();
