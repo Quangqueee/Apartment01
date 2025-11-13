@@ -22,12 +22,21 @@ import { Apartment } from "./types";
 const apartmentsCollection = collection(firestore, "apartments");
 
 // Helper to convert Firestore timestamp to ISO string
-const toApartment = (doc: DocumentData): Apartment => {
-  const data = doc.data();
+const toApartment = (docSnap: DocumentData): Apartment => {
+  const data = docSnap.data();
+  // Handle both Timestamp and string for createdAt for consistency
+  const createdAt = data.createdAt;
+  let createdAtString: string;
+  if (createdAt instanceof Timestamp) {
+    createdAtString = createdAt.toDate().toISOString();
+  } else {
+    createdAtString = createdAt || new Date().toISOString();
+  }
+
   return {
-    id: doc.id,
+    id: docSnap.id,
     ...data,
-    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+    createdAt: createdAtString,
   } as Apartment;
 };
 
