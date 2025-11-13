@@ -44,7 +44,7 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
         <CarouselContent>
           {apartment.imageUrls.map((url, index) => (
             <CarouselItem key={index}>
-              <div className="relative h-56 w-full md:aspect-[4/3] md:h-auto">
+              <div className="relative w-full aspect-[4/3]">
                 <Image
                   src={url}
                   alt={`${apartment.title} image ${index + 1}`}
