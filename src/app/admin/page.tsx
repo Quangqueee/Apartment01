@@ -20,6 +20,7 @@ import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
 import { deleteApartmentAction } from "../actions";
 import FilterControls from "@/components/filter-controls";
+import { Input } from "@/components/ui/input";
 
 export const dynamic = "force-dynamic";
 
@@ -62,8 +63,10 @@ export default async function AdminDashboard({
           </Button>
         </div>
       </div>
-      <div className="pb-4">
-        <FilterControls isAdmin />
+      <div className="pb-4 space-y-4">
+        <form>
+            <Input name="q" placeholder="Tìm theo mã nội bộ..." defaultValue={searchParams.q || ''} />
+        </form>
       </div>
       <Card>
         <CardHeader>
