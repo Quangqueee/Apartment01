@@ -1,9 +1,9 @@
 export const firebaseConfig = {
-  "projectId": "studio-3489924431-24ff3",
-  "appId": "1:959481429323:web:a0312e7520941d1e6b3cce",
-  "apiKey": "AIzaSyDUGIFiKeD5SODQYmzPaEUQRbSLF7xXcJs",
-  "authDomain": "studio-3489924431-24ff3.firebaseapp.com",
-  "storageBucket": "studio-3489924431-24ff3.appspot.com",
-  "measurementId": "",
-  "messagingSenderId": "959481429323"
+  apiKey: "AIzaSyAp99Jd23i86FM2adUEKAa4c5PVWP8X5QM",
+  authDomain: "quang-apartment.firebaseapp.com",
+  projectId: "quang-apartment",
+  storageBucket: "quang-apartment.appspot.com",
+  messagingSenderId: "305244701927",
+  appId: "1:305244701927:web:3f49a89d1726f7d4680e42",
+  measurementId: "G-4LKV4KFZW9"
 };
