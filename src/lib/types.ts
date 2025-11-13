@@ -5,6 +5,7 @@ export interface Apartment {
   title: string;
   sourceCode: string; // For admin use
   roomType: RoomType;
+  area: number; // in m²
   district: string;
   price: number; // in millions VND
   details: string;

@@ -11,14 +11,13 @@ import {
 } from "@/components/ui/carousel";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
+import { ROOM_TYPES } from "@/lib/constants";
 import {
   MapPin,
   BedDouble,
-  Building,
-  DollarSign,
+  Ruler,
   ChevronLeft,
   FileText,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -41,7 +40,7 @@ export async function generateMetadata({ params }: ApartmentPageProps) {
 
   return {
     title: `${apartment.title} | Hanoi Residences`,
-    description: apartment.listingSummary,
+    description: apartment.details,
   };
 }
 
@@ -50,6 +49,11 @@ export default async function ApartmentPage({ params }: ApartmentPageProps) {
 
   if (!apartment) {
     notFound();
+  }
+
+  const getRoomTypeLabel = (value: string) => {
+    const roomType = ROOM_TYPES.find(rt => rt.value === value);
+    return roomType ? roomType.label : "N/A";
   }
 
   return (
@@ -100,17 +104,24 @@ export default async function ApartmentPage({ params }: ApartmentPageProps) {
                 <div className="flex items-center gap-2">
                   <BedDouble className="h-5 w-5 text-muted-foreground" />
                   <div>
-                    <p className="font-semibold">Room Type</p>
+                    <p className="font-semibold">Loại phòng</p>
                     <p className="capitalize text-muted-foreground">
-                      {apartment.roomType}
+                      {getRoomTypeLabel(apartment.roomType)}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <MapPin className="h-5 w-5 text-muted-foreground" />
                   <div>
-                    <p className="font-semibold">District</p>
+                    <p className="font-semibold">Quận</p>
                     <p className="text-muted-foreground">{apartment.district}</p>
+                  </div>
+                </div>
+                 <div className="flex items-center gap-2">
+                  <Ruler className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-semibold">Diện tích</p>
+                    <p className="text-muted-foreground">{apartment.area} m²</p>
                   </div>
                 </div>
               </div>

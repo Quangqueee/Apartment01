@@ -64,6 +64,7 @@ const formSchema = z.object({
   sourceCode: z.string().min(1, "Internal code is required."),
   roomType: z.enum(["studio", "1n1k", "2n1k", "other"]),
   district: z.string().min(1, "District is required."),
+  area: z.coerce.number().min(1, "Area must be greater than 0."),
   price: z.coerce.number().min(0, "Price must be a positive number."),
   details: z
     .string()
@@ -145,6 +146,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       sourceCode: apartment?.sourceCode || "",
       roomType: apartment?.roomType || "studio",
       district: apartment?.district || "",
+      area: apartment?.area || 0,
       price: apartment?.price || 0,
       details: apartment?.details || "",
       listingSummary: apartment?.listingSummary || "",
@@ -415,6 +417,19 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormLabel>Price (triệu/tháng)</FormLabel>
                       <FormControl>
                         <Input type="number" placeholder="15" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="area"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Diện tích (m²)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="45" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

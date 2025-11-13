@@ -26,8 +26,8 @@ export const PRICE_RANGES = [
 
 export const ROOM_TYPES: { label: string; value: RoomType }[] = [
   { label: "Studio", value: "studio" },
-  { label: "1 Ngủ 1 Khách", value: "1n1k" },
-  { label: "2 Ngủ 1 Khách", value: "2n1k" },
+  { label: "1 Phòng ngủ", value: "1n1k" },
+  { label: "2 Phòng ngủ", value: "2n1k" },
   { label: "Khác", value: "other" },
 ];
 

@@ -25,6 +25,7 @@ const formSchema = z.object({
   sourceCode: z.string().min(1),
   roomType: z.enum(["studio", "1n1k", "2n1k", "other"]),
   district: z.string().min(1),
+  area: z.coerce.number().min(1, "Area must be greater than 0."),
   price: z.coerce.number().min(0),
   details: z.string().min(20),
   listingSummary: z.string().optional(),

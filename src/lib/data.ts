@@ -23,9 +23,18 @@ const apartmentsCollection = collection(firestore, "apartments");
 
 const toApartment = (docSnap: DocumentData): Apartment => {
   const data = docSnap.data();
+  // Firestore's Timestamp is an object with methods, which Next.js
+  // cannot serialize from a Server Component to a Client Component.
+  // We convert it to a plain object.
+  const createdAt = data.createdAt.toDate ? {
+    seconds: data.createdAt.seconds,
+    nanoseconds: data.createdAt.nanoseconds,
+  } : data.createdAt;
+
   return {
     id: docSnap.id,
     ...data,
+    createdAt,
   } as Apartment;
 };
 

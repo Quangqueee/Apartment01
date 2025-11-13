@@ -22,6 +22,10 @@
           "type": "string",
           "description": "The type of room (e.g., 1n1k, 2n1k, studio)."
         },
+        "area": {
+            "type": "number",
+            "description": "The area of the apartment in square meters (m²)."
+        },
         "district": {
           "type": "string",
           "description": "The district in Hanoi where the apartment is located."
@@ -55,6 +59,7 @@
         "title",
         "sourceCode",
         "roomType",
+        "area",
         "district",
         "price",
         "details",

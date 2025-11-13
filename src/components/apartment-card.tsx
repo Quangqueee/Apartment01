@@ -16,14 +16,23 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Apartment } from "@/lib/types";
+import { ROOM_TYPES } from "@/lib/constants";
 
 type ApartmentCardProps = {
   apartment: Apartment;
 };
 
 export default function ApartmentCard({ apartment }: ApartmentCardProps) {
+    
+  const getRoomTypeLabel = (value: string) => {
+    const roomType = ROOM_TYPES.find(rt => rt.value === value);
+    return roomType ? roomType.label : "N/A";
+  }
+
   return (
     <Card
       key={apartment.id}
@@ -38,18 +47,16 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
         <CarouselContent>
           {apartment.imageUrls.map((url, index) => (
             <CarouselItem key={index}>
-              <Link href={`/apartments/${apartment.id}`}>
-                <div className="relative h-56 w-full">
-                  <Image
-                    src={url}
-                    alt={`${apartment.title} image ${index + 1}`}
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="object-cover"
-                    data-ai-hint="apartment exterior"
-                  />
-                </div>
-              </Link>
+              <div className="relative h-56 w-full">
+                <Image
+                  src={url}
+                  alt={`${apartment.title} image ${index + 1}`}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  className="object-cover"
+                  data-ai-hint="apartment exterior"
+                />
+              </div>
             </CarouselItem>
           ))}
         </CarouselContent>
@@ -72,7 +79,7 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
             <div className="flex items-center gap-2">
               <BedDouble className="h-5 w-5 text-primary" />
               <Badge variant="secondary" className="capitalize">
-                {apartment.roomType}
+                {getRoomTypeLabel(apartment.roomType)}
               </Badge>
             </div>
             <p className="text-xl font-semibold text-primary">
