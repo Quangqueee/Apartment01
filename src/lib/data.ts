@@ -61,43 +61,40 @@ export async function getApartments(
     searchBy = "title",
   } = options;
 
-  let q: Query<DocumentData> = apartmentsCollection;
-
-  const constraints = [];
+  // --- Server-side Filtering (Basic) ---
+  // We will only apply the most basic, non-range filters on the server
+  // to minimize the need for composite indexes.
+  const serverConstraints = [];
   if (district) {
-    constraints.push(where("district", "==", district));
+    serverConstraints.push(where("district", "==", district));
   }
   if (roomType) {
-    constraints.push(where("roomType", "==", roomType));
+    serverConstraints.push(where("roomType", "==", roomType));
   }
+  // Always sort by creation date on the server for consistency.
+  serverConstraints.push(orderBy("createdAt", "desc"));
   
+  const q: Query<DocumentData> = query(apartmentsCollection, ...serverConstraints);
+  const querySnapshot = await getDocs(q);
+  let apartments = querySnapshot.docs.map(toApartment);
+
+  // --- Client-side Filtering & Sorting (Advanced) ---
+  
+  // Price Range Filter
   if (priceRange) {
     const [min, max] = priceRange.split("-");
     const minPrice = min ? parseInt(min) : 0;
     const maxPrice = max ? parseInt(max) : Infinity;
-    if (minPrice > 0) {
-      constraints.push(where("price", ">=", minPrice));
-    }
-    if (maxPrice !== Infinity) {
-      constraints.push(where("price", "<=", maxPrice));
-    }
+    
+    apartments = apartments.filter(apt => {
+        let passes = true;
+        if (minPrice > 0) passes = passes && apt.price >= minPrice;
+        if (maxPrice !== Infinity) passes = passes && apt.price <= maxPrice;
+        return passes;
+    });
   }
-  
-  // Apply sorting
-  if (sortBy === 'price-asc') {
-      constraints.push(orderBy("price", "asc"));
-  } else if (sortBy === 'price-desc') {
-      constraints.push(orderBy("price", "desc"));
-  }
-  // Always sort by createdAt as a secondary, stable sort order.
-  constraints.push(orderBy("createdAt", "desc"));
 
-  q = query(apartmentsCollection, ...constraints);
-  
-  const querySnapshot = await getDocs(q);
-  let apartments = querySnapshot.docs.map(toApartment);
-
-  // Client-side search (as Firestore doesn't support partial text search natively)
+  // Search Filter
   if (searchQuery) {
     const lowercasedQuery = searchQuery.toLowerCase();
     apartments = apartments.filter((apt) => {
@@ -106,7 +103,15 @@ export async function getApartments(
     });
   }
 
-  // Manual pagination after client-side filtering
+  // Sorting
+  if (sortBy === 'price-asc') {
+    apartments.sort((a, b) => a.price - b.price);
+  } else if (sortBy === 'price-desc') {
+    apartments.sort((a, b) => b.price - a.price);
+  }
+  // 'newest' is already the default sort from the server.
+
+  // Pagination (after all filtering and sorting is done)
   const totalPages = Math.ceil(apartments.length / pageSize);
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
