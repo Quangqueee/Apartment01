@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/carousel";
 import ImageLightbox from "@/components/image-lightbox";
 import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type ApartmentImageGalleryProps = {
   imageUrls: string[];
@@ -36,7 +37,7 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
   const onSelect = useCallback(() => {
     if (!mainApi || !thumbApi) return;
     setSelectedIndex(mainApi.selectedScrollSnap());
-    thumbApi.scrollTo(mainApi.selectedScrollSnap());
+    thumbApi.scrollTo(mainai.selectedScrollSnap());
   }, [mainApi, thumbApi, setSelectedIndex]);
 
   useEffect(() => {
@@ -54,16 +55,22 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
     <>
       <div className="space-y-2">
         <div className="group relative">
-          <Carousel setApi={setMainApi} className="w-full">
-            <CarouselContent>
+          <Carousel 
+            setApi={setMainApi} 
+            className="w-full cursor-grab active:cursor-grabbing"
+            opts={{
+              loop: true,
+            }}
+          >
+            <CarouselContent className="-ml-4 select-none">
               {imageUrls.map((url, index) => (
-                <CarouselItem key={index} onClick={openLightbox} className="cursor-pointer">
+                <CarouselItem key={index} onClick={openLightbox} className="pl-4 cursor-pointer">
                   <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg shadow-lg">
                     <Image
                       src={url}
                       alt={`${title} image ${index + 1}`}
                       fill
-                      className="object-cover"
+                      className="object-cover pointer-events-none"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       data-ai-hint="apartment interior"
                     />
@@ -71,6 +78,12 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
                 </CarouselItem>
               ))}
             </CarouselContent>
+            <div className="absolute inset-y-0 left-2 flex items-center md:hidden">
+              <ChevronLeft className="h-8 w-8 text-white/50" />
+            </div>
+            <div className="absolute inset-y-0 right-2 flex items-center md:hidden">
+              <ChevronRight className="h-8 w-8 text-white/50" />
+            </div>
           </Carousel>
         </div>
 
@@ -81,8 +94,9 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
               align: "start",
               containScroll: "trimSnaps",
             }}
+            className="w-full cursor-grab active:cursor-grabbing"
           >
-            <CarouselContent className="-ml-2">
+            <CarouselContent className="-ml-2 select-none">
               {imageUrls.map((url, index) => (
                 <CarouselItem key={index} onClick={() => onThumbClick(index)} className="basis-1/4 pl-2 lg:basis-1/5">
                   <div className="relative aspect-[4/3] cursor-pointer">
@@ -92,7 +106,7 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
                       fill
                       sizes="10vw"
                       className={cn(
-                        "rounded-md object-cover transition-all",
+                        "rounded-md object-cover transition-all pointer-events-none",
                         selectedIndex === index
                           ? "border-2 border-primary"
                           : "opacity-60 hover:opacity-100"
@@ -102,8 +116,6 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
                 </CarouselItem>
               ))}
             </CarouselContent>
-             <CarouselPrevious className="left-2 opacity-0 transition-opacity group-hover:opacity-100" />
-            <CarouselNext className="right-2 opacity-0 transition-opacity group-hover:opacity-100" />
           </Carousel>
         </div>
       </div>
