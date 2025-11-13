@@ -2,44 +2,9 @@
 
 import Link from "next/link";
 import FilterControls from "./filter-controls";
-import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export default function Header() {
-  const [lastScrollY, setLastScrollY] = useState(0);
-  const [showFilters, setShowFilters] = useState(true);
-
-  // A threshold after which the header starts hiding
-  const HIDE_THRESHOLD = 100;
-
-  useEffect(() => {
-    const controlNavbar = () => {
-      if (typeof window !== "undefined") {
-        const currentScrollY = window.scrollY;
-
-        // Determine scroll direction
-        if (currentScrollY > lastScrollY && currentScrollY > HIDE_THRESHOLD) {
-          // Scrolling down and past the threshold
-          setShowFilters(false);
-        } else {
-          // Scrolling up or at the top of the page
-          setShowFilters(true);
-        }
-        
-        // Remember current page location for the next move.
-        // Only update if it's a significant change to avoid excessive re-renders.
-        if (Math.abs(currentScrollY - lastScrollY) > 5) {
-          setLastScrollY(currentScrollY);
-        }
-      }
-    };
-    
-    window.addEventListener("scroll", controlNavbar, { passive: true });
-
-    return () => {
-      window.removeEventListener("scroll", controlNavbar);
-    };
-  }, [lastScrollY]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -102,10 +67,7 @@ export default function Header() {
         </div>
         <div
           className={cn(
-            "transform-gpu transition-all duration-300 ease-in-out",
-            showFilters
-              ? "visible h-auto translate-y-0 opacity-100"
-              : "invisible h-0 -translate-y-4 opacity-0"
+            "transform-gpu transition-all duration-300 ease-in-out"
           )}
         >
           <FilterControls />
