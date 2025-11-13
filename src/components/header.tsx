@@ -11,12 +11,17 @@ import { Input } from "./ui/input";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 export default function Header() {
-  const [filtersVisible, setFiltersVisible] = useState(false);
   const isMobile = useIsMobile();
+  const [filtersVisible, setFiltersVisible] = useState(!isMobile);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+
+  useEffect(() => {
+    // When switching between mobile and desktop, adjust filter visibility
+    setFiltersVisible(!isMobile);
+  }, [isMobile]);
 
   useEffect(() => {
     // Sync search input with URL params on navigation
