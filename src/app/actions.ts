@@ -33,7 +33,7 @@ const formSchema = z.object({
 });
 
 // Helper function to upload or update images
-async function uploadAndCleanupImages(currentImageUrls: string[], existingApartment: Apartment | null): Promise<string[]> {
+async function uploadAndCleanupImages(currentImageUrls: string[], existingImageUrls: string[] | undefined): Promise<string[]> {
   const newImageUrls: string[] = [];
 
   // Upload new images (data URIs)
@@ -49,9 +49,9 @@ async function uploadAndCleanupImages(currentImageUrls: string[], existingApartm
     }
   }
 
-  // Determine which images to delete
-  if (existingApartment) {
-    const urlsToDelete = existingApartment.imageUrls.filter(
+  // Determine which images to delete if we are editing an existing apartment
+  if (existingImageUrls) {
+    const urlsToDelete = existingImageUrls.filter(
       (url) => !newImageUrls.includes(url)
     );
     
@@ -62,6 +62,7 @@ async function uploadAndCleanupImages(currentImageUrls: string[], existingApartm
           const imageRef = ref(storage, url);
           await deleteObject(imageRef);
         } catch (error: any) {
+          // Ignore if object doesn't exist (it might have been deleted already)
           if (error.code !== 'storage/object-not-found') {
             console.error(`Failed to delete old image: ${url}`, error);
           }
@@ -89,12 +90,13 @@ export async function createOrUpdateApartmentAction(
   const data = validatedFields.data;
 
   try {
-    let existingApartment: Apartment | null = null;
+    let existingImageUrls: string[] | undefined = undefined;
     if (id) {
-        existingApartment = await getApartmentById(id);
+        const existingApartment = await getApartmentById(id);
+        existingImageUrls = existingApartment?.imageUrls;
     }
     
-    const finalImageUrls = await uploadAndCleanupImages(data.imageUrls, existingApartment);
+    const finalImageUrls = await uploadAndCleanupImages(data.imageUrls, existingImageUrls);
 
     const apartmentData = { 
         ...data,
