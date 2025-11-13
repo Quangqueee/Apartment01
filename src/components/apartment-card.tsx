@@ -11,13 +11,11 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
-import { MapPin, BedDouble } from "lucide-react";
+import { MapPin, BedDouble, Ruler } from "lucide-react";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Apartment } from "@/lib/types";
 import { ROOM_TYPES } from "@/lib/constants";
@@ -27,11 +25,10 @@ type ApartmentCardProps = {
 };
 
 export default function ApartmentCard({ apartment }: ApartmentCardProps) {
-    
   const getRoomTypeLabel = (value: string) => {
-    const roomType = ROOM_TYPES.find(rt => rt.value === value);
+    const roomType = ROOM_TYPES.find((rt) => rt.value === value);
     return roomType ? roomType.label : "N/A";
-  }
+  };
 
   return (
     <Card
@@ -47,7 +44,7 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
         <CarouselContent>
           {apartment.imageUrls.map((url, index) => (
             <CarouselItem key={index}>
-              <div className="relative h-56 w-full">
+              <div className="relative h-56 w-full md:aspect-[4/3] md:h-auto">
                 <Image
                   src={url}
                   alt={`${apartment.title} image ${index + 1}`}
@@ -74,14 +71,20 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
             <span>{apartment.district}</span>
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-1 flex-col justify-end">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <BedDouble className="h-5 w-5 text-primary" />
-              <Badge variant="secondary" className="capitalize">
-                {getRoomTypeLabel(apartment.roomType)}
-              </Badge>
+        <CardContent className="flex flex-1 flex-col justify-end gap-4">
+           <div className="grid grid-cols-2 gap-2 text-sm">
+             <div className="flex items-center gap-2">
+               <BedDouble className="h-5 w-5 text-primary" />
+               <Badge variant="secondary" className="capitalize">
+                 {getRoomTypeLabel(apartment.roomType)}
+               </Badge>
+             </div>
+             <div className="flex items-center gap-2">
+                <Ruler className="h-5 w-5 text-primary" />
+                <span className="text-muted-foreground">{apartment.area} m²</span>
             </div>
+           </div>
+          <div className="flex items-center justify-between">
             <p className="text-xl font-semibold text-primary">
               {formatPrice(apartment.price)}
             </p>
