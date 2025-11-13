@@ -60,7 +60,7 @@ export default function ImageLightbox({
           <CarouselContent className="h-auto">
             {images.map((url, index) => (
               <CarouselItem key={index}>
-                <div className="relative w-full h-[90vh]">
+                <div className="relative w-full h-screen">
                   <Image
                     src={url}
                     alt={`Lightbox image ${index + 1}`}
@@ -71,8 +71,6 @@ export default function ImageLightbox({
               </CarouselItem>
             ))}
           </CarouselContent>
-          <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 text-white" />
-          <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 text-white" />
         </Carousel>
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm bg-black/50 px-2 py-1 rounded-md">
             {current} / {images.length}
