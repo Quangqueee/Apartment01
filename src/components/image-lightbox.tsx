@@ -5,13 +5,12 @@ import {
   Dialog,
   DialogContent,
   DialogClose,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
   type CarouselApi,
 } from "@/components/ui/carousel";
 import Image from "next/image";
@@ -49,6 +48,7 @@ export default function ImageLightbox({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-none w-screen h-screen p-0 border-0 bg-black/90 flex items-center justify-center">
+        <DialogTitle className="sr-only">Image Lightbox</DialogTitle>
         <Carousel
           setApi={setApi}
           className="w-full h-full flex items-center justify-center"
