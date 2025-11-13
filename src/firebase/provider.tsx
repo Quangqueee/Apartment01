@@ -13,6 +13,7 @@ interface FirebaseProviderProps {
   auth: Auth;
 }
 
+// Test
 // Internal state for user authentication
 interface UserAuthState {
   user: User | null;
