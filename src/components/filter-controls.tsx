@@ -89,10 +89,6 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
   const handleSave = () => {
     try {
       localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filters));
-      toast({
-        title: "Bộ lọc đã được lưu",
-        description: "Tùy chọn tìm kiếm của bạn đã được áp dụng và lưu lại.",
-      });
       // Apply filters immediately after saving
       applyFilters(filters);
       onFilterSave?.();
