@@ -40,7 +40,7 @@ export async function getApartments(
     page?: number;
     limit?: number;
     sortBy?: string;
-    searchBy?: "title" | "internalCode";
+    searchBy?: "title" | "sourceCode";
   } = {}
 ) {
   const {
@@ -91,7 +91,7 @@ export async function getApartments(
   if (searchQuery) {
     const lowercasedQuery = searchQuery.toLowerCase();
     apartments = apartments.filter((apt) => {
-      const fieldToSearch = searchBy === 'internalCode' ? apt.internalCode : apt.title;
+      const fieldToSearch = searchBy === 'sourceCode' ? apt.sourceCode : apt.title;
       return fieldToSearch.toLowerCase().includes(lowercasedQuery);
     });
   }
