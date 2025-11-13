@@ -15,16 +15,34 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
-import { getAllApartments } from "@/lib/data";
+import { getApartments } from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { deleteApartmentAction } from "../actions";
+import FilterControls from "@/components/filter-controls";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminDashboard() {
-  const apartments = await getAllApartments();
+type AdminDashboardProps = {
+  searchParams: {
+    q?: string;
+    district?: string;
+    price?: string;
+    roomType?: string;
+    page?: string;
+  };
+};
+
+export default async function AdminDashboard({
+  searchParams,
+}: AdminDashboardProps) {
+  const page = searchParams.page ? parseInt(searchParams.page) : 1;
+  // Use getApartments to enable filtering, show all items on one page for admin
+  const { apartments } = await getApartments({
+    ...searchParams,
+    page,
+    limit: 1000, // Show a large number of items for admin view
+  });
 
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
@@ -41,6 +59,9 @@ export default async function AdminDashboard() {
           </Button>
         </div>
       </div>
+      <div className="pb-4">
+        <FilterControls />
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>All Listings</CardTitle>
@@ -50,8 +71,8 @@ export default async function AdminDashboard() {
             <TableHeader>
               <TableRow>
                 <TableHead>Title</TableHead>
+                <TableHead>Mã nội bộ</TableHead>
                 <TableHead>District</TableHead>
-                <TableHead>Room Type</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -60,10 +81,8 @@ export default async function AdminDashboard() {
               {apartments.map((apt) => (
                 <TableRow key={apt.id}>
                   <TableCell className="font-medium">{apt.title}</TableCell>
+                  <TableCell>{apt.internalCode}</TableCell>
                   <TableCell>{apt.district}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="capitalize">{apt.roomType}</Badge>
-                  </TableCell>
                   <TableCell className="text-right">
                     {formatPrice(apt.price)}
                   </TableCell>
@@ -87,11 +106,14 @@ export default async function AdminDashboard() {
                           </Link>
                         </DropdownMenuItem>
                         <form action={deleteApartmentAction} className="w-full">
-                           <input type="hidden" name="id" value={apt.id} />
-                           <button type="submit" className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full text-destructive">
-                             Delete
-                           </button>
-                         </form>
+                          <input type="hidden" name="id" value={apt.id} />
+                          <button
+                            type="submit"
+                            className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm text-destructive outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </form>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
