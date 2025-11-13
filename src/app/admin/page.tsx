@@ -37,11 +37,14 @@ export default async function AdminDashboard({
   searchParams,
 }: AdminDashboardProps) {
   const page = searchParams.page ? parseInt(searchParams.page) : 1;
-  // Use getApartments to enable filtering, show all items on one page for admin
   const { apartments } = await getApartments({
-    ...searchParams,
+    query: searchParams.q,
+    district: searchParams.district,
+    priceRange: searchParams.price,
+    roomType: searchParams.roomType,
     page,
-    limit: 1000, // Show a large number of items for admin view
+    limit: 1000,
+    searchBy: "internalCode",
   });
 
   return (
@@ -60,7 +63,7 @@ export default async function AdminDashboard({
         </div>
       </div>
       <div className="pb-4">
-        <FilterControls />
+        <FilterControls isAdmin />
       </div>
       <Card>
         <CardHeader>

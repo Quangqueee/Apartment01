@@ -30,3 +30,9 @@ export const ROOM_TYPES: { label: string; value: RoomType }[] = [
   { label: "2 Ngủ 1 Khách", value: "2n1k" },
   { label: "Khác", value: "other" },
 ];
+
+export const SORT_OPTIONS = [
+    { label: "Mới nhất", value: "newest" },
+    { label: "Giá: Thấp đến cao", value: "price-asc" },
+    { label: "Giá: Cao đến thấp", value: "price-desc" },
+];

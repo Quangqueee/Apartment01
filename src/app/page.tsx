@@ -24,6 +24,7 @@ type HomeProps = {
     price?: string;
     roomType?: string;
     page?: string;
+    sort?: string;
   };
 };
 
@@ -36,6 +37,7 @@ export default async function Home({ searchParams }: HomeProps) {
     roomType: searchParams.roomType,
     page,
     limit: 9,
+    sortBy: searchParams.sort,
   });
 
   return (

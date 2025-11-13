@@ -9,12 +9,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { HANOI_DISTRICTS, PRICE_RANGES, ROOM_TYPES } from "@/lib/constants";
+import { HANOI_DISTRICTS, PRICE_RANGES, ROOM_TYPES, SORT_OPTIONS } from "@/lib/constants";
 import { Button } from "./ui/button";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useCallback } from "react";
 
-export default function FilterControls() {
+type FilterControlsProps = {
+  isAdmin?: boolean;
+};
+
+export default function FilterControls({ isAdmin = false }: FilterControlsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -27,7 +31,9 @@ export default function FilterControls() {
       } else {
         params.delete(name);
       }
-      params.set("page", "1");
+      if (name !== 'page') {
+        params.set("page", "1");
+      }
       return params.toString();
     },
     [searchParams]
@@ -41,12 +47,13 @@ export default function FilterControls() {
     searchParams.has("q") ||
     searchParams.has("district") ||
     searchParams.has("price") ||
-    searchParams.has("roomType");
+    searchParams.has("roomType") ||
+    (!isAdmin && searchParams.has("sort"));
 
   return (
-    <div className="grid grid-cols-1 gap-2 rounded-lg border bg-card p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 lg:gap-4">
+    <div className="grid grid-cols-1 gap-2 rounded-lg border bg-card p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
       <Input
-        placeholder="Tìm kiếm theo tiêu đề..."
+        placeholder={isAdmin ? "Tìm theo mã nội bộ..." : "Tìm kiếm theo tiêu đề..."}
         defaultValue={searchParams.get("q") || ""}
         onChange={(e) => {
           router.push(pathname + "?" + createQueryString("q", e.target.value));
@@ -104,6 +111,25 @@ export default function FilterControls() {
           ))}
         </SelectContent>
       </Select>
+      {!isAdmin && (
+        <Select
+          value={searchParams.get("sort") || ""}
+          onValueChange={(value) => {
+            router.push(pathname + "?" + createQueryString("sort", value));
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Sắp xếp theo" />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       {hasFilters && (
         <Button
           variant="ghost"

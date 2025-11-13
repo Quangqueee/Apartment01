@@ -119,16 +119,30 @@ export async function getApartments(options: {
   roomType?: string;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  searchBy?: "title" | "internalCode";
 } = {}) {
-  const { query, district, priceRange, roomType, page = 1, limit = 9 } = options;
+  const { 
+    query, 
+    district, 
+    priceRange, 
+    roomType, 
+    page = 1, 
+    limit = 9,
+    sortBy = 'newest',
+    searchBy = 'title'
+  } = options;
 
-  let filteredApartments = apartments;
+  let filteredApartments = [...apartments];
 
   if (query) {
     const lowercasedQuery = query.toLowerCase();
-    filteredApartments = filteredApartments.filter((apt) =>
-      apt.title.toLowerCase().includes(lowercasedQuery)
-    );
+    filteredApartments = filteredApartments.filter((apt) => {
+      if (searchBy === 'internalCode') {
+        return apt.internalCode.toLowerCase().includes(lowercasedQuery);
+      }
+      return apt.title.toLowerCase().includes(lowercasedQuery);
+    });
   }
 
   if (district) {
@@ -148,7 +162,13 @@ export async function getApartments(options: {
     );
   }
   
-  filteredApartments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  if (sortBy === 'price-asc') {
+    filteredApartments.sort((a, b) => a.price - b.price);
+  } else if (sortBy === 'price-desc') {
+    filteredApartments.sort((a, b) => b.price - a.price);
+  } else { // Default to newest
+    filteredApartments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
 
   const totalPages = Math.ceil(filteredApartments.length / limit);
   const start = (page - 1) * limit;
