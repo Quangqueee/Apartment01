@@ -48,7 +48,7 @@ function ApartmentDetails({ apartment }: { apartment: Apartment }) {
 
             <div className="space-y-8 lg:col-span-2">
               <div className="space-y-6">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between">
                     <Badge variant="secondary" className="text-sm">
                         {apartment.district}
                     </Badge>

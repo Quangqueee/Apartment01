@@ -67,7 +67,7 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
           <CardTitle className="font-headline text-2xl tracking-tight">
             {apartment.title}
           </CardTitle>
-          <div className="flex items-center gap-4 pt-2 text-sm">
+          <div className="flex items-center justify-between pt-2 text-sm">
              <div className="flex items-center gap-2 text-muted-foreground">
                 <MapPin className="h-4 w-4" />
                 <span>{apartment.district}</span>
