@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /apartments/{allPaths=**} {
+      // Allow public read access to images
+      allow read: if true;
+      // Allow writes only for authenticated users (admins)
+      allow write: if request.auth != null;
+    }
+  }
+}
