@@ -35,6 +35,20 @@ export default function FilterControls({ isAdmin = false }: FilterControlsProps)
     sort: searchParams.get("sort") || "",
   });
 
+  const applyFilters = useCallback((currentFilters: typeof filters) => {
+    const params = new URLSearchParams();
+    if (currentFilters.q) params.set("q", currentFilters.q);
+    if (currentFilters.district) params.set("district", currentFilters.district);
+    if (currentFilters.price) params.set("price", currentFilters.price);
+    if (currentFilters.roomType) params.set("roomType", currentFilters.roomType);
+    if (!isAdmin && currentFilters.sort) params.set("sort", currentFilters.sort);
+    
+    params.set("page", "1"); // Reset to first page on new search
+    
+    router.push(pathname + "?" + params.toString());
+  }, [router, pathname, isAdmin]);
+
+
   useEffect(() => {
     // Load saved filters from localStorage on initial render
     try {
@@ -50,25 +64,12 @@ export default function FilterControls({ isAdmin = false }: FilterControlsProps)
     } catch (error) {
       console.error("Failed to load filters from local storage", error);
     }
-  }, []); // Run only once on mount
+  }, [applyFilters, searchParams]); // Run only once on mount
 
   const handleFilterChange = (name: string, value: string) => {
     setFilters(prev => ({ ...prev, [name]: value }));
   };
   
-  const applyFilters = (currentFilters: typeof filters) => {
-    const params = new URLSearchParams();
-    if (currentFilters.q) params.set("q", currentFilters.q);
-    if (currentFilters.district) params.set("district", currentFilters.district);
-    if (currentFilters.price) params.set("price", currentFilters.price);
-    if (currentFilters.roomType) params.set("roomType", currentFilters.roomType);
-    if (!isAdmin && currentFilters.sort) params.set("sort", currentFilters.sort);
-    
-    params.set("page", "1"); // Reset to first page on new search
-    
-    router.push(pathname + "?" + params.toString());
-  };
-
   const handleSearch = () => {
     applyFilters(filters);
   };
@@ -89,8 +90,10 @@ export default function FilterControls({ isAdmin = false }: FilterControlsProps)
       localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filters));
       toast({
         title: "Bộ lọc đã được lưu",
-        description: "Tùy chọn tìm kiếm của bạn sẽ được tải trong lần truy cập tới.",
+        description: "Tùy chọn tìm kiếm của bạn đã được áp dụng và lưu lại.",
       });
+      // Apply filters immediately after saving
+      applyFilters(filters);
     } catch (error) {
       console.error("Failed to save filters to local storage", error);
       toast({
