@@ -1,7 +1,39 @@
+"use client";
+
 import Link from "next/link";
 import FilterControls from "./filter-controls";
+import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 
 export default function Header() {
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const [showFilters, setShowFilters] = useState(true);
+
+  const controlNavbar = () => {
+    if (typeof window !== "undefined") {
+      if (window.scrollY > lastScrollY && window.scrollY > 100) {
+        // if scroll down hide the navbar
+        setShowFilters(false);
+      } else {
+        // if scroll up show the navbar
+        setShowFilters(true);
+      }
+      // remember current page location to use in the next move
+      setLastScrollY(window.scrollY);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.addEventListener("scroll", controlNavbar);
+
+      // cleanup function
+      return () => {
+        window.removeEventListener("scroll", controlNavbar);
+      };
+    }
+  }, [lastScrollY]);
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex flex-col gap-4 p-4">
@@ -61,7 +93,16 @@ export default function Header() {
             Admin Dashboard
           </Link>
         </div>
-        <FilterControls />
+        <div
+          className={cn(
+            "transform-gpu transition-all duration-300 ease-in-out",
+            showFilters
+              ? "visible h-auto translate-y-0 opacity-100"
+              : "invisible h-0 -translate-y-4 opacity-0"
+          )}
+        >
+          <FilterControls />
+        </div>
       </div>
     </header>
   );
