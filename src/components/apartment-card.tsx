@@ -11,8 +11,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice } from "@/lib/utils";
-import { MapPin, BedDouble, Ruler } from "lucide-react";
+import { formatPrice, formatDate } from "@/lib/utils";
+import { MapPin, BedDouble, Ruler, CalendarDays } from "lucide-react";
 import {
   Carousel,
   CarouselContent,
@@ -67,10 +67,16 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
           <CardTitle className="font-headline text-2xl tracking-tight">
             {apartment.title}
           </CardTitle>
-          <CardDescription className="flex items-center gap-2 pt-2 text-muted-foreground">
-            <MapPin className="h-4 w-4" />
-            <span>{apartment.district}</span>
-          </CardDescription>
+          <div className="flex items-center gap-4 pt-2 text-sm">
+             <div className="flex items-center gap-2 text-muted-foreground">
+                <MapPin className="h-4 w-4" />
+                <span>{apartment.district}</span>
+             </div>
+             <div className="flex items-center gap-2 text-muted-foreground">
+                <CalendarDays className="h-4 w-4" />
+                <span>{formatDate(apartment.createdAt)}</span>
+             </div>
+          </div>
         </CardHeader>
         <CardContent className="flex flex-1 flex-col justify-end gap-4">
            <div className="grid grid-cols-2 gap-2 text-sm">

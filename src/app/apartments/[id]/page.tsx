@@ -3,7 +3,7 @@ import { getApartmentById } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, formatDate } from "@/lib/utils";
 import { ROOM_TYPES } from "@/lib/constants";
 import {
   MapPin,
@@ -11,6 +11,7 @@ import {
   Ruler,
   ChevronLeft,
   FileText,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Apartment } from "@/lib/types";
@@ -47,9 +48,15 @@ function ApartmentDetails({ apartment }: { apartment: Apartment }) {
 
             <div className="space-y-8 lg:col-span-2">
               <div className="space-y-6">
-                <Badge variant="secondary" className="text-sm">
-                  {apartment.district}
-                </Badge>
+                <div className="flex items-center gap-4">
+                    <Badge variant="secondary" className="text-sm">
+                        {apartment.district}
+                    </Badge>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <CalendarDays className="h-4 w-4" />
+                        <span>Đã đăng: {formatDate(apartment.createdAt)}</span>
+                    </div>
+                </div>
                 <h1 className="font-headline text-3xl font-bold tracking-tight md:text-4xl">
                   {apartment.title}
                 </h1>

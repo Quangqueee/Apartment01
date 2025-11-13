@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { format } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -10,8 +11,16 @@ export function formatPrice(price: number) {
     style: "currency",
     currency: "VND",
   })
-    .format(price)
-    .replace(" ₫", " triệu/tháng");
+    .format(price * 1000000)
+    .replace(" ₫", " /tháng");
+}
+
+export function formatDate(timestamp: { seconds: number; nanoseconds: number }): string {
+  if (!timestamp || typeof timestamp.seconds !== 'number') {
+    return "";
+  }
+  const date = new Date(timestamp.seconds * 1000);
+  return format(date, "dd/MM/yyyy");
 }
 
 export function removeVietnameseTones(str: string) {
