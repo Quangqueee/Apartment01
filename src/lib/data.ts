@@ -83,6 +83,11 @@ export async function getApartments(
     if (maxPrice !== Infinity) constraints.push(where("price", "<=", maxPrice));
   }
   
+  // Note: Firestore requires the first orderBy field to match the inequality field if one exists.
+  // Since our price filter can have inequalities, we handle sorting carefully.
+  // For simplicity, we fetch and then sort for complex cases. A more optimized solution
+  // might involve restructuring data or using a search service.
+
   if (sortBy === 'price-asc') {
      constraints.push(orderBy("price", "asc"));
   } else if (sortBy === 'price-desc') {

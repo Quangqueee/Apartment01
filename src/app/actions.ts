@@ -81,17 +81,23 @@ export async function createOrUpdateApartmentAction(
   const data = validatedFields.data;
 
   try {
+    let existingImageUrls: string[] = [];
+    if (id) {
+        const existingApartment = await getApartmentById(id);
+        if (existingApartment) {
+            existingImageUrls = existingApartment.imageUrls;
+        }
+    }
+    
     const finalImageUrls = await uploadImages(data.imageUrls);
+    await handleImageCleanup(existingImageUrls, finalImageUrls);
+
+    const apartmentData = { ...data, imageUrls: finalImageUrls };
 
     if (id) {
-       // On update, check if we need to clean up old images
-      const existingApartment = await getApartmentById(id);
-      if (existingApartment) {
-        await handleImageCleanup(existingApartment.imageUrls, finalImageUrls);
-      }
-      await updateApartment(id, { ...data, imageUrls: finalImageUrls });
+      await updateApartment(id, apartmentData);
     } else {
-      await createApartment({ ...data, imageUrls: finalImageUrls });
+      await createApartment(apartmentData);
     }
   } catch (error) {
     console.error("Database error:", error);
@@ -110,13 +116,24 @@ export async function deleteApartmentAction(formData: FormData) {
   }
   try {
      const apartment = await getApartmentById(id);
-     if (apartment) {
-        await handleImageCleanup(apartment.imageUrls, []);
+     if (apartment && apartment.imageUrls.length > 0) {
+        // Delete all associated images from Firebase Storage
+        await Promise.all(apartment.imageUrls.map(async (url) => {
+            try {
+                const imageRef = ref(storage, url);
+                await deleteObject(imageRef);
+            } catch (error: any) {
+                if (error.code !== 'storage/object-not-found') {
+                    console.error(`Failed to delete image: ${url}`, error);
+                }
+            }
+        }));
      }
     await deleteApartmentFromDb(id);
     revalidatePath("/admin");
     revalidatePath("/");
   } catch (error) {
+     console.error("Database error on delete:", error);
     return { error: "Database error. Failed to delete apartment." };
   }
 }
