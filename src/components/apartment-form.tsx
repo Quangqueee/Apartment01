@@ -44,15 +44,15 @@ const ACCEPTED_IMAGE_TYPES = [
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters."),
-  internalCode: z.string().min(1, "Internal code is required."),
+  sourceCode: z.string().min(1, "Internal code is required."),
   roomType: z.enum(["studio", "1n1k", "2n1k", "other"]),
   district: z.string().min(1, "District is required."),
   price: z.coerce.number().min(0, "Price must be a positive number."),
-  detailedInformation: z
+  details: z
     .string()
     .min(20, "Detailed information must be at least 20 characters."),
-  summary: z.string().optional(),
-  exactAddress: z.string().min(1, "Exact address is required."),
+  listingSummary: z.string().optional(),
+  address: z.string().min(1, "Exact address is required."),
   imageUrls: z
     .array(z.string())
     .min(1, "At least one image is required."),
@@ -76,13 +76,13 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: apartment?.title || "",
-      internalCode: apartment?.internalCode || "",
+      sourceCode: apartment?.sourceCode || "",
       roomType: apartment?.roomType || "studio",
       district: apartment?.district || "",
       price: apartment?.price || 0,
-      detailedInformation: apartment?.detailedInformation || "",
-      summary: apartment?.summary || "",
-      exactAddress: apartment?.exactAddress || "",
+      details: apartment?.details || "",
+      listingSummary: apartment?.listingSummary || "",
+      address: apartment?.address || "",
       imageUrls: apartment?.imageUrls || [],
     },
   });
@@ -160,10 +160,10 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       roomType: formValues.roomType,
       district: formValues.district,
       price: formValues.price,
-      detailedInformation: formValues.detailedInformation,
+      detailedInformation: formValues.details,
     });
     if (result.summary) {
-      form.setValue("summary", result.summary);
+      form.setValue("listingSummary", result.summary);
       toast({
         title: "Summary Generated",
         description: "AI-powered summary has been added.",
@@ -206,7 +206,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                 />
                 <FormField
                   control={form.control}
-                  name="detailedInformation"
+                  name="details"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Detailed Information</FormLabel>
@@ -223,7 +223,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                 />
                 <FormField
                   control={form.control}
-                  name="summary"
+                  name="listingSummary"
                   render={({ field }) => (
                     <FormItem>
                       <div className="flex items-center justify-between">
@@ -403,7 +403,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
               <CardContent className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="internalCode"
+                  name="sourceCode"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Internal Code</FormLabel>
@@ -416,7 +416,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                 />
                 <FormField
                   control={form.control}
-                  name="exactAddress"
+                  name="address"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Exact Address</FormLabel>

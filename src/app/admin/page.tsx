@@ -44,7 +44,7 @@ export default async function AdminDashboard({
     roomType: searchParams.roomType,
     page,
     limit: 1000,
-    searchBy: "internalCode",
+    searchBy: "sourceCode",
   });
 
   return (
@@ -84,7 +84,7 @@ export default async function AdminDashboard({
               {apartments.map((apt) => (
                 <TableRow key={apt.id}>
                   <TableCell className="font-medium">{apt.title}</TableCell>
-                  <TableCell>{apt.internalCode}</TableCell>
+                  <TableCell>{apt.sourceCode}</TableCell>
                   <TableCell>{apt.district}</TableCell>
                   <TableCell className="text-right">
                     {formatPrice(apt.price)}

@@ -21,13 +21,13 @@ const storage = getStorage(firebaseApp);
 
 const formSchema = z.object({
   title: z.string().min(5),
-  internalCode: z.string().min(1),
+  sourceCode: z.string().min(1),
   roomType: z.enum(["studio", "1n1k", "2n1k", "other"]),
   district: z.string().min(1),
   price: z.coerce.number().min(0),
-  detailedInformation: z.string().min(20),
-  summary: z.string().optional(),
-  exactAddress: z.string().min(1),
+  details: z.string().min(20),
+  listingSummary: z.string().optional(),
+  address: z.string().min(1),
   imageUrls: z.array(z.string()).min(1, "At least one image is required."),
 });
 
