@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
 import { Apartment } from "./types";
+import { removeVietnameseTones } from "./utils";
 
 
 const apartmentsCollection = collection(firestore, "apartments");
@@ -94,10 +95,11 @@ export async function getApartments(
 
   // Search Filter
   if (searchQuery) {
-    const lowercasedQuery = searchQuery.toLowerCase();
+    const normalizedQuery = removeVietnameseTones(searchQuery);
     apartments = apartments.filter((apt) => {
       const fieldToSearch = searchBy === 'sourceCode' ? apt.sourceCode : apt.title;
-      return fieldToSearch.toLowerCase().includes(lowercasedQuery);
+      const normalizedField = removeVietnameseTones(fieldToSearch);
+      return normalizedField.includes(normalizedQuery);
     });
   }
   
