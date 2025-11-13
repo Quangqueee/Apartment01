@@ -61,25 +61,24 @@ export async function getApartments(
     searchBy = "title",
   } = options;
 
-  // --- Server-side Filtering (Basic) ---
-  // We will only apply the most basic, non-range filters on the server
-  // to minimize the need for composite indexes.
-  const serverConstraints = [];
-  if (district) {
-    serverConstraints.push(where("district", "==", district));
-  }
-  if (roomType) {
-    serverConstraints.push(where("roomType", "==", roomType));
-  }
-  // Always sort by creation date on the server for consistency.
-  serverConstraints.push(orderBy("createdAt", "desc"));
-  
-  const q: Query<DocumentData> = query(apartmentsCollection, ...serverConstraints);
+  // --- Step 1: Fetch ALL apartments from Firestore ---
+  // No server-side filtering or sorting to avoid needing composite indexes.
+  const q: Query<DocumentData> = query(apartmentsCollection);
   const querySnapshot = await getDocs(q);
   let apartments = querySnapshot.docs.map(toApartment);
 
-  // --- Client-side Filtering & Sorting (Advanced) ---
+  // --- Step 2: Perform ALL filtering and sorting on the client-side ---
   
+  // District Filter
+  if (district) {
+    apartments = apartments.filter(apt => apt.district === district);
+  }
+
+  // Room Type Filter
+  if (roomType) {
+    apartments = apartments.filter(apt => apt.roomType === roomType);
+  }
+
   // Price Range Filter
   if (priceRange) {
     const [min, max] = priceRange.split("-");
@@ -108,8 +107,9 @@ export async function getApartments(
     apartments.sort((a, b) => a.price - b.price);
   } else if (sortBy === 'price-desc') {
     apartments.sort((a, b) => b.price - a.price);
+  } else { // Default to 'newest'
+    apartments.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
   }
-  // 'newest' is already the default sort from the server.
 
   // Pagination (after all filtering and sorting is done)
   const totalPages = Math.ceil(apartments.length / pageSize);
