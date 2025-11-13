@@ -3,8 +3,14 @@
 import Link from "next/link";
 import FilterControls from "./filter-controls";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Button } from "./ui/button";
+import { SlidersHorizontal } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function Header() {
+  const [filtersVisible, setFiltersVisible] = useState(false);
+  const isMobile = useIsMobile();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -58,19 +64,30 @@ export default function Header() {
               Hanoi Residences
             </h1>
           </Link>
-          <Link
-            href="/admin"
-            className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-primary md:block"
-          >
-            Admin Dashboard
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="md:hidden"
+              onClick={() => setFiltersVisible(!filtersVisible)}
+            >
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              Bộ lọc
+            </Button>
+            <Link
+              href="/admin"
+              className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-primary md:block"
+            >
+              Admin Dashboard
+            </Link>
+          </div>
         </div>
         <div
           className={cn(
-            "transform-gpu transition-all duration-300 ease-in-out"
+            "transform-gpu transition-all duration-300 ease-in-out",
+            isMobile && !filtersVisible ? "max-h-0 opacity-0 -translate-y-4 invisible" : "max-h-[500px] opacity-100 translate-y-0 visible"
           )}
         >
-          <FilterControls />
+          <FilterControls onFilterSave={() => isMobile && setFiltersVisible(false)} />
         </div>
       </div>
     </header>

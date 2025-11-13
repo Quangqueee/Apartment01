@@ -17,11 +17,12 @@ import { useToast } from "@/hooks/use-toast";
 
 type FilterControlsProps = {
   isAdmin?: boolean;
+  onFilterSave?: () => void;
 };
 
 const SAVED_FILTERS_KEY = "hanoi_residences_filters";
 
-export default function FilterControls({ isAdmin = false }: FilterControlsProps) {
+export default function FilterControls({ isAdmin = false, onFilterSave }: FilterControlsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -94,6 +95,7 @@ export default function FilterControls({ isAdmin = false }: FilterControlsProps)
       });
       // Apply filters immediately after saving
       applyFilters(filters);
+      onFilterSave?.();
     } catch (error) {
       console.error("Failed to save filters to local storage", error);
       toast({
