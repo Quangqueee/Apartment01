@@ -379,20 +379,21 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormControl>
                         <div
                           className={cn(
-                            "relative flex min-h-[200px] w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-input transition-colors",
+                            "flex min-h-[200px] w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-input p-4 text-center transition-colors",
                             isDragging && "border-primary bg-accent"
                           )}
                           onDragOver={handleDragOver}
                           onDragLeave={handleDragLeave}
                           onDrop={handleDrop}
                         >
-                           <div className="absolute flex flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+                           <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
                             <Upload className="h-8 w-8" />
                             <p className="font-semibold">Kéo và thả ảnh vào đây</p>
                             <p className="text-sm">hoặc</p>
                              <Button
                               type="button"
                               variant="outline"
+                              size="sm"
                               onClick={() => fileInputRef.current?.click()}
                               className="z-10 bg-background"
                             >
