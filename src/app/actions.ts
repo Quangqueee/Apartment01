@@ -19,7 +19,7 @@ const formSchema = z.object({
   detailedInformation: z.string().min(20),
   summary: z.string().optional(),
   exactAddress: z.string().min(1),
-  imageUrls: z.string().min(1),
+  imageUrls: z.array(z.string()).min(1, "At least one image is required."),
 });
 
 export async function createOrUpdateApartmentAction(
@@ -29,12 +29,14 @@ export async function createOrUpdateApartmentAction(
   const validatedFields = formSchema.safeParse(values);
 
   if (!validatedFields.success) {
-    return { error: "Invalid fields!" };
+    // Manually construct a user-friendly error message
+    const errorIssues = validatedFields.error.issues;
+    const errorMessage = errorIssues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+    return { error: `Invalid fields! ${errorMessage}` };
   }
-
+  
   const data = {
     ...validatedFields.data,
-    imageUrls: validatedFields.data.imageUrls.split("\n").filter(Boolean),
     summary: validatedFields.data.summary || "", // Ensure summary is not undefined
   };
 

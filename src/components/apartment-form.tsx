@@ -24,11 +24,23 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HANOI_DISTRICTS, ROOM_TYPES } from "@/lib/constants";
-import { Apartment, RoomType } from "@/lib/types";
-import { createOrUpdateApartmentAction, generateSummaryAction } from "@/app/actions";
+import { Apartment } from "@/lib/types";
+import {
+  createOrUpdateApartmentAction,
+  generateSummaryAction,
+} from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import { useState, useRef } from "react";
+import { Loader2, Sparkles, Trash2, Upload } from "lucide-react";
+import Image from "next/image";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ACCEPTED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+];
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters."),
@@ -42,12 +54,8 @@ const formSchema = z.object({
   summary: z.string().optional(),
   exactAddress: z.string().min(1, "Exact address is required."),
   imageUrls: z
-    .string()
-    .min(1, "At least one image URL is required.")
-    .refine(
-      (val) => val.split("\n").every((url) => url.startsWith("http")),
-      "Each line must be a valid URL."
-    ),
+    .array(z.string())
+    .min(1, "At least one image is required."),
 });
 
 type ApartmentFormProps = {
@@ -57,6 +65,10 @@ type ApartmentFormProps = {
 export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [previews, setPreviews] = useState<string[]>(
+    apartment?.imageUrls || []
+  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -69,19 +81,66 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       detailedInformation: apartment?.detailedInformation || "",
       summary: apartment?.summary || "",
       exactAddress: apartment?.exactAddress || "",
-      imageUrls: apartment?.imageUrls.join("\n") || "",
+      imageUrls: apartment?.imageUrls || [],
     },
   });
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    const currentImageCount = previews.length;
+    if (currentImageCount + files.length > 10) {
+      toast({
+        variant: "destructive",
+        title: "Too many images",
+        description: "You can upload a maximum of 10 images.",
+      });
+      return;
+    }
+
+
+    const filePromises = files.map((file) => {
+      return new Promise<string>((resolve, reject) => {
+        if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+          return reject(`File type not supported: ${file.name}`);
+        }
+        if (file.size > MAX_FILE_SIZE) {
+          return reject(`File too large: ${file.name}`);
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = (e) => reject(e);
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(filePromises)
+      .then((newPreviews) => {
+        const updatedPreviews = [...previews, ...newPreviews];
+        setPreviews(updatedPreviews);
+        form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
+      })
+      .catch((error) => {
+        toast({
+          variant: "destructive",
+          title: "Error uploading file",
+          description: typeof error === 'string' ? error : "An unexpected error occurred.",
+        });
+      });
+  };
+  
+  const removeImage = (index: number) => {
+    const updatedPreviews = previews.filter((_, i) => i !== index);
+    setPreviews(updatedPreviews);
+    form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
+  };
+
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const result = await createOrUpdateApartmentAction(apartment?.id, values);
-    if (result.success) {
-      toast({
-        title: "Success",
-        description: `Apartment ${apartment ? "updated" : "created"} successfully.`,
-      });
-    } else {
-      toast({
+    if (result.error) {
+       toast({
         variant: "destructive",
         title: "Error",
         description: result.error,
@@ -132,7 +191,10 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                     <FormItem>
                       <FormLabel>Listing Title</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Luxury Apartment with Lake View" {...field} />
+                        <Input
+                          placeholder="e.g. Luxury Apartment with Lake View"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -155,15 +217,25 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                     </FormItem>
                   )}
                 />
-                 <FormField
+                <FormField
                   control={form.control}
                   name="summary"
                   render={({ field }) => (
                     <FormItem>
                       <div className="flex items-center justify-between">
                         <FormLabel>AI Generated Summary</FormLabel>
-                        <Button type="button" size="sm" variant="outline" onClick={handleGenerateSummary} disabled={isGenerating}>
-                          {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={handleGenerateSummary}
+                          disabled={isGenerating}
+                        >
+                          {isGenerating ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="mr-2 h-4 w-4" />
+                          )}
                           Generate
                         </Button>
                       </div>
@@ -189,20 +261,55 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                 <FormField
                   control={form.control}
                   name="imageUrls"
-                  render={({ field }) => (
+                  render={() => (
                     <FormItem>
-                      <FormLabel>Image URLs</FormLabel>
+                      <FormLabel>Apartment Images</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg"
-                          className="min-h-[120px]"
-                          {...field}
-                        />
+                        <div>
+                          <Input
+                            type="file"
+                            ref={fileInputRef}
+                            multiple
+                            onChange={handleFileChange}
+                            accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                            className="hidden"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Upload className="mr-2 h-4 w-4" />
+                            Upload Images
+                          </Button>
+                        </div>
                       </FormControl>
                       <FormDescription>
-                        Enter one image URL per line. The first one will be the main image.
+                        Upload one or more images (JPG, PNG, WebP). Max 5MB
+                        each. The first image will be the main one.
                       </FormDescription>
-                      <FormMessage />
+                      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                        {previews.map((src, index) => (
+                          <div key={index} className="relative aspect-video">
+                            <Image
+                              src={src}
+                              alt={`Preview ${index + 1}`}
+                              fill
+                              className="rounded-md object-cover"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute right-1 top-1 h-6 w-6"
+                              onClick={() => removeImage(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                       <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -235,7 +342,10 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>District</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a district" />
@@ -259,7 +369,10 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Room Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a room type" />
@@ -280,11 +393,11 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
               </CardContent>
             </Card>
             <Card>
-               <CardHeader>
+              <CardHeader>
                 <CardTitle>Admin Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                 <FormField
+                <FormField
                   control={form.control}
                   name="internalCode"
                   render={({ field }) => (
@@ -297,14 +410,17 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                     </FormItem>
                   )}
                 />
-                 <FormField
+                <FormField
                   control={form.control}
                   name="exactAddress"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Exact Address</FormLabel>
-                       <FormControl>
-                        <Textarea placeholder="123 Example St, Hanoi" {...field} />
+                      <FormControl>
+                        <Textarea
+                          placeholder="123 Example St, Hanoi"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -315,7 +431,9 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
           </div>
         </div>
         <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {form.formState.isSubmitting && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          )}
           {apartment ? "Update" : "Create"} Apartment
         </Button>
       </form>
