@@ -30,7 +30,7 @@ import {
   generateSummaryAction,
 } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useRef } from "react";
+import { useState, useRef, DragEvent } from "react";
 import { Loader2, Sparkles, Trash2, Upload } from "lucide-react";
 import Image from "next/image";
 import {
@@ -50,6 +50,7 @@ import {
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { cn } from "@/lib/utils";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = [
@@ -128,6 +129,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [previews, setPreviews] = useState<string[]>(
     apartment?.imageUrls || []
   );
@@ -157,8 +159,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     },
   });
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
+  const handleFiles = (files: File[]) => {
     if (files.length === 0) return;
 
     const currentImageCount = previews.length;
@@ -201,6 +202,30 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         });
       });
   };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    handleFiles(Array.from(event.target.files || []));
+  };
+  
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+  
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    handleFiles(Array.from(e.dataTransfer.files));
+  };
+
 
   const removeImage = (index: number) => {
     const updatedPreviews = previews.filter((_, i) => i !== index);
@@ -352,7 +377,28 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                     <FormItem>
                       <FormLabel>Apartment Images</FormLabel>
                       <FormControl>
-                        <div>
+                        <div
+                          className={cn(
+                            "relative flex min-h-[200px] w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-input transition-colors",
+                            isDragging && "border-primary bg-accent"
+                          )}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
+                        >
+                           <div className="absolute flex flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+                            <Upload className="h-8 w-8" />
+                            <p className="font-semibold">Kéo và thả ảnh vào đây</p>
+                            <p className="text-sm">hoặc</p>
+                             <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="z-10 bg-background"
+                            >
+                              Chọn tệp
+                            </Button>
+                          </div>
                           <Input
                             type="file"
                             ref={fileInputRef}
@@ -361,14 +407,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                             accept={ACCEPTED_IMAGE_TYPES.join(",")}
                             className="hidden"
                           />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
-                            <Upload className="mr-2 h-4 w-4" />
-                            Upload Images
-                          </Button>
                         </div>
                       </FormControl>
                       <FormDescription>
