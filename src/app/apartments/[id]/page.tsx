@@ -72,13 +72,12 @@ export default async function ApartmentPage({ params }: ApartmentPageProps) {
                 <CarouselContent>
                   {apartment.imageUrls.map((url, index) => (
                     <CarouselItem key={index}>
-                      <div className="relative h-96 w-full overflow-hidden rounded-lg shadow-lg">
+                      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg shadow-lg">
                         <Image
                           src={url}
                           alt={`${apartment.title} image ${index + 1}`}
                           fill
                           className="object-cover"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 800px"
                            data-ai-hint="apartment interior"
                         />
                       </div>
