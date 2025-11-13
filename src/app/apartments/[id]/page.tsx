@@ -1,6 +1,4 @@
 
-"use client";
-
 import { getApartmentById } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -16,7 +14,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Apartment } from "@/lib/types";
-import { useEffect, useState } from "react";
 import ApartmentImageGallery from "@/components/apartment-image-gallery";
 
 type ApartmentPageProps = {
@@ -25,34 +22,12 @@ type ApartmentPageProps = {
   };
 };
 
-export default function ApartmentPage({ params }: ApartmentPageProps) {
-  const [apartment, setApartment] = useState<Apartment | null>(null);
+const getRoomTypeLabel = (value: string) => {
+  const roomType = ROOM_TYPES.find((rt) => rt.value === value);
+  return roomType ? roomType.label : "N/A";
+};
 
-  useEffect(() => {
-    const fetchApartment = async () => {
-      if (!params.id) return;
-      const apt = await getApartmentById(params.id);
-      if (!apt) {
-        notFound();
-      }
-      setApartment(apt);
-    };
-    fetchApartment();
-  }, [params.id]);
-
-  if (!apartment) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p>Loading...</p>
-      </div>
-    );
-  }
-
-  const getRoomTypeLabel = (value: string) => {
-    const roomType = ROOM_TYPES.find((rt) => rt.value === value);
-    return roomType ? roomType.label : "N/A";
-  };
-
+function ApartmentDetails({ apartment }: { apartment: Apartment }) {
   return (
     <>
       <main className="flex-1">
@@ -132,4 +107,15 @@ export default function ApartmentPage({ params }: ApartmentPageProps) {
       </footer>
     </>
   );
+}
+
+
+export default async function ApartmentPage({ params }: ApartmentPageProps) {
+  const apartment = await getApartmentById(params.id);
+
+  if (!apartment) {
+    notFound();
+  }
+
+  return <ApartmentDetails apartment={apartment} />;
 }

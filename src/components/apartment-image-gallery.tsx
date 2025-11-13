@@ -7,8 +7,6 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
   type CarouselApi,
 } from "@/components/ui/carousel";
 import ImageLightbox from "@/components/image-lightbox";
@@ -37,7 +35,7 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
   const onSelect = useCallback(() => {
     if (!mainApi || !thumbApi) return;
     setSelectedIndex(mainApi.selectedScrollSnap());
-    thumbApi.scrollTo(mainai.selectedScrollSnap());
+    thumbApi.scrollTo(mainApi.selectedScrollSnap());
   }, [mainApi, thumbApi, setSelectedIndex]);
 
   useEffect(() => {
