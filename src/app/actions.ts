@@ -14,6 +14,7 @@ import {
 } from "@/lib/data";
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
+import { Apartment } from "@/lib/types";
 
 // Initialize Firebase Storage
 const storage = getStorage(firebaseApp);
@@ -32,37 +33,44 @@ const formSchema = z.object({
 });
 
 // Helper function to upload or update images
-async function uploadImages(imageUrls: string[]): Promise<string[]> {
-  const uploadedUrls = await Promise.all(
-    imageUrls.map(async (url) => {
-      if (url.startsWith('data:')) {
-        // This is a new image (base64 data URI)
-        const storageRef = ref(storage, `apartments/${uuidv4()}`);
-        const snapshot = await uploadString(storageRef, url, 'data_url');
-        return getDownloadURL(snapshot.ref);
-      }
-      // This is an existing URL
-      return url;
-    })
-  );
-  return uploadedUrls;
-}
+async function uploadAndCleanupImages(currentImageUrls: string[], existingApartment: Apartment | null): Promise<string[]> {
+  const newImageUrls: string[] = [];
 
+  // Upload new images (data URIs)
+  for (const url of currentImageUrls) {
+    if (url.startsWith('data:')) {
+      const storageRef = ref(storage, `apartments/${uuidv4()}`);
+      const snapshot = await uploadString(storageRef, url, 'data_url');
+      const downloadUrl = await getDownloadURL(snapshot.ref);
+      newImageUrls.push(downloadUrl);
+    } else {
+      // Keep existing URLs
+      newImageUrls.push(url);
+    }
+  }
 
-// Helper to delete images from storage that are no longer in use
-async function handleImageCleanup(existingUrls: string[], newUrls: string[]) {
-    const urlsToDelete = existingUrls.filter(url => !newUrls.includes(url));
-    await Promise.all(urlsToDelete.map(async (url) => {
+  // Determine which images to delete
+  if (existingApartment) {
+    const urlsToDelete = existingApartment.imageUrls.filter(
+      (url) => !newImageUrls.includes(url)
+    );
+    
+    // Delete them
+    await Promise.all(
+      urlsToDelete.map(async (url) => {
         try {
-            const imageRef = ref(storage, url);
-            await deleteObject(imageRef);
+          const imageRef = ref(storage, url);
+          await deleteObject(imageRef);
         } catch (error: any) {
-            // Ignore 'object-not-found' errors, as it might have been deleted already
-            if (error.code !== 'storage/object-not-found') {
-                console.error(`Failed to delete image: ${url}`, error);
-            }
+          if (error.code !== 'storage/object-not-found') {
+            console.error(`Failed to delete old image: ${url}`, error);
+          }
         }
-    }));
+      })
+    );
+  }
+
+  return newImageUrls;
 }
 
 
@@ -81,23 +89,23 @@ export async function createOrUpdateApartmentAction(
   const data = validatedFields.data;
 
   try {
-    let existingImageUrls: string[] = [];
+    let existingApartment: Apartment | null = null;
     if (id) {
-        const existingApartment = await getApartmentById(id);
-        if (existingApartment) {
-            existingImageUrls = existingApartment.imageUrls;
-        }
+        existingApartment = await getApartmentById(id);
     }
     
-    const finalImageUrls = await uploadImages(data.imageUrls);
-    await handleImageCleanup(existingImageUrls, finalImageUrls);
+    const finalImageUrls = await uploadAndCleanupImages(data.imageUrls, existingApartment);
 
-    const apartmentData = { ...data, imageUrls: finalImageUrls };
+    const apartmentData = { 
+        ...data,
+        listingSummary: data.listingSummary || "",
+        imageUrls: finalImageUrls 
+    };
 
     if (id) {
       await updateApartment(id, apartmentData);
     } else {
-      await createApartment(apartmentData);
+      await createApartment(apartmentData as Omit<Apartment, "id" | "createdAt">);
     }
   } catch (error) {
     console.error("Database error:", error);
@@ -117,13 +125,11 @@ export async function deleteApartmentAction(formData: FormData) {
   try {
      const apartment = await getApartmentById(id);
      if (apartment && apartment.imageUrls.length > 0) {
-        // Delete all associated images from Firebase Storage
         await Promise.all(apartment.imageUrls.map(async (url) => {
             try {
                 const imageRef = ref(storage, url);
                 await deleteObject(imageRef);
             } catch (error: any) {
-                // Ignore 'object-not-found' errors
                 if (error.code !== 'storage/object-not-found') {
                     console.error(`Failed to delete image: ${url}`, error);
                 }

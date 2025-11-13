@@ -1,5 +1,3 @@
-import { Timestamp } from "firebase/firestore";
-
 export type RoomType = "studio" | "1n1k" | "2n1k" | "other";
 
 export interface Apartment {
@@ -13,7 +11,10 @@ export interface Apartment {
   listingSummary: string; // AI-generated
   address: string; // For admin use
   imageUrls: string[];
-  createdAt: string | Timestamp; // Allow both for type safety
+  createdAt: {
+    seconds: number;
+    nanoseconds: number;
+  };
 }
 
 export type UploadedImage = {
