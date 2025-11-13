@@ -71,6 +71,7 @@ const formSchema = z.object({
     .min(20, "Detailed information must be at least 20 characters."),
   listingSummary: z.string().optional(),
   address: z.string().min(1, "Exact address is required."),
+  landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
   imageUrls: z.array(z.string()).min(1, "At least one image is required."),
 });
 
@@ -151,6 +152,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       details: apartment?.details || "",
       listingSummary: apartment?.listingSummary || "",
       address: apartment?.address || "",
+      landlordPhoneNumber: apartment?.landlordPhoneNumber || "",
       imageUrls: apartment?.imageUrls || [],
     },
   });
@@ -520,6 +522,19 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                           placeholder="123 Example St, Hanoi"
                           {...field}
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="landlordPhoneNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Landlord Phone Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. 09xxxxxxxx" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

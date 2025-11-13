@@ -1,3 +1,6 @@
+
+"use client";
+
 import {
   Table,
   TableBody,
@@ -19,34 +22,49 @@ import { getApartments } from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
 import Link from "next/link";
 import { deleteApartmentAction } from "../actions";
-import FilterControls from "@/components/filter-controls";
 import { Input } from "@/components/ui/input";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useState, useEffect, useTransition } from "react";
+import { Apartment } from "@/lib/types";
+import { useDebounce } from "@/hooks/use-debounce";
 
-export const dynamic = "force-dynamic";
 
-type AdminDashboardProps = {
-  searchParams: {
-    q?: string;
-    district?: string;
-    price?: string;
-    roomType?: string;
-    page?: string;
-  };
-};
+export default function AdminDashboard() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
-export default async function AdminDashboard({
-  searchParams,
-}: AdminDashboardProps) {
-  const page = searchParams.page ? parseInt(searchParams.page) : 1;
-  const { apartments } = await getApartments({
-    query: searchParams.q,
-    district: searchParams.district,
-    priceRange: searchParams.price,
-    roomType: searchParams.roomType,
-    page,
-    limit: 1000,
-    searchBy: "sourceCode",
-  });
+  const [apartments, setApartments] = useState<Apartment[]>([]);
+  const [isPending, startTransition] = useTransition();
+  const [query, setQuery] = useState(searchParams.get("q") || "");
+  const debouncedQuery = useDebounce(query, 300);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (debouncedQuery) {
+      params.set("q", debouncedQuery);
+    } else {
+      params.delete("q");
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [debouncedQuery, router, pathname, searchParams]);
+
+
+  useEffect(() => {
+    startTransition(async () => {
+      const page = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1;
+      const result = await getApartments({
+        query: searchParams.get("q") || undefined,
+        district: searchParams.get("district") || undefined,
+        priceRange: searchParams.get("price") || undefined,
+        roomType: searchParams.get("roomType") || undefined,
+        page,
+        limit: 1000,
+        searchBy: "sourceCode",
+      });
+      setApartments(result.apartments);
+    });
+  }, [searchParams]);
 
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
@@ -64,9 +82,11 @@ export default async function AdminDashboard({
         </div>
       </div>
       <div className="pb-4 space-y-4">
-        <form>
-            <Input name="q" placeholder="Tìm theo mã nội bộ..." defaultValue={searchParams.q || ''} />
-        </form>
+        <Input 
+          placeholder="Tìm theo mã nội bộ..." 
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </div>
       <Card>
         <CardHeader>
@@ -132,3 +152,4 @@ export default async function AdminDashboard({
     </div>
   );
 }
+

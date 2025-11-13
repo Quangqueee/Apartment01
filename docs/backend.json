@@ -42,6 +42,10 @@
           "type": "string",
           "description": "The exact address of the apartment (admin-only)."
         },
+        "landlordPhoneNumber": {
+          "type": "string",
+          "description": "The landlord's phone number (admin-only)."
+        },
         "imageUrls": {
           "type": "array",
           "description": "Array of URLs pointing to the apartment's images.",
@@ -64,6 +68,7 @@
         "price",
         "details",
         "address",
+        "landlordPhoneNumber",
         "imageUrls"
       ]
     }

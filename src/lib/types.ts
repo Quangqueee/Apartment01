@@ -11,6 +11,7 @@ export interface Apartment {
   details: string;
   listingSummary: string; // AI-generated
   address: string; // For admin use
+  landlordPhoneNumber: string; // For admin use
   imageUrls: string[];
   createdAt: {
     seconds: number;

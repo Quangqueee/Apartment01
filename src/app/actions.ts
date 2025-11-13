@@ -30,6 +30,7 @@ const formSchema = z.object({
   details: z.string().min(20),
   listingSummary: z.string().optional(),
   address: z.string().min(1),
+  landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
   imageUrls: z.array(z.string()).min(1, "At least one image is required."),
 });
 
