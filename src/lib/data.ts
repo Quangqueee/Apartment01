@@ -48,7 +48,7 @@ export async function getApartments(
     page?: number;
     limit?: number;
     sortBy?: string;
-    searchBy?: "title" | "sourceCode";
+    searchBy?: "title" | "sourceCode" | "sourceCodeOrAddress";
   } = {}
 ) {
   const {
@@ -97,6 +97,12 @@ export async function getApartments(
   if (searchQuery) {
     const normalizedQuery = removeVietnameseTones(searchQuery);
     apartments = apartments.filter((apt) => {
+      if (searchBy === 'sourceCodeOrAddress') {
+        const normalizedCode = removeVietnameseTones(apt.sourceCode);
+        const normalizedAddress = removeVietnameseTones(apt.address);
+        return normalizedCode.includes(normalizedQuery) || normalizedAddress.includes(normalizedQuery);
+      }
+      
       const fieldToSearch = searchBy === 'sourceCode' ? apt.sourceCode : apt.title;
       const normalizedField = removeVietnameseTones(fieldToSearch);
       return normalizedField.includes(normalizedQuery);

@@ -45,7 +45,7 @@ export default function AdminDashboard() {
         roomType: searchParams.get("roomType") || undefined,
         page,
         limit: 1000,
-        searchBy: "sourceCode",
+        searchBy: "sourceCodeOrAddress",
       });
       setApartments(result.apartments);
     });
@@ -81,7 +81,7 @@ export default function AdminDashboard() {
       <div className="pb-4">
         <form onSubmit={handleSearch} className="relative w-full max-w-md">
             <Input 
-              placeholder="Tìm theo mã nội bộ..." 
+              placeholder="Tìm theo mã nội bộ hoặc địa chỉ..." 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pr-10"
