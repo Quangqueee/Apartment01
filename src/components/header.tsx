@@ -97,9 +97,29 @@ export default function Header() {
               Hanoi Residences
             </h1>
           </Link>
+          
+           <div className="md:hidden">
+             <Link
+              href="/admin"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            >
+              Admin
+            </Link>
+           </div>
+           
+           <div className="hidden md:block">
+            <Link
+              href="/admin"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            >
+              Admin
+            </Link>
+          </div>
 
-           <div className="order-last w-full md:order-none md:w-auto md:flex-1 md:px-8 lg:px-16">
-            <form onSubmit={handleSearch} className="relative w-full">
+        </div>
+
+        <div className="flex w-full flex-col gap-4 md:flex-row md:items-center">
+            <form onSubmit={handleSearch} className="relative w-full md:flex-1">
               <Input
                 placeholder="Tìm kiếm"
                 value={searchQuery}
@@ -116,25 +136,18 @@ export default function Header() {
                 <span className="sr-only">Tìm kiếm</span>
               </Button>
             </form>
-          </div>
 
-          <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              className=""
+              className="w-full md:w-auto"
               onClick={() => setFiltersVisible(!filtersVisible)}
             >
               <SlidersHorizontal className="mr-2 h-4 w-4" />
               Bộ lọc
             </Button>
-            <Link
-              href="/admin"
-              className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-primary md:block"
-            >
-              Admin
-            </Link>
-          </div>
         </div>
+
+
         <div
           className={cn(
             "transform-gpu transition-all duration-300 ease-in-out",
