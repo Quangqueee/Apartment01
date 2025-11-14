@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useState, useEffect, useTransition, FormEvent } from "react";
 import { Apartment } from "@/lib/types";
+import { formatDate } from "@/lib/utils";
 
 export default function AdminDashboard() {
   const searchParams = useSearchParams();
@@ -102,66 +103,118 @@ export default function AdminDashboard() {
           <CardTitle>All Listings</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Địa chỉ</TableHead>
-                <TableHead>Mã nội bộ</TableHead>
-                <TableHead>District</TableHead>
-                <TableHead>SĐT Chủ nhà</TableHead>
-                <TableHead className="text-right">Price</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {apartments.map((apt) => (
-                <TableRow key={apt.id}>
-                  <TableCell className="font-medium">
-                     <Link href={`/admin/apartments/${apt.id}/edit`} className="text-primary hover:underline">
-                        {apt.address}
-                     </Link>
-                  </TableCell>
-                  <TableCell>{apt.sourceCode}</TableCell>
-                  <TableCell>{apt.district}</TableCell>
-                  <TableCell>{apt.landlordPhoneNumber}</TableCell>
-                  <TableCell className="text-right">
-                    {apt.price} tr
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/apartments/${apt.id}/edit`}>
-                            Edit
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/apartments/${apt.id}`} target="_blank">
-                            View
-                          </Link>
-                        </DropdownMenuItem>
-                        <form action={deleteApartmentAction} className="w-full">
-                          <input type="hidden" name="id" value={apt.id} />
-                          <button
-                            type="submit"
-                            className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm text-destructive outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                          >
-                            Delete
-                          </button>
-                        </form>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {/* Desktop View */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Địa chỉ</TableHead>
+                  <TableHead>Mã nội bộ</TableHead>
+                  <TableHead>SĐT Chủ nhà</TableHead>
+                  <TableHead>Ngày cập nhật</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {apartments.map((apt) => (
+                  <TableRow key={apt.id}>
+                    <TableCell className="font-medium">
+                       <Link href={`/admin/apartments/${apt.id}/edit`} className="text-primary hover:underline">
+                          {apt.address}
+                       </Link>
+                    </TableCell>
+                    <TableCell>{apt.sourceCode}</TableCell>
+                    <TableCell>{apt.landlordPhoneNumber}</TableCell>
+                    <TableCell>{formatDate(apt.updatedAt)}</TableCell>
+                    <TableCell className="text-right">
+                      {apt.price} tr
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/apartments/${apt.id}/edit`}>
+                              Edit
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/apartments/${apt.id}`} target="_blank">
+                              View
+                            </Link>
+                          </DropdownMenuItem>
+                          <form action={deleteApartmentAction} className="w-full">
+                            <input type="hidden" name="id" value={apt.id} />
+                            <button
+                              type="submit"
+                              className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm text-destructive outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </form>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Mobile View */}
+          <div className="space-y-4 md:hidden">
+            {apartments.map((apt) => (
+              <Card key={apt.id} className="relative">
+                <CardContent className="p-4 space-y-2">
+                  <Link href={`/admin/apartments/${apt.id}/edit`} className="font-bold text-primary hover:underline pr-10">
+                    {apt.address}
+                  </Link>
+                   <div className="absolute right-2 top-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/apartments/${apt.id}/edit`}>
+                              Edit
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/apartments/${apt.id}`} target="_blank">
+                              View
+                            </Link>
+                          </DropdownMenuItem>
+                          <form action={deleteApartmentAction} className="w-full">
+                            <input type="hidden" name="id" value={apt.id} />
+                            <button
+                              type="submit"
+                              className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm text-destructive outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </form>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  <p className="text-sm"><span className="font-medium text-muted-foreground">Mã nội bộ:</span> {apt.sourceCode}</p>
+                  <p className="text-sm"><span className="font-medium text-muted-foreground">SĐT Chủ nhà:</span> {apt.landlordPhoneNumber}</p>
+                  <p className="text-sm"><span className="font-medium text-muted-foreground">Ngày cập nhật:</span> {formatDate(apt.updatedAt)}</p>
+                  <p className="text-sm font-semibold text-right">{apt.price} tr</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
         </CardContent>
       </Card>
     </div>
