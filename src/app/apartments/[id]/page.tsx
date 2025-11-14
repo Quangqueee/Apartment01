@@ -111,7 +111,7 @@ function ApartmentDetails({ apartment }: { apartment: Apartment }) {
       </main>
       <footer className="mt-12 border-t bg-secondary/50 py-6 text-center">
         <p className="text-muted-foreground">
-          Interested? Contact us at +84 123 456 789
+          Interested? Contact us at +84 355 885 851
         </p>
       </footer>
     </>

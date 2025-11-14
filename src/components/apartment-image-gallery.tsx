@@ -76,11 +76,8 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
                 </CarouselItem>
               ))}
             </CarouselContent>
-            <div className="absolute inset-y-0 left-2 flex items-center md:hidden">
-              <ChevronLeft className="h-8 w-8 text-white/50" />
-            </div>
-            <div className="absolute inset-y-0 right-2 flex items-center md:hidden">
-              <ChevronRight className="h-8 w-8 text-white/50" />
+             <div className="absolute bottom-4 right-4 z-10 rounded-full bg-black/50 px-3 py-1.5 text-xs text-white">
+                {selectedIndex + 1} / {imageUrls.length}
             </div>
           </Carousel>
         </div>
