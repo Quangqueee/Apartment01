@@ -38,15 +38,3 @@ export function removeVietnameseTones(str: string) {
     str = str.replace(/\u02C6|\u0306|\u031B/g, ""); // ˆ ̆ ̛
     return str;
 }
-
-export function createSlug(str: string) {
-  if (!str) return "";
-  const noTones = removeVietnameseTones(str);
-  return noTones
-    .toLowerCase()
-    .replace(/ /g, '-') // Replace spaces with -
-    .replace(/[^\w-]+/g, '') // Remove all non-word chars
-    .replace(/--+/g, '-') // Replace multiple - with single -
-    .replace(/^-+/, '') // Trim - from start of text
-    .replace(/-+$/, ''); // Trim - from end of text
-}

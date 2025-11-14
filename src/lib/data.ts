@@ -158,16 +158,6 @@ export async function getApartmentById(id: string): Promise<Apartment | null> {
   return null;
 }
 
-export async function getApartmentBySlug(slug: string): Promise<Apartment | null> {
-    const q = query(apartmentsCollection, where("slug", "==", slug), limit(1));
-    const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) {
-        const docSnap = querySnapshot.docs[0];
-        return toApartment(docSnap);
-    }
-    return null;
-}
-
 export async function createApartment(
   data: Omit<Apartment, "id">
 ) {

@@ -1,5 +1,5 @@
 
-import { getApartmentBySlug, getApartmentById } from "@/lib/data";
+import { getApartmentById } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ import ApartmentImageGallery from "@/components/apartment-image-gallery";
 
 type ApartmentPageProps = {
   params: {
-    id: string; // This is now a slug
+    id: string;
   };
 };
 
@@ -119,15 +119,7 @@ function ApartmentDetails({ apartment }: { apartment: Apartment }) {
 
 
 export default async function ApartmentPage({ params }: ApartmentPageProps) {
-  const slug = params.id; // The param is now the slug
-  
-  // Try to find by slug first
-  let apartment = await getApartmentBySlug(slug);
-
-  // Fallback to ID for old bookmarks, etc. Not ideal but graceful.
-  if (!apartment) {
-    apartment = await getApartmentById(slug);
-  }
+  const apartment = await getApartmentById(params.id);
 
   if (!apartment) {
     notFound();

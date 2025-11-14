@@ -26,7 +26,7 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
   };
 
   const primaryImage = apartment.imageUrls?.[0];
-  const linkHref = `/apartments/${apartment.slug || apartment.id}`;
+  const linkHref = `/apartments/${apartment.id}`;
 
   return (
     <Card

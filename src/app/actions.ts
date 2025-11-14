@@ -18,7 +18,6 @@ import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
 import { Apartment } from "@/lib/types";
 import { Timestamp } from "firebase/firestore";
-import { createSlug } from "@/lib/utils";
 
 // Initialize Firebase Storage
 const storage = getStorage(firebaseApp);
@@ -104,15 +103,9 @@ export async function createOrUpdateApartmentAction(
     
     const finalImageUrls = await uploadAndCleanupImages(data.imageUrls, existingImageUrls);
 
-    // Generate a unique slug
-    let slug = createSlug(data.title);
-    // In a real app, you'd check for slug uniqueness and append a suffix if needed.
-    // For this app, we'll keep it simple.
-
     // Always update the 'updatedAt' timestamp
     const apartmentDataWithTimestamp = { 
         ...data,
-        slug,
         listingSummary: data.listingSummary || "",
         imageUrls: finalImageUrls,
         updatedAt: Timestamp.now(), // Add/update the timestamp here
@@ -135,7 +128,9 @@ export async function createOrUpdateApartmentAction(
 
   revalidatePath("/admin");
   revalidatePath("/");
-  revalidatePath(`/apartments/${createSlug(values.title)}`);
+  if (id) {
+    revalidatePath(`/apartments/${id}`);
+  }
   redirect("/admin");
 }
 
@@ -162,7 +157,7 @@ export async function deleteApartmentAction(formData: FormData) {
     revalidatePath("/admin");
     revalidatePath("/");
     if (apartment) {
-        revalidatePath(`/apartments/${apartment.slug}`);
+        revalidatePath(`/apartments/${id}`);
     }
   } catch (error) {
      console.error("Database error on delete:", error);

@@ -180,7 +180,7 @@ export default function AdminDashboard() {
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href={`/apartments/${apt.slug}`} target="_blank">
+                            <Link href={`/apartments/${apt.id}`} target="_blank">
                               View
                             </Link>
                           </DropdownMenuItem>
@@ -225,7 +225,7 @@ export default function AdminDashboard() {
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href={`/apartments/${apt.slug}`} target="_blank">
+                            <Link href={`/apartments/${apt.id}`} target="_blank">
                               View
                             </Link>
                           </DropdownMenuItem>
@@ -242,7 +242,7 @@ export default function AdminDashboard() {
                       </DropdownMenu>
                     </div>
                   <p className="text-sm"><span className="font-medium text-muted-foreground">Mã nguồn:</span> {apt.sourceCode}</p>
-                  <p className="text-sm"><span className="font-medium text-muted-foreground">Giá:</span> {apt.price} tr</p>
+                  <p className="text-sm">Giá: {apt.price} tr</p>
                   <div className="flex items-center gap-2 text-sm">
                     <span className="font-medium text-muted-foreground">SĐT Chủ nhà:</span>
                     <span>{apt.landlordPhoneNumber}</span>
