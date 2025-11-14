@@ -17,6 +17,10 @@ export interface Apartment {
     seconds: number;
     nanoseconds: number;
   };
+  updatedAt: {
+    seconds: number;
+    nanoseconds: number;
+  };
 }
 
 export type UploadedImage = {

@@ -30,11 +30,16 @@ const toApartment = (docSnap: DocumentData): Apartment => {
     seconds: data.createdAt.seconds,
     nanoseconds: data.createdAt.nanoseconds,
   } : { seconds: 0, nanoseconds: 0 }; 
+  const updatedAt = data.updatedAt?.toDate ? {
+    seconds: data.updatedAt.seconds,
+    nanoseconds: data.updatedAt.nanoseconds,
+  } : { seconds: 0, nanoseconds: 0 }; 
 
   return {
     id: docSnap.id,
     ...data,
     createdAt,
+    updatedAt,
   } as Apartment;
 };
 
@@ -86,17 +91,15 @@ export async function getApartments(
   }
 
   // --- Build OrderBy Clause ---
-  // Firestore requires the first orderBy field to be the same as the inequality field if one is used.
-  // Since we filter price on the server, we can order by anything.
   if (sortBy === 'price-asc') {
       baseQuery = query(baseQuery, orderBy("price", "asc"));
   } else if (sortBy === 'price-desc') {
       baseQuery = query(baseQuery, orderBy("price", "desc"));
-  } else { // Default to newest
-      baseQuery = query(baseQuery, orderBy("createdAt", "desc"));
+  } else { // Default to newest, which now means `updatedAt`
+      baseQuery = query(baseQuery, orderBy("updatedAt", "desc"));
   }
   
-  // This is the query that will be used for counting total results and for fetching all pages.
+  // This is the query that will be used for fetching all pages.
   const filteredQuery = baseQuery;
 
   // --- Post-Query Filtering (on server) ---
@@ -156,20 +159,16 @@ export async function getApartmentById(id: string): Promise<Apartment | null> {
 }
 
 export async function createApartment(
-  data: Omit<Apartment, "id" | "createdAt">
+  data: Omit<Apartment, "id">
 ) {
-  const newApartmentData = {
-    ...data,
-    createdAt: Timestamp.now(),
-  };
-  const docRef = await addDoc(apartmentsCollection, newApartmentData);
+  const docRef = await addDoc(apartmentsCollection, data);
   const newDoc = await getDoc(docRef);
   return toApartment(newDoc);
 }
 
 export async function updateApartment(
   id: string,
-  data: Partial<Omit<Apartment, "id" | "createdAt">>
+  data: Partial<Omit<Apartment, "id">>
 ) {
   const docRef = doc(firestore, "apartments", id);
   await updateDoc(docRef, data);

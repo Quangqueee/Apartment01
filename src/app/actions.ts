@@ -17,6 +17,7 @@ import {
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
 import { Apartment } from "@/lib/types";
+import { Timestamp } from "firebase/firestore";
 
 // Initialize Firebase Storage
 const storage = getStorage(firebaseApp);
@@ -102,16 +103,23 @@ export async function createOrUpdateApartmentAction(
     
     const finalImageUrls = await uploadAndCleanupImages(data.imageUrls, existingImageUrls);
 
-    const apartmentData = { 
+    // Always update the 'updatedAt' timestamp
+    const apartmentDataWithTimestamp = { 
         ...data,
         listingSummary: data.listingSummary || "",
-        imageUrls: finalImageUrls 
+        imageUrls: finalImageUrls,
+        updatedAt: Timestamp.now(), // Add/update the timestamp here
     };
 
     if (id) {
-      await updateApartment(id, apartmentData);
+      await updateApartment(id, apartmentDataWithTimestamp);
     } else {
-      await createApartment(apartmentData as Omit<Apartment, "id" | "createdAt">);
+      // For new apartments, 'createdAt' is also set
+      const newApartmentData = {
+          ...apartmentDataWithTimestamp,
+          createdAt: Timestamp.now(),
+      };
+      await createApartment(newApartmentData as Omit<Apartment, "id">);
     }
   } catch (error) {
     console.error("Database error:", error);
