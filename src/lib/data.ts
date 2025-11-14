@@ -100,45 +100,19 @@ export async function getApartments(
     }
   }
 
+  // Always apply where clauses if they exist
   if (whereClauses.length > 0) {
       baseQuery = query(baseQuery, ...whereClauses);
   }
 
-  // --- Build OrderBy Clause ---
-  if (sortBy === 'price-asc') {
-    baseQuery = query(baseQuery, orderBy("price", "asc"), orderBy("updatedAt", "desc"));
-  } else if (sortBy === 'price-desc') {
-    baseQuery = query(baseQuery, orderBy("price", "desc"), orderBy("updatedAt", "desc"));
-  } else { // 'newest' or default
-    baseQuery = query(baseQuery, orderBy("updatedAt", "desc"));
-  }
-
-  // --- Total Count for Pagination ---
-  // Create a separate query for counting that matches the where clauses
-  const countQuery = whereClauses.length > 0 ? query(apartmentsCollection, ...whereClauses) : apartmentsCollection;
-  const countSnapshot = await getCountFromServer(countQuery);
-  const totalResults = countSnapshot.data().count;
-
-  // --- Pagination ---
-  if (page > 1) {
-    // To get the correct starting point, we need to fetch the documents up to the previous page's end
-    const lastDoc = await getLastDocOfPreviousPage(baseQuery, page, pageSize);
-    if (lastDoc) {
-      baseQuery = query(baseQuery, startAfter(lastDoc));
-    }
-  }
-
-  // Apply the final limit
-  baseQuery = query(baseQuery, limit(pageSize));
-  
+  // Initial fetch from Firestore - we only order by one field to avoid complex indexes
   const querySnapshot = await getDocs(baseQuery);
-  let apartments = querySnapshot.docs.map(toApartment);
+  let allMatchingApartments = querySnapshot.docs.map(toApartment);
 
   // --- Post-Query Text Search (if needed) ---
-  // This is not ideal for performance with large datasets but works for this structure
   if (searchQuery) {
     const normalizedQuery = removeVietnameseTones(searchQuery);
-    apartments = apartments.filter((apt) => {
+    allMatchingApartments = allMatchingApartments.filter((apt) => {
       if (searchBy === 'sourceCodeOrAddress') {
         const normalizedCode = removeVietnameseTones(apt.sourceCode);
         const normalizedAddress = removeVietnameseTones(apt.address);
@@ -151,8 +125,24 @@ export async function getApartments(
     });
   }
 
+  // --- Server-Side Sorting ---
+  // Now we sort the array of results in memory
+  if (sortBy === 'price-asc') {
+    allMatchingApartments.sort((a, b) => a.price - b.price);
+  } else if (sortBy === 'price-desc') {
+    allMatchingApartments.sort((a, b) => b.price - a.price);
+  } else { // 'newest' or default
+    allMatchingApartments.sort((a, b) => b.updatedAt.seconds - a.updatedAt.seconds);
+  }
+
+  // --- Server-Side Pagination ---
+  const totalResults = allMatchingApartments.length;
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedApartments = allMatchingApartments.slice(startIndex, endIndex);
+
   return { 
-      apartments, 
+      apartments: paginatedApartments, 
       totalResults,
   };
 }
