@@ -65,7 +65,7 @@ export async function getApartments(
   } = {}
 ) {
   const {
-    q: searchQuery, 
+    query: searchQuery, 
     district,
     priceRange,
     roomType,
