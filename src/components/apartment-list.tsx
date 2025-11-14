@@ -28,6 +28,15 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
   const [hasMore, setHasMore] = useState(initialApartments.length < totalInitialResults);
   const [isLoading, setIsLoading] = useState(false);
   const { ref, inView } = useInView();
+  
+  // This effect synchronizes the component's state with new server-rendered props.
+  // It runs when the user applies new filters or sorting.
+  useEffect(() => {
+    setApartments(initialApartments);
+    setPage(1); // Reset to the first page
+    setHasMore(initialApartments.length < totalInitialResults);
+  }, [initialApartments, totalInitialResults]);
+
 
   const loadMoreApartments = useCallback(async () => {
     if (isLoading || !hasMore) return;
