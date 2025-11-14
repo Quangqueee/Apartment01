@@ -16,6 +16,7 @@ type ToasterToast = ToastProps & {
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  duration?: number;
 }
 
 const actionTypes = {
@@ -156,6 +157,7 @@ function toast({ ...props }: Toast) {
     type: "ADD_TOAST",
     toast: {
       ...props,
+      duration: props.duration || 3000, // Set default duration to 3 seconds
       id,
       open: true,
       onOpenChange: (open) => {
