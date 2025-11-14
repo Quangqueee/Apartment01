@@ -144,9 +144,9 @@ export default function AdminDashboard() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Địa chỉ</TableHead>
-                  <TableHead>Mã nội bộ</TableHead>
+                  <TableHead>Mã nguồn</TableHead>
                   <TableHead>SĐT Chủ nhà</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead>Price</TableHead>
                   <TableHead>Ngày cập nhật</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -161,7 +161,7 @@ export default function AdminDashboard() {
                     </TableCell>
                     <TableCell>{apt.sourceCode}</TableCell>
                     <TableCell>{apt.landlordPhoneNumber}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       {apt.price} tr
                     </TableCell>
                     <TableCell>{formatDate(apt.updatedAt)}</TableCell>
@@ -242,7 +242,7 @@ export default function AdminDashboard() {
                       </DropdownMenu>
                     </div>
                   <p className="text-sm"><span className="font-medium text-muted-foreground">Mã nguồn:</span> {apt.sourceCode}</p>
-                  <p className="text-sm font-semibold">{apt.price} tr</p>
+                  <p className="text-sm"><span className="font-medium text-muted-foreground">Giá:</span> {apt.price} tr</p>
                   <div className="flex items-center gap-2 text-sm">
                     <span className="font-medium text-muted-foreground">SĐT Chủ nhà:</span>
                     <span>{apt.landlordPhoneNumber}</span>
