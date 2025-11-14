@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -16,12 +17,16 @@ type ApartmentListProps = {
     roomType?: string;
     sort?: string;
   };
+  totalInitialResults: number;
 };
 
-export default function ApartmentList({ initialApartments, searchParams }: ApartmentListProps) {
+const PAGE_SIZE = 9;
+
+export default function ApartmentList({ initialApartments, searchParams, totalInitialResults }: ApartmentListProps) {
   const [apartments, setApartments] = useState(initialApartments);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(initialApartments.length > 0);
+  // hasMore is now determined by comparing the number of displayed apartments with the total.
+  const [hasMore, setHasMore] = useState(initialApartments.length < totalInitialResults);
   const [isLoading, setIsLoading] = useState(false);
   const { ref, inView } = useInView();
 
@@ -35,9 +40,9 @@ export default function ApartmentList({ initialApartments, searchParams }: Apart
       searchParamsRef.current = newSearchParams;
       setApartments(initialApartments);
       setPage(1);
-      setHasMore(initialApartments.length > 0);
+      setHasMore(initialApartments.length < totalInitialResults);
     }
-  }, [initialApartments, searchParams]);
+  }, [initialApartments, searchParams, totalInitialResults]);
 
   const loadMoreApartments = useCallback(async () => {
     if (isLoading || !hasMore) return;
@@ -47,18 +52,19 @@ export default function ApartmentList({ initialApartments, searchParams }: Apart
     const result = await fetchApartmentsAction({
       ...searchParams,
       page: nextPage,
-      limit: 9,
+      limit: PAGE_SIZE,
     });
 
     if (result.apartments.length > 0) {
       setPage(nextPage);
       setApartments((prev) => [...prev, ...result.apartments]);
-      setHasMore(result.apartments.length === 9); 
+       // Update hasMore based on the new total
+      setHasMore(apartments.length + result.apartments.length < totalInitialResults);
     } else {
       setHasMore(false);
     }
     setIsLoading(false);
-  }, [page, hasMore, isLoading, searchParams]);
+  }, [page, hasMore, isLoading, searchParams, apartments.length, totalInitialResults]);
 
   useEffect(() => {
     if (inView && hasMore && !isLoading) {

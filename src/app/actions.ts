@@ -1,3 +1,4 @@
+
 "use server";
 
 import { z } from "zod";
@@ -183,18 +184,10 @@ export async function fetchApartmentsAction(options: {
   limit?: number;
   sortBy?: string;
 }) {
-    const page = options.page || 1;
-    // We get one more to see if there is a next page
-    const limit = (options.limit || 9);
-
-    const { apartments, lastVisible } = await getApartments({
-        ...options,
-        page,
-        limit,
-    });
+    // This action simply passes the options to the centralized getApartments function.
+    const { apartments } = await getApartments(options);
     
     return {
         apartments,
-        lastVisibleId: lastVisible ? lastVisible.id : null,
     };
 }

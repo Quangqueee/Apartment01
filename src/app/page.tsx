@@ -1,3 +1,4 @@
+
 import Link from "next/link";
 import { getApartments } from "@/lib/data";
 import Header from "@/components/header";
@@ -18,15 +19,17 @@ type HomeProps = {
   };
 };
 
+const PAGE_SIZE = 9;
+
 export default async function Home({ searchParams }: HomeProps) {
-  // Fetch the initial batch of apartments
+  // Fetch the initial batch of apartments using the centralized getApartments function
   const { apartments, totalResults } = await getApartments({
     query: searchParams.q,
     district: searchParams.district,
     priceRange: searchParams.price,
     roomType: searchParams.roomType,
     page: 1, // Always fetch the first page on initial load
-    limit: 9,
+    limit: PAGE_SIZE,
     sortBy: searchParams.sort,
   });
 
@@ -41,7 +44,11 @@ export default async function Home({ searchParams }: HomeProps) {
             </p>
             <SortControls />
           </div>
-          <ApartmentList initialApartments={apartments} searchParams={searchParams} />
+          <ApartmentList 
+            initialApartments={apartments} 
+            searchParams={searchParams}
+            totalInitialResults={totalResults}
+          />
         </div>
       </main>
       <Footer />
