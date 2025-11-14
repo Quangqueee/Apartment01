@@ -54,7 +54,7 @@ async function getLastDocOfPreviousPage(q: Query, page: number, pageSize: number
 
 export async function getApartments(
   options: {
-    q?: string;
+    query?: string;
     district?: string;
     priceRange?: string;
     roomType?: string;
@@ -86,62 +86,70 @@ export async function getApartments(
     whereClauses.push(where("roomType", "==", roomType));
   }
   
-  if (whereClauses.length > 0) {
-      baseQuery = query(baseQuery, ...whereClauses);
-  }
-
-  // --- Build OrderBy Clause (Only for consistent pagination) ---
-  // We will always sort by updatedAt initially for stable results from Firestore.
-  // Price sorting will be handled on the server after filtering.
-  baseQuery = query(baseQuery, orderBy("updatedAt", "desc"));
-  
-  const querySnapshot = await getDocs(baseQuery);
-  let allMatchingApartments = querySnapshot.docs.map(toApartment);
-
-  // --- Post-Query Filtering (on server) ---
-  
-  // Apply Price Range Filter
+  // Apply price range filtering with where clauses
   if (priceRange) {
     const [min, max] = priceRange.split("-");
     const minPrice = min ? parseInt(min, 10) : 0;
     const maxPrice = max ? parseInt(max, 10) : Infinity;
-    allMatchingApartments = allMatchingApartments.filter(apt => {
-        const price = apt.price;
-        const meetsMin = minPrice > 0 ? price >= minPrice : true;
-        const meetsMax = maxPrice !== Infinity ? price <= maxPrice : true;
-        return meetsMin && meetsMax;
-    });
+
+    if (minPrice > 0) {
+      whereClauses.push(where("price", ">=", minPrice));
+    }
+    if (maxPrice !== Infinity) {
+      whereClauses.push(where("price", "<=", maxPrice));
+    }
   }
 
-  // Apply Text Search Filter
+  if (whereClauses.length > 0) {
+      baseQuery = query(baseQuery, ...whereClauses);
+  }
+
+  // --- Build OrderBy Clause ---
+  if (sortBy === 'price-asc') {
+    baseQuery = query(baseQuery, orderBy("price", "asc"), orderBy("updatedAt", "desc"));
+  } else if (sortBy === 'price-desc') {
+    baseQuery = query(baseQuery, orderBy("price", "desc"), orderBy("updatedAt", "desc"));
+  } else { // 'newest' or default
+    baseQuery = query(baseQuery, orderBy("updatedAt", "desc"));
+  }
+
+  // --- Total Count for Pagination ---
+  // Create a separate query for counting that matches the where clauses
+  const countQuery = whereClauses.length > 0 ? query(apartmentsCollection, ...whereClauses) : apartmentsCollection;
+  const countSnapshot = await getCountFromServer(countQuery);
+  const totalResults = countSnapshot.data().count;
+
+  // --- Pagination ---
+  if (page > 1) {
+    // To get the correct starting point, we need to fetch the documents up to the previous page's end
+    const lastDoc = await getLastDocOfPreviousPage(baseQuery, page, pageSize);
+    if (lastDoc) {
+      baseQuery = query(baseQuery, startAfter(lastDoc));
+    }
+  }
+
+  // Apply the final limit
+  baseQuery = query(baseQuery, limit(pageSize));
+  
+  const querySnapshot = await getDocs(baseQuery);
+  let apartments = querySnapshot.docs.map(toApartment);
+
+  // --- Post-Query Text Search (if needed) ---
+  // This is not ideal for performance with large datasets but works for this structure
   if (searchQuery) {
     const normalizedQuery = removeVietnameseTones(searchQuery);
-    allMatchingApartments = allMatchingApartments.filter((apt) => {
+    apartments = apartments.filter((apt) => {
       if (searchBy === 'sourceCodeOrAddress') {
         const normalizedCode = removeVietnameseTones(apt.sourceCode);
         const normalizedAddress = removeVietnameseTones(apt.address);
         return normalizedCode.includes(normalizedQuery) || normalizedAddress.includes(normalizedQuery);
       }
-      
+      // Default to titleOrSourceCode
       const normalizedTitle = removeVietnameseTones(apt.title);
       const normalizedCode = removeVietnameseTones(apt.sourceCode);
       return normalizedTitle.includes(normalizedQuery) || normalizedCode.includes(normalizedQuery);
     });
   }
-
-  // --- Post-Filter Sorting (on server) ---
-  if (sortBy === 'price-asc') {
-    allMatchingApartments.sort((a, b) => a.price - b.price);
-  } else if (sortBy === 'price-desc') {
-    allMatchingApartments.sort((a, b) => b.price - a.price);
-  }
-  // 'newest' is already handled by the initial Firestore query `orderBy("updatedAt", "desc")`
-
-  // --- Manual Pagination on the final filtered and sorted list ---
-  const totalResults = allMatchingApartments.length;
-  const startIndex = (page - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const apartments = allMatchingApartments.slice(startIndex, endIndex);
 
   return { 
       apartments, 
