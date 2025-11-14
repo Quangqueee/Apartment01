@@ -180,7 +180,7 @@ export default function AdminDashboard() {
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href={`/apartments/${apt.id}`} target="_blank">
+                            <Link href={`/apartments/${apt.slug}`} target="_blank">
                               View
                             </Link>
                           </DropdownMenuItem>
@@ -225,7 +225,7 @@ export default function AdminDashboard() {
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href={`/apartments/${apt.id}`} target="_blank">
+                            <Link href={`/apartments/${apt.slug}`} target="_blank">
                               View
                             </Link>
                           </DropdownMenuItem>

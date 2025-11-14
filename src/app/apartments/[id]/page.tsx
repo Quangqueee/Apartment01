@@ -1,5 +1,5 @@
 
-import { getApartmentById } from "@/lib/data";
+import { getApartmentBySlug, getApartmentById } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ import ApartmentImageGallery from "@/components/apartment-image-gallery";
 
 type ApartmentPageProps = {
   params: {
-    id: string;
+    id: string; // This is now a slug
   };
 };
 
@@ -87,8 +87,7 @@ function ApartmentDetails({ apartment }: { apartment: Apartment }) {
                   <div className="flex items-center gap-2">
                     <MapPin className="h-5 w-5 text-muted-foreground" />
                     <div>
-                      <p className="font-semibold">Quận</p>
-                      <p className="text-muted-foreground">
+                      <p className="font-semibold">Quận</p>                      <p className="text-muted-foreground">
                         {apartment.district}
                       </p>
                     </div>
@@ -120,7 +119,15 @@ function ApartmentDetails({ apartment }: { apartment: Apartment }) {
 
 
 export default async function ApartmentPage({ params }: ApartmentPageProps) {
-  const apartment = await getApartmentById(params.id);
+  const slug = params.id; // The param is now the slug
+  
+  // Try to find by slug first
+  let apartment = await getApartmentBySlug(slug);
+
+  // Fallback to ID for old bookmarks, etc. Not ideal but graceful.
+  if (!apartment) {
+    apartment = await getApartmentById(slug);
+  }
 
   if (!apartment) {
     notFound();

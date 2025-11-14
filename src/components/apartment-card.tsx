@@ -26,13 +26,14 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
   };
 
   const primaryImage = apartment.imageUrls?.[0];
+  const linkHref = `/apartments/${apartment.slug || apartment.id}`;
 
   return (
     <Card
       key={apartment.id}
       className="flex h-full flex-col overflow-hidden transition-shadow duration-300 hover:shadow-xl"
     >
-      <Link href={`/apartments/${apartment.id}`} className="block">
+      <Link href={linkHref} className="block">
         {primaryImage && (
             <div className="relative w-full aspect-[4/3]">
             <Image
@@ -47,7 +48,7 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
         )}
       </Link>
       <div className="flex flex-1 flex-col">
-        <Link href={`/apartments/${apartment.id}`} className="flex flex-1 flex-col">
+        <Link href={linkHref} className="flex flex-1 flex-col">
             <CardHeader>
                 <CardTitle className="font-headline text-xl tracking-tight">
                     {apartment.title}

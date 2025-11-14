@@ -2,6 +2,7 @@ export type RoomType = "studio" | "1n1k" | "2n1k" | "other";
 
 export interface Apartment {
   id: string;
+  slug: string;
   title: string;
   sourceCode: string; // For admin use
   roomType: RoomType;
