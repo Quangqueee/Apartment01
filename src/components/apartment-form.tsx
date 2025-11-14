@@ -439,6 +439,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                             ref={fileInputRef}
                             multiple
                             onChange={handleFileChange}
+                            onClick={(e) => e.stopPropagation()}
                             accept={ACCEPTED_IMAGE_TYPES.join(",")}
                             className="absolute inset-0 h-full w-full opacity-0"
                           />
