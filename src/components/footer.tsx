@@ -5,7 +5,7 @@ export default function Footer() {
     <footer className="border-t bg-secondary/50">
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-          <div className="flex flex-col md:order-2 md:items-end">
+          <div className="md:order-2 md:col-span-1">
             <div className="text-center md:text-right">
               <h2 className="font-headline text-xl font-semibold">
                 Quang Apartment
