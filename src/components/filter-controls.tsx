@@ -1,3 +1,4 @@
+
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -48,34 +49,37 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
           params.delete(key);
         }
       });
-      params.set("page", "1");
+      // Do not reset page on filter change for infinite scroll
+      // params.set("page", "1");
       return params.toString();
     },
     [searchParams]
   );
   
   useEffect(() => {
-    // Don't apply filters on initial render or if they are the same as URL
-    // This prevents applying debounced empty filters on page load
-    const currentParams = new URLSearchParams(searchParams);
-    const hasUrlFilters = currentParams.has('district') || currentParams.has('price') || currentParams.has('roomType');
-    if (!hasUrlFilters && debouncedFilters.district === '' && debouncedFilters.price === '' && debouncedFilters.roomType === '') {
-        return;
+    // This effect now ONLY handles pushing updates to the URL when debounced filters change.
+    const currentQueryString = new URLSearchParams(searchParams).toString();
+    const newQueryString = createQueryString(debouncedFilters);
+
+    if (currentQueryString !== newQueryString) {
+      startTransition(() => {
+          router.push(`${pathname}?${newQueryString}`);
+      });
     }
-    startTransition(() => {
-        router.push(`${pathname}?${createQueryString(debouncedFilters)}`);
-    });
   }, [debouncedFilters, router, pathname, createQueryString, searchParams]);
 
   useEffect(() => {
-    // Load saved filters from localStorage on initial render for non-admin
+    // This effect handles loading filters from localStorage on mount.
+    // It runs ONLY on the client, AFTER initial render (hydration).
     if (isAdmin) return;
+    
     try {
       const savedFiltersJson = localStorage.getItem(SAVED_FILTERS_KEY);
       if (savedFiltersJson) {
         const savedFilters = JSON.parse(savedFiltersJson);
         const currentParams = new URLSearchParams(searchParams);
-        // Apply only if there are no filters in URL
+        
+        // Apply saved filters only if there are no filters in the current URL
         if (!currentParams.has('district') && !currentParams.has('price') && !currentParams.has('roomType')) {
           setFilters(savedFilters);
         }
@@ -83,7 +87,7 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
     } catch (error) {
       console.error("Failed to load filters from local storage", error);
     }
-  }, [isAdmin, searchParams]);
+  }, [isAdmin, searchParams]); // searchParams is included to re-evaluate if URL changes externally
 
   const handleFilterChange = (name: string, value: string) => {
     setFilters(prev => ({ ...prev, [name]: value }));
@@ -93,7 +97,11 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
     const defaultFilters = { district: "", price: "", roomType: "" };
     setFilters(defaultFilters);
     if (!isAdmin) {
-      localStorage.removeItem(SAVED_FILTERS_KEY);
+      try {
+        localStorage.removeItem(SAVED_FILTERS_KEY);
+      } catch (error) {
+        console.error("Failed to remove filters from local storage", error);
+      }
     }
     // Let the debounced effect handle the navigation
   };
