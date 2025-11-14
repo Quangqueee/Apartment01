@@ -1,3 +1,6 @@
+
+'use client';
+
 import {
   SidebarProvider,
   Sidebar,
@@ -8,15 +11,23 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarInset,
-} from "@/components/ui/sidebar";
-import { Home, LayoutGrid, LogOut, PlusCircle } from "lucide-react";
-import Link from "next/link";
+} from '@/components/ui/sidebar';
+import { Home, LayoutGrid, LogOut, PlusCircle, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { useUser, useAuth } from '@/firebase/provider';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { signOut } from 'firebase/auth';
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function AdminLayoutContent({ children }: { children: React.ReactNode }) {
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/login');
+  };
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -58,11 +69,9 @@ export default function AdminLayout({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href="/login">
-                  <LogOut />
-                  Logout
-                </Link>
+              <SidebarMenuButton onClick={handleLogout}>
+                <LogOut />
+                Logout
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -71,4 +80,34 @@ export default function AdminLayout({
       <SidebarInset>{children}</SidebarInset>
     </SidebarProvider>
   );
+}
+
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
+
+  if (isUserLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // or a redirect component, though useEffect handles it
+  }
+
+  return <AdminLayoutContent>{children}</AdminLayoutContent>;
 }
