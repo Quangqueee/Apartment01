@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, ClipboardCopy } from "lucide-react";
 import { getApartments } from "@/lib/data";
 import Link from "next/link";
 import { deleteApartmentAction } from "../actions";
@@ -26,11 +26,13 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useState, useEffect, useTransition, FormEvent } from "react";
 import { Apartment } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminDashboard() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const { toast } = useToast();
 
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [isPending, startTransition] = useTransition();
@@ -63,6 +65,14 @@ export default function AdminDashboard() {
     params.set("page", "1"); // Reset to first page on new search
     router.push(`${pathname}?${params.toString()}`);
   }
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Đã sao chép!",
+      description: "Số điện thoại đã được sao chép vào bộ nhớ tạm.",
+    });
+  };
 
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
@@ -207,9 +217,23 @@ export default function AdminDashboard() {
                       </DropdownMenu>
                     </div>
                   <p className="text-sm"><span className="font-medium text-muted-foreground">Mã nội bộ:</span> {apt.sourceCode}</p>
-                  <p className="text-sm"><span className="font-medium text-muted-foreground">SĐT Chủ nhà:</span> {apt.landlordPhoneNumber}</p>
-                  <p className="text-sm"><span className="font-medium text-muted-foreground">Ngày cập nhật:</span> {formatDate(apt.updatedAt)}</p>
-                  <p className="text-sm font-semibold text-right">{apt.price} tr</p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium text-muted-foreground">SĐT Chủ nhà:</span>
+                    <span>{apt.landlordPhoneNumber}</span>
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-6 w-6"
+                      onClick={() => handleCopy(apt.landlordPhoneNumber)}
+                    >
+                      <ClipboardCopy className="h-4 w-4" />
+                      <span className="sr-only">Sao chép</span>
+                    </Button>
+                  </div>
+                  <div className="flex justify-between items-baseline text-sm">
+                    <p><span className="font-medium text-muted-foreground">Ngày cập nhật:</span> {formatDate(apt.updatedAt)}</p>
+                    <p className="font-semibold text-right">{apt.price} tr</p>
+                  </div>
                 </CardContent>
               </Card>
             ))}
