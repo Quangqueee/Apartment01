@@ -67,12 +67,37 @@ export default function AdminDashboard() {
   }
 
   const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Đã sao chép!",
-      description: "Số điện thoại đã được sao chép vào bộ nhớ tạm.",
-    });
+    // Fallback for insecure contexts
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    
+    // Make the textarea out of sight
+    textArea.style.position = "fixed";
+    textArea.style.top = "-9999px";
+    textArea.style.left = "-9999px";
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      document.execCommand("copy");
+      toast({
+        title: "Đã sao chép!",
+        description: "Số điện thoại đã được sao chép vào bộ nhớ tạm.",
+      });
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+      toast({
+        variant: "destructive",
+        title: "Lỗi!",
+        description: "Không thể sao chép số điện thoại.",
+      });
+    }
+
+    document.body.removeChild(textArea);
   };
+
 
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
@@ -181,8 +206,8 @@ export default function AdminDashboard() {
           <div className="space-y-4 md:hidden">
             {apartments.map((apt) => (
               <Card key={apt.id} className="relative">
-                <CardContent className="p-4 space-y-2">
-                  <Link href={`/admin/apartments/${apt.id}/edit`} className="font-bold text-primary hover:underline pr-10">
+                <CardContent className="space-y-2 p-4">
+                  <Link href={`/admin/apartments/${apt.id}/edit`} className="pr-10 font-bold text-primary hover:underline">
                     {apt.address}
                   </Link>
                    <div className="absolute right-2 top-2">
@@ -230,9 +255,9 @@ export default function AdminDashboard() {
                       <span className="sr-only">Sao chép</span>
                     </Button>
                   </div>
-                  <div className="flex justify-between items-baseline text-sm">
+                   <div className="flex items-baseline justify-between text-sm">
                     <p><span className="font-medium text-muted-foreground">Ngày cập nhật:</span> {formatDate(apt.updatedAt)}</p>
-                    <p className="font-semibold text-right">{apt.price} tr</p>
+                    <p className="text-right font-semibold">{apt.price} tr</p>
                   </div>
                 </CardContent>
               </Card>
