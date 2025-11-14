@@ -50,7 +50,7 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
     setIsLoading(true);
     const nextPage = page + 1;
     
-    // Pass the plain searchParams object to the action
+    // Pass the plain searchParams object to the action, including the sort parameter
     const result = await fetchApartmentsAction({
       query: searchParams.q,
       district: searchParams.district,
