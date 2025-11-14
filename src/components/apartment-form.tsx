@@ -31,7 +31,7 @@ import {
   generateSummaryAction,
 } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useRef, DragEvent } from "react";
+import { useState, useRef, DragEvent, useCallback } from "react";
 import { Loader2, Sparkles, Trash2, Upload } from "lucide-react";
 import Image from "next/image";
 import {
@@ -199,6 +199,15 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     },
   });
 
+  const removeImage = useCallback(
+    (index: number) => {
+      const updatedPreviews = previews.filter((_, i) => i !== index);
+      setPreviews(updatedPreviews);
+      form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
+    },
+    [previews, form]
+  );
+
   const handleFiles = (files: File[]) => {
     if (files.length === 0) return;
 
@@ -262,13 +271,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     e.stopPropagation();
     setIsDragging(false);
     handleFiles(Array.from(e.dataTransfer.files));
-  };
-
-
-  const removeImage = (index: number) => {
-    const updatedPreviews = previews.filter((_, i) => i !== index);
-    setPreviews(updatedPreviews);
-    form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
