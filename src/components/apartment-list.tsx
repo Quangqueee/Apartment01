@@ -25,24 +25,26 @@ const PAGE_SIZE = 9;
 export default function ApartmentList({ initialApartments, searchParams, totalInitialResults }: ApartmentListProps) {
   const [apartments, setApartments] = useState(initialApartments);
   const [page, setPage] = useState(1);
-  // hasMore is now determined by comparing the number of displayed apartments with the total.
   const [hasMore, setHasMore] = useState(initialApartments.length < totalInitialResults);
   const [isLoading, setIsLoading] = useState(false);
   const { ref, inView } = useInView();
 
-  // Ref to store a serialized version of searchParams for dependency array
+  // Ref to store a serialized version of searchParams to detect changes.
   const searchParamsRef = useRef(JSON.stringify(searchParams));
 
-  // Reset state when filters change
+  // This is the key fix: Reset state whenever searchParams change.
+  // This ensures that if the user applies a new filter or sort order,
+  // the component resets to show the new initial data and loads more from page 2.
   useEffect(() => {
-    const newSearchParams = JSON.stringify(searchParams);
-    if (searchParamsRef.current !== newSearchParams) {
-      searchParamsRef.current = newSearchParams;
+    const newSearchParamsString = JSON.stringify(searchParams);
+    if (searchParamsRef.current !== newSearchParamsString) {
+      searchParamsRef.current = newSearchParamsString;
       setApartments(initialApartments);
       setPage(1);
       setHasMore(initialApartments.length < totalInitialResults);
     }
   }, [initialApartments, searchParams, totalInitialResults]);
+
 
   const loadMoreApartments = useCallback(async () => {
     if (isLoading || !hasMore) return;
@@ -50,23 +52,20 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
     setIsLoading(true);
     const nextPage = page + 1;
     
-    // Pass the plain searchParams object to the action, including the sort parameter
+    // The action is called with the most up-to-date searchParams
     const result = await fetchApartmentsAction({
-      query: searchParams.q,
-      district: searchParams.district,
-      priceRange: searchParams.price,
-      roomType: searchParams.roomType,
+      ...searchParams,
+      priceRange: searchParams.price, // map 'price' from URL to 'priceRange'
       sortBy: searchParams.sort,
       page: nextPage,
       limit: PAGE_SIZE,
     });
 
-    // Check against the *newly fetched* apartments, not the action result which might have a different structure
     if (result.apartments.length > 0) {
       setPage(nextPage);
       const newApartments = [...apartments, ...result.apartments];
       setApartments(newApartments);
-      // Update hasMore based on the new total. `totalInitialResults` is the true total from the server.
+      // The total number of results comes from the initial page load.
       setHasMore(newApartments.length < totalInitialResults);
     } else {
       setHasMore(false);
