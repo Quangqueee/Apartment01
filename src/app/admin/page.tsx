@@ -102,9 +102,11 @@ export default function AdminDashboard() {
   return (
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
       <div className="flex items-center justify-between space-y-2">
-        <h2 className="font-headline text-3xl font-bold tracking-tight">
-          Apartment Dashboard
-        </h2>
+        <Link href="/">
+            <h2 className="font-headline text-3xl font-bold tracking-tight transition-colors hover:text-primary">
+                Apartment Dashboard
+            </h2>
+        </Link>
         <div className="flex items-center space-x-2">
           <Button asChild>
             <Link href="/admin/apartments/new">
@@ -269,3 +271,5 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+    
