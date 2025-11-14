@@ -11,18 +11,19 @@ import {
 } from "@/components/ui/select";
 import { HANOI_DISTRICTS, PRICE_RANGES, ROOM_TYPES } from "@/lib/constants";
 import { Button } from "./ui/button";
-import { X, Save } from "lucide-react";
+import { X, Save, ChevronUp } from "lucide-react";
 import { useCallback, useState, useEffect, useTransition } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 type FilterControlsProps = {
   isAdmin?: boolean;
   onFilterSave?: () => void;
+  onCollapse?: () => void;
 };
 
 const SAVED_FILTERS_KEY = "hanoi_residences_filters";
 
-export default function FilterControls({ isAdmin = false, onFilterSave }: FilterControlsProps) {
+export default function FilterControls({ isAdmin = false, onFilterSave, onCollapse }: FilterControlsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -130,7 +131,7 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
   const hasActiveFilters = Object.values(filters).some(val => val !== "");
 
   return (
-    <div className="space-y-4 rounded-lg border bg-card p-4">
+    <div className="space-y-4 rounded-lg border bg-card p-4 relative">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Select
           value={filters.district}
@@ -196,6 +197,19 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
           {isAdmin ? 'Áp dụng bộ lọc' : 'Áp dụng & Lưu'}
         </Button>
       </div>
+       {onCollapse && (
+        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2">
+            <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-8 rounded-full bg-card hover:bg-accent border"
+                onClick={onCollapse}
+                aria-label="Thu gọn bộ lọc"
+            >
+                <ChevronUp className="h-5 w-5" />
+            </Button>
+        </div>
+      )}
     </div>
   );
 }

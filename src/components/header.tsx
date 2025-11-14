@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -38,6 +39,10 @@ export default function Header() {
     }
     params.set("page", "1");
     router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const handleCollapse = () => {
+    setFiltersVisible(false);
   };
 
   return (
@@ -140,6 +145,7 @@ export default function Header() {
         >
           <FilterControls
             onFilterSave={() => isMobile && setFiltersVisible(false)}
+            onCollapse={handleCollapse}
           />
         </div>
       </div>
