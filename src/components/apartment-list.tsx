@@ -29,33 +29,17 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
   const [isLoading, setIsLoading] = useState(false);
   const { ref, inView } = useInView();
 
-  // Ref to store a serialized version of searchParams to detect changes.
-  const searchParamsRef = useRef(JSON.stringify(searchParams));
-
-  // This is the key fix: Reset state whenever searchParams change.
-  // This ensures that if the user applies a new filter or sort order,
-  // the component resets to show the new initial data and loads more from page 2.
-  useEffect(() => {
-    const newSearchParamsString = JSON.stringify(searchParams);
-    if (searchParamsRef.current !== newSearchParamsString) {
-      searchParamsRef.current = newSearchParamsString;
-      setApartments(initialApartments);
-      setPage(1);
-      setHasMore(initialApartments.length < totalInitialResults);
-    }
-  }, [initialApartments, searchParams, totalInitialResults]);
-
-
   const loadMoreApartments = useCallback(async () => {
     if (isLoading || !hasMore) return;
 
     setIsLoading(true);
     const nextPage = page + 1;
     
-    // The action is called with the most up-to-date searchParams
     const result = await fetchApartmentsAction({
-      ...searchParams,
+      query: searchParams.q,
+      district: searchParams.district,
       priceRange: searchParams.price, // map 'price' from URL to 'priceRange'
+      roomType: searchParams.roomType,
       sortBy: searchParams.sort,
       page: nextPage,
       limit: PAGE_SIZE,
