@@ -55,16 +55,19 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
       limit: PAGE_SIZE,
     });
 
+    // Check against the *newly fetched* apartments, not the action result which might have a different structure
     if (result.apartments.length > 0) {
       setPage(nextPage);
-      setApartments((prev) => [...prev, ...result.apartments]);
-       // Update hasMore based on the new total
-      setHasMore(apartments.length + result.apartments.length < totalInitialResults);
+      const newApartments = [...apartments, ...result.apartments];
+      setApartments(newApartments);
+      // Update hasMore based on the new total. `totalInitialResults` is the true total from the server.
+      setHasMore(newApartments.length < totalInitialResults);
     } else {
       setHasMore(false);
     }
     setIsLoading(false);
-  }, [page, hasMore, isLoading, searchParams, apartments.length, totalInitialResults]);
+  }, [page, hasMore, isLoading, searchParams, apartments, totalInitialResults]);
+
 
   useEffect(() => {
     if (inView && hasMore && !isLoading) {
