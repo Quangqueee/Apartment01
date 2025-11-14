@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { format } from "date-fns";
+import { format as formatInTimeZone } from "date-fns-tz";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -20,7 +20,9 @@ export function formatDate(timestamp: { seconds: number; nanoseconds: number }):
     return "";
   }
   const date = new Date(timestamp.seconds * 1000);
-  return format(date, "dd/MM/yyyy");
+  // Always format the date in a consistent timezone to prevent hydration errors.
+  // Using Vietnam's timezone.
+  return formatInTimeZone(date, "dd/MM/yyyy", { timeZone: "Asia/Ho_Chi_Minh" });
 }
 
 export function removeVietnameseTones(str: string) {
