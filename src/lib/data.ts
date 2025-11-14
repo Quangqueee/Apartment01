@@ -14,6 +14,7 @@ import {
   Query,
   DocumentData,
   Timestamp,
+  getCountFromServer,
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
 import { Apartment } from "./types";
@@ -24,13 +25,10 @@ const apartmentsCollection = collection(firestore, "apartments");
 
 const toApartment = (docSnap: DocumentData): Apartment => {
   const data = docSnap.data();
-  // Firestore's Timestamp is an object with methods, which Next.js
-  // cannot serialize from a Server Component to a Client Component.
-  // We convert it to a plain object.
   const createdAt = data.createdAt?.toDate ? {
     seconds: data.createdAt.seconds,
     nanoseconds: data.createdAt.nanoseconds,
-  } : { seconds: 0, nanoseconds: 0 }; // Provide a default if createdAt is missing
+  } : { seconds: 0, nanoseconds: 0 }; 
 
   return {
     id: docSnap.id,
@@ -38,6 +36,15 @@ const toApartment = (docSnap: DocumentData): Apartment => {
     createdAt,
   } as Apartment;
 };
+
+// Helper function to get the last document of the previous page
+async function getLastDocOfPreviousPage(q: Query, page: number, pageSize: number) {
+    if (page <= 1) return null;
+    const endAt = (page - 1) * pageSize;
+    const prevPageQuery = query(q, limit(endAt));
+    const snapshot = await getDocs(prevPageQuery);
+    return snapshot.docs[snapshot.docs.length - 1];
+}
 
 export async function getApartments(
   options: {
@@ -49,6 +56,7 @@ export async function getApartments(
     limit?: number;
     sortBy?: string;
     searchBy?: "title" | "sourceCode" | "sourceCodeOrAddress";
+    lastVisible?: any; // For pagination
   } = {}
 ) {
   const {
@@ -60,40 +68,73 @@ export async function getApartments(
     limit: pageSize = 9,
     sortBy = "newest",
     searchBy = "title",
+    lastVisible: lastVisibleDoc,
   } = options;
 
-  // --- Step 1: Fetch ALL apartments from Firestore ---
-  const q = query(apartmentsCollection);
-  const querySnapshot = await getDocs(q);
-  let apartments = querySnapshot.docs.map(toApartment);
+  let baseQuery: Query = apartmentsCollection;
+  let whereClauses = [];
 
-  // --- Step 2: Perform ALL filtering and sorting on the client-side ---
-  
-  // District Filter
+  // --- Build Where Clauses ---
   if (district) {
-    apartments = apartments.filter(apt => apt.district === district);
+    whereClauses.push(where("district", "==", district));
   }
-
-  // Room Type Filter
   if (roomType) {
-    apartments = apartments.filter(apt => apt.roomType === roomType);
+    whereClauses.push(where("roomType", "==", roomType));
   }
-
-  // Price Range Filter
   if (priceRange) {
     const [min, max] = priceRange.split("-");
     const minPrice = min ? parseInt(min) : 0;
     const maxPrice = max ? parseInt(max) : Infinity;
-    
-    apartments = apartments.filter(apt => {
-        let passes = true;
-        if (minPrice > 0) passes = passes && apt.price >= minPrice;
-        if (maxPrice !== Infinity) passes = passes && apt.price <= maxPrice;
-        return passes;
-    });
+    if (minPrice > 0) whereClauses.push(where("price", ">=", minPrice));
+    if (maxPrice !== Infinity) whereClauses.push(where("price", "<=", maxPrice));
+  }
+  
+  // --- Text Search Filter (Client-Side) ---
+  // Firestore doesn't support native text search on multiple fields well without a third-party service.
+  // We'll keep this part client-side as a post-filter if a search query exists.
+  // Or, if search is the only filter, we can't optimize it with Firestore queries alone.
+  // For now, we apply it after fetching.
+  
+  if (whereClauses.length > 0) {
+      baseQuery = query(baseQuery, ...whereClauses);
   }
 
-  // Search Filter
+  // --- Get Total Count for the filtered query ---
+  const countSnapshot = await getCountFromServer(baseQuery);
+  let totalResults = countSnapshot.data().count;
+
+  // --- Build OrderBy Clause ---
+  // Firestore requires the first orderBy to match the inequality field if one exists
+  if (priceRange && sortBy.startsWith('price')) {
+      baseQuery = query(baseQuery, orderBy("price", sortBy === 'price-asc' ? 'asc' : 'desc'));
+  } else if (sortBy === 'price-asc') {
+      baseQuery = query(baseQuery, orderBy("price", "asc"));
+  } else if (sortBy === 'price-desc') {
+      baseQuery = query(baseQuery, orderBy("price", "desc"));
+  }
+  // Always add a secondary sort for consistent ordering
+  baseQuery = query(baseQuery, orderBy("createdAt", "desc"));
+
+  // --- Pagination ---
+  if (page > 1 && !lastVisibleDoc) {
+      const lastDoc = await getLastDocOfPreviousPage(baseQuery, page, pageSize);
+      if (lastDoc) {
+        baseQuery = query(baseQuery, startAfter(lastDoc));
+      }
+  } else if (lastVisibleDoc) {
+      const docRef = doc(firestore, "apartments", lastVisibleDoc.id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()){
+          baseQuery = query(baseQuery, startAfter(docSnap));
+      }
+  }
+  
+  baseQuery = query(baseQuery, limit(pageSize));
+
+  const querySnapshot = await getDocs(baseQuery);
+  let apartments = querySnapshot.docs.map(toApartment);
+
+  // --- Apply Text Search if present ---
   if (searchQuery) {
     const normalizedQuery = removeVietnameseTones(searchQuery);
     apartments = apartments.filter((apt) => {
@@ -107,27 +148,18 @@ export async function getApartments(
       const normalizedField = removeVietnameseTones(fieldToSearch);
       return normalizedField.includes(normalizedQuery);
     });
+    // If we filter by text search, totalResults needs to be re-evaluated.
+    // For simplicity with server components, we'll show totalResults pre-text-search.
+    // A more complex setup would run two queries or do counts differently.
   }
   
-  const totalResults = apartments.length;
+  const lastFetchedDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
 
-  // Sorting
-  if (sortBy === 'price-asc') {
-    apartments.sort((a, b) => a.price - b.price);
-  } else if (sortBy === 'price-desc') {
-    apartments.sort((a, b) => b.price - a.price);
-  } else { // Default to 'newest'
-    apartments.sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
-  }
-
-  // Pagination (after all filtering and sorting is done)
-  const totalPages = Math.ceil(apartments.length / pageSize);
-  const start = (page - 1) * pageSize;
-  const end = start + pageSize;
-  const paginatedApartments = apartments.slice(start, end);
-
-
-  return { apartments: paginatedApartments, totalPages, totalResults };
+  return { 
+      apartments, 
+      totalResults,
+      lastVisible: lastFetchedDoc ? toApartment(lastFetchedDoc) : null 
+  };
 }
 
 export async function getApartmentById(id: string): Promise<Apartment | null> {

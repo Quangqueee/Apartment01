@@ -11,6 +11,7 @@ import {
   updateApartment,
   deleteApartment as deleteApartmentFromDb,
   getApartmentById,
+  getApartments,
 } from "@/lib/data";
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
@@ -171,4 +172,29 @@ export async function generateSummaryAction(
     console.error("AI summary generation failed:", error);
     return { error: "Failed to generate summary from AI." };
   }
+}
+
+export async function fetchApartmentsAction(options: {
+  query?: string;
+  district?: string;
+  priceRange?: string;
+  roomType?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+}) {
+    const page = options.page || 1;
+    // We get one more to see if there is a next page
+    const limit = (options.limit || 9);
+
+    const { apartments, lastVisible } = await getApartments({
+        ...options,
+        page,
+        limit,
+    });
+    
+    return {
+        apartments,
+        lastVisibleId: lastVisible ? lastVisible.id : null,
+    };
 }

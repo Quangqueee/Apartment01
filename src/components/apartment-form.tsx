@@ -59,6 +59,9 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/png",
   "image/webp",
 ];
+const IMAGE_QUALITY = 0.75;
+const MAX_IMAGE_WIDTH = 1920;
+
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters."),
@@ -125,6 +128,41 @@ type ApartmentFormProps = {
   apartment?: Apartment;
 };
 
+// Helper function to compress and resize an image
+const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = document.createElement('img');
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                let { width, height } = img;
+
+                // Resize logic
+                if (width > MAX_IMAGE_WIDTH) {
+                    height = (height * MAX_IMAGE_WIDTH) / width;
+                    width = MAX_IMAGE_WIDTH;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                ctx?.drawImage(img, 0, 0, width, height);
+
+                // Get the data URL with the specified quality
+                const dataUrl = canvas.toDataURL(file.type, IMAGE_QUALITY);
+                resolve(dataUrl);
+            };
+            img.onerror = reject;
+        };
+        reader.onerror = reject;
+    });
+};
+
+
 export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -178,12 +216,10 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
           return reject(`File type not supported: ${file.name}`);
         }
         if (file.size > MAX_FILE_SIZE) {
-          return reject(`File too large: ${file.name}`);
+          // We can still try to compress it if it's too large
+           console.warn(`File too large, attempting to compress: ${file.name}`);
         }
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target?.result as string);
-        reader.onerror = (e) => reject(e);
-        reader.readAsDataURL(file);
+        compressImage(file).then(resolve).catch(reject);
       });
     });
 
@@ -196,7 +232,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       .catch((error) => {
         toast({
           variant: "destructive",
-          title: "Error uploading file",
+          title: "Error processing file",
           description:
             typeof error === "string" ? error : "An unexpected error occurred.",
         });
@@ -392,7 +428,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                             Kéo và thả hoặc nhấp để tải ảnh lên
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            (Recommended: below 5MB per image)
+                            (Ảnh sẽ được tự động nén)
                           </p>
                           <Input
                             type="file"
@@ -405,8 +441,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                         </div>
                       </FormControl>
                       <FormDescription>
-                        Upload one or more images (JPG, PNG, WebP). Max 5MB
-                        each. Drag to reorder. The first image will be the main
+                        Upload one or more images (JPG, PNG, WebP). Drag to reorder. The first image will be the main
                         one.
                       </FormDescription>
                       <DndContext

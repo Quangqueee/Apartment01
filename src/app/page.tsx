@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { getApartments } from "@/lib/data";
 import Header from "@/components/header";
-import PaginationControls from "@/components/pagination-controls";
 import Footer from "@/components/footer";
 import ApartmentCard from "@/components/apartment-card";
 import SortControls from "@/components/sort-controls";
+import ApartmentList from "@/components/apartment-list";
 
 export const dynamic = "force-dynamic";
 
@@ -14,19 +14,18 @@ type HomeProps = {
     district?: string;
     price?: string;
     roomType?: string;
-    page?: string;
     sort?: string;
   };
 };
 
 export default async function Home({ searchParams }: HomeProps) {
-  const page = searchParams.page ? parseInt(searchParams.page) : 1;
-  const { apartments, totalPages, totalResults } = await getApartments({
+  // Fetch the initial batch of apartments
+  const { apartments, totalResults } = await getApartments({
     query: searchParams.q,
     district: searchParams.district,
     priceRange: searchParams.price,
     roomType: searchParams.roomType,
-    page,
+    page: 1, // Always fetch the first page on initial load
     limit: 9,
     sortBy: searchParams.sort,
   });
@@ -42,27 +41,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </p>
             <SortControls />
           </div>
-          {apartments.length > 0 ? (
-            <>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-8">
-                {apartments.map((apartment) => (
-                  <ApartmentCard key={apartment.id} apartment={apartment} />
-                ))}
-              </div>
-              <PaginationControls
-                currentPage={page}
-                totalPages={totalPages}
-                className="mt-12"
-              />
-            </>
-          ) : (
-            <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed text-center">
-              <h2 className="font-headline text-2xl">Không tìm thấy căn hộ nào</h2>
-              <p className="mt-2 text-muted-foreground">
-                Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm của bạn.
-              </p>
-            </div>
-          )}
+          <ApartmentList initialApartments={apartments} searchParams={searchParams} />
         </div>
       </main>
       <Footer />
