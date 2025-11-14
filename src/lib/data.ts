@@ -56,7 +56,7 @@ export async function getApartments(
     page?: number;
     limit?: number;
     sortBy?: string;
-    searchBy?: "title" | "sourceCode" | "sourceCodeOrAddress";
+    searchBy?: "title" | "sourceCode" | "sourceCodeOrAddress" | "titleOrSourceCode";
     lastVisible?: any; // For pagination
   } = {}
 ) {
@@ -68,7 +68,7 @@ export async function getApartments(
     page = 1,
     limit: pageSize = 9,
     sortBy = "newest",
-    searchBy = "title",
+    searchBy = "titleOrSourceCode",
     lastVisible: lastVisibleDoc,
   } = options;
 
@@ -110,9 +110,9 @@ export async function getApartments(
       }
   }
   
-  baseQuery = query(baseQuery, limit(pageSize));
+  const initialQuery = query(baseQuery, limit(pageSize));
 
-  const querySnapshot = await getDocs(baseQuery);
+  const querySnapshot = await getDocs(initialQuery);
   let apartments = querySnapshot.docs.map(toApartment);
   
   // --- Apply Filters on the Server Side (Post-Query) ---
@@ -140,18 +140,14 @@ export async function getApartments(
         return normalizedCode.includes(normalizedQuery) || normalizedAddress.includes(normalizedQuery);
       }
       
-      const fieldToSearch = searchBy === 'sourceCode' ? apt.sourceCode : apt.title;
-      const normalizedField = removeVietnameseTones(fieldToSearch);
-      return normalizedField.includes(normalizedQuery);
+      // Default behavior for public page
+      const normalizedTitle = removeVietnameseTones(apt.title);
+      const normalizedCode = removeVietnameseTones(apt.sourceCode);
+      return normalizedTitle.includes(normalizedQuery) || normalizedCode.includes(normalizedQuery);
     });
   }
 
-  // --- Get Total Count AFTER filtering ---
-  // This is a simplification. For full accuracy with pagination, a separate count query is needed.
-  // However, for this use case, we count the results of the *initial* filtered query.
-  // Since we are doing infinite scroll, we only really need the count for the initial display.
-  // For a more robust solution, you'd run a separate `getCountFromServer` on the fully filtered query.
-  let totalResults = apartments.length;
+  const totalResults = apartments.length;
 
   const lastFetchedDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
 
