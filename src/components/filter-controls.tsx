@@ -115,10 +115,6 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
         roomType: filters.roomType,
       };
       localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filtersToSave));
-      toast({
-        title: "Bộ lọc đã được lưu",
-        description: "Tùy chọn tìm kiếm của bạn đã được lưu cho lần truy cập sau.",
-      });
       onFilterSave?.();
     } catch (error) {
       console.error("Failed to save filters to local storage", error);
