@@ -164,7 +164,7 @@ export default function AdminDashboard() {
                     <TableCell>
                       {apt.price} tr
                     </TableCell>
-                    <TableCell>{formatDate(apt.updatedAt)}</TableCell>
+                    <TableCell>{formatDate(apt.updatedAt && apt.updatedAt.seconds > 0 ? apt.updatedAt : apt.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -257,7 +257,7 @@ export default function AdminDashboard() {
                     </Button>
                   </div>
                    <div className="flex items-baseline justify-between text-sm">
-                    <p><span className="font-medium text-muted-foreground">Ngày cập nhật:</span> {formatDate(apt.updatedAt)}</p>
+                    <p><span className="font-medium text-muted-foreground">Ngày cập nhật:</span> {formatDate(apt.updatedAt && apt.updatedAt.seconds > 0 ? apt.updatedAt : apt.createdAt)}</p>
                   </div>
                 </CardContent>
               </Card>

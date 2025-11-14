@@ -27,6 +27,7 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
 
   const primaryImage = apartment.imageUrls?.[0];
   const linkHref = `/apartments/${apartment.id}`;
+  const displayDate = apartment.updatedAt && apartment.updatedAt.seconds > 0 ? apartment.updatedAt : apartment.createdAt;
 
   return (
     <Card
@@ -63,7 +64,7 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                             <CalendarDays className="h-4 w-4" />
-                            <span>{formatDate(apartment.createdAt)}</span>
+                            <span>{formatDate(displayDate)}</span>
                         </div>
                     </div>
                     <div className="flex items-center justify-between">

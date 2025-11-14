@@ -29,6 +29,7 @@ const getRoomTypeLabel = (value: string) => {
 };
 
 function ApartmentDetails({ apartment }: { apartment: Apartment }) {
+    const displayDate = apartment.updatedAt && apartment.updatedAt.seconds > 0 ? apartment.updatedAt : apartment.createdAt;
   return (
     <>
       <main className="flex-1">
@@ -54,7 +55,7 @@ function ApartmentDetails({ apartment }: { apartment: Apartment }) {
                     </Badge>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <CalendarDays className="h-4 w-4" />
-                        <span>Đã đăng: {formatDate(apartment.createdAt)}</span>
+                        <span>Cập nhật: {formatDate(displayDate)}</span>
                     </div>
                 </div>
                 <h1 className="font-headline text-3xl font-bold tracking-tight md:text-4xl">
