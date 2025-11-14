@@ -54,17 +54,17 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
       limit: PAGE_SIZE,
     });
 
-    if (result.apartments.length > 0) {
+    if (result.apartments && result.apartments.length > 0) {
       setPage(nextPage);
-      const newApartments = [...apartments, ...result.apartments];
-      setApartments(newApartments);
+      // Use a callback with setApartments to ensure we're appending to the most recent state
+      setApartments((prev) => [...prev, ...result.apartments]);
       // The total number of results comes from the initial page load.
-      setHasMore(newApartments.length < totalInitialResults);
+      setHasMore((apartments.length + result.apartments.length) < totalInitialResults);
     } else {
       setHasMore(false);
     }
     setIsLoading(false);
-  }, [page, hasMore, isLoading, searchParams, apartments, totalInitialResults]);
+  }, [page, hasMore, isLoading, searchParams, apartments.length, totalInitialResults]);
 
 
   useEffect(() => {
