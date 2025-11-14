@@ -1,3 +1,4 @@
+
 import {
   collection,
   doc,
@@ -74,26 +75,13 @@ export async function getApartments(
   let baseQuery: Query = apartmentsCollection;
   let whereClauses = [];
 
-  // --- Build Where Clauses ---
+  // --- Build Where Clauses (only for equality checks) ---
   if (district) {
     whereClauses.push(where("district", "==", district));
   }
   if (roomType) {
     whereClauses.push(where("roomType", "==", roomType));
   }
-  if (priceRange) {
-    const [min, max] = priceRange.split("-");
-    const minPrice = min ? parseInt(min) : 0;
-    const maxPrice = max ? parseInt(max) : Infinity;
-    if (minPrice > 0) whereClauses.push(where("price", ">=", minPrice));
-    if (maxPrice !== Infinity) whereClauses.push(where("price", "<=", maxPrice));
-  }
-  
-  // --- Text Search Filter (Client-Side) ---
-  // Firestore doesn't support native text search on multiple fields well without a third-party service.
-  // We'll keep this part client-side as a post-filter if a search query exists.
-  // Or, if search is the only filter, we can't optimize it with Firestore queries alone.
-  // For now, we apply it after fetching.
   
   if (whereClauses.length > 0) {
       baseQuery = query(baseQuery, ...whereClauses);
@@ -104,16 +92,13 @@ export async function getApartments(
   let totalResults = countSnapshot.data().count;
 
   // --- Build OrderBy Clause ---
-  // Firestore requires the first orderBy to match the inequality field if one exists
-  if (priceRange && sortBy.startsWith('price')) {
-      baseQuery = query(baseQuery, orderBy("price", sortBy === 'price-asc' ? 'asc' : 'desc'));
-  } else if (sortBy === 'price-asc') {
+  if (sortBy === 'price-asc') {
       baseQuery = query(baseQuery, orderBy("price", "asc"));
   } else if (sortBy === 'price-desc') {
       baseQuery = query(baseQuery, orderBy("price", "desc"));
+  } else { // Default to newest
+      baseQuery = query(baseQuery, orderBy("createdAt", "desc"));
   }
-  // Always add a secondary sort for consistent ordering
-  baseQuery = query(baseQuery, orderBy("createdAt", "desc"));
 
   // --- Pagination ---
   if (page > 1 && !lastVisibleDoc) {
@@ -134,7 +119,22 @@ export async function getApartments(
   const querySnapshot = await getDocs(baseQuery);
   let apartments = querySnapshot.docs.map(toApartment);
 
-  // --- Apply Text Search if present ---
+  // --- Apply Filters on the Server Side (Post-Query) ---
+  
+  // Apply Price Range Filter
+  if (priceRange) {
+    const [min, max] = priceRange.split("-");
+    const minPrice = min ? parseInt(min, 10) : 0;
+    const maxPrice = max ? parseInt(max, 10) : Infinity;
+    apartments = apartments.filter(apt => {
+        const price = apt.price;
+        const meetsMin = minPrice > 0 ? price >= minPrice : true;
+        const meetsMax = maxPrice !== Infinity ? price <= maxPrice : true;
+        return meetsMin && meetsMax;
+    });
+  }
+
+  // Apply Text Search Filter
   if (searchQuery) {
     const normalizedQuery = removeVietnameseTones(searchQuery);
     apartments = apartments.filter((apt) => {
@@ -148,13 +148,12 @@ export async function getApartments(
       const normalizedField = removeVietnameseTones(fieldToSearch);
       return normalizedField.includes(normalizedQuery);
     });
-    // If we filter by text search, totalResults needs to be re-evaluated.
-    // For simplicity with server components, we'll show totalResults pre-text-search.
-    // A more complex setup would run two queries or do counts differently.
   }
   
   const lastFetchedDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
 
+  // Note: totalResults might not be perfectly accurate after server-side filtering,
+  // but it's a good estimate for display purposes without complex aggregation.
   return { 
       apartments, 
       totalResults,
