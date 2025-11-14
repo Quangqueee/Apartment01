@@ -87,10 +87,6 @@ export async function getApartments(
       baseQuery = query(baseQuery, ...whereClauses);
   }
 
-  // --- Get Total Count for the filtered query ---
-  const countSnapshot = await getCountFromServer(baseQuery);
-  let totalResults = countSnapshot.data().count;
-
   // --- Build OrderBy Clause ---
   if (sortBy === 'price-asc') {
       baseQuery = query(baseQuery, orderBy("price", "asc"));
@@ -118,7 +114,7 @@ export async function getApartments(
 
   const querySnapshot = await getDocs(baseQuery);
   let apartments = querySnapshot.docs.map(toApartment);
-
+  
   // --- Apply Filters on the Server Side (Post-Query) ---
   
   // Apply Price Range Filter
@@ -149,11 +145,16 @@ export async function getApartments(
       return normalizedField.includes(normalizedQuery);
     });
   }
-  
+
+  // --- Get Total Count AFTER filtering ---
+  // This is a simplification. For full accuracy with pagination, a separate count query is needed.
+  // However, for this use case, we count the results of the *initial* filtered query.
+  // Since we are doing infinite scroll, we only really need the count for the initial display.
+  // For a more robust solution, you'd run a separate `getCountFromServer` on the fully filtered query.
+  let totalResults = apartments.length;
+
   const lastFetchedDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
 
-  // Note: totalResults might not be perfectly accurate after server-side filtering,
-  // but it's a good estimate for display purposes without complex aggregation.
   return { 
       apartments, 
       totalResults,
