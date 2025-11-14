@@ -59,7 +59,12 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
       // Use a callback with setApartments to ensure we're appending to the most recent state
       setApartments((prev) => [...prev, ...result.apartments]);
       // The total number of results comes from the initial page load.
-      setHasMore((apartments.length + result.apartments.length) < totalInitialResults);
+      // We need to use a callback here as well to get the latest `apartments` length
+      setHasMore(prevHasMore => {
+          const newTotal = apartments.length + result.apartments.length;
+          return newTotal < totalInitialResults;
+      });
+
     } else {
       setHasMore(false);
     }
