@@ -23,14 +23,12 @@ const PAGE_SIZE = 9;
 
 export default async function Home({ searchParams }: HomeProps) {
   // Fetch the initial batch of apartments using the centralized getApartments function
+  // Pass searchParams directly to avoid sync access errors
   const { apartments, totalResults } = await getApartments({
-    query: searchParams.q,
-    district: searchParams.district,
-    priceRange: searchParams.price,
-    roomType: searchParams.roomType,
+    ...searchParams,
+    priceRange: searchParams.price, // map 'price' from URL to 'priceRange'
     page: 1, // Always fetch the first page on initial load
     limit: PAGE_SIZE,
-    sortBy: searchParams.sort,
   });
 
   return (

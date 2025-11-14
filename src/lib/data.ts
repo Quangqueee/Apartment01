@@ -54,18 +54,18 @@ async function getLastDocOfPreviousPage(q: Query, page: number, pageSize: number
 
 export async function getApartments(
   options: {
-    query?: string;
+    q?: string; // Renamed from 'query' to match searchParams
     district?: string;
     priceRange?: string;
     roomType?: string;
     page?: number;
     limit?: number;
-    sortBy?: string;
+    sortBy?: string; // Renamed from 'sort'
     searchBy?: "title" | "sourceCode" | "sourceCodeOrAddress" | "titleOrSourceCode";
   } = {}
 ) {
   const {
-    query: searchQuery,
+    q: searchQuery, // map q to searchQuery
     district,
     priceRange,
     roomType,

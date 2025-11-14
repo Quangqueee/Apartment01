@@ -49,8 +49,14 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
 
     setIsLoading(true);
     const nextPage = page + 1;
+    
+    // Pass the plain searchParams object to the action
     const result = await fetchApartmentsAction({
-      ...searchParams,
+      query: searchParams.q,
+      district: searchParams.district,
+      priceRange: searchParams.price,
+      roomType: searchParams.roomType,
+      sortBy: searchParams.sort,
       page: nextPage,
       limit: PAGE_SIZE,
     });
