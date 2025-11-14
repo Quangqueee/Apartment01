@@ -241,7 +241,8 @@ export default function AdminDashboard() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                  <p className="text-sm"><span className="font-medium text-muted-foreground">Mã nội bộ:</span> {apt.sourceCode}</p>
+                  <p className="text-sm"><span className="font-medium text-muted-foreground">Mã nguồn:</span> {apt.sourceCode}</p>
+                  <p className="text-sm font-semibold">{apt.price} tr</p>
                   <div className="flex items-center gap-2 text-sm">
                     <span className="font-medium text-muted-foreground">SĐT Chủ nhà:</span>
                     <span>{apt.landlordPhoneNumber}</span>
@@ -257,7 +258,6 @@ export default function AdminDashboard() {
                   </div>
                    <div className="flex items-baseline justify-between text-sm">
                     <p><span className="font-medium text-muted-foreground">Ngày cập nhật:</span> {formatDate(apt.updatedAt)}</p>
-                    <p className="text-right font-semibold">{apt.price} tr</p>
                   </div>
                 </CardContent>
               </Card>
