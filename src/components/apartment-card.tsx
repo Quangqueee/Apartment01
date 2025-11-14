@@ -40,7 +40,7 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
                 alt={apartment.title}
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className="object-cover"
+                className="object-cover select-none pointer-events-none"
                 data-ai-hint="apartment exterior"
             />
             </div>
