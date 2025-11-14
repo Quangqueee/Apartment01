@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -51,6 +52,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = [
@@ -612,12 +614,17 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
             </Card>
           </div>
         </div>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting && (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          )}
-          {apartment ? "Update" : "Create"} Apartment
-        </Button>
+        <div className="flex items-center gap-4">
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            {apartment ? "Update" : "Create"} Apartment
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/admin">Cancel</Link>
+          </Button>
+        </div>
       </form>
     </Form>
   );
