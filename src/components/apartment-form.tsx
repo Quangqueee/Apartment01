@@ -339,10 +339,10 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Listing Title</FormLabel>
+                      <FormLabel>Tiêu đề</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="e.g. Luxury Apartment with Lake View"
+                          placeholder="VD. Luxury Apartment with Lake View"
                           {...field}
                         />
                       </FormControl>
@@ -355,7 +355,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="details"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Detailed Information</FormLabel>
+                      <FormLabel>Thông tin chi tiết</FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder="Describe the apartment in detail..."
@@ -478,7 +478,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
           <div className="space-y-8 lg:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle>Properties</CardTitle>
+                <CardTitle>Thông tin cơ bản</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField
@@ -486,7 +486,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price (triệu/tháng)</FormLabel>
+                      <FormLabel>Giá (triệu/tháng)</FormLabel>
                       <FormControl>
                         <Input type="number" placeholder="15" {...field} />
                       </FormControl>
@@ -512,7 +512,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="district"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>District</FormLabel>
+                      <FormLabel>Quận</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
@@ -546,7 +546,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a room type" />
+                            <SelectValue placeholder="Chọn dạng phòng" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -573,9 +573,9 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="sourceCode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Internal Code</FormLabel>
+                      <FormLabel>Mã nguồn</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. TH001" {...field} />
+                        <Input placeholder="VD. TH001" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -586,10 +586,10 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="address"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Exact Address</FormLabel>
+                      <FormLabel>Địa chỉ</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="123 Example St, Hanoi"
+                          placeholder=""
                           {...field}
                         />
                       </FormControl>
@@ -602,9 +602,9 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="landlordPhoneNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Landlord Phone Number</FormLabel>
+                      <FormLabel>SĐT Chủ nhà</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. 09xxxxxxxx" {...field} />
+                        <Input placeholder="VD. 09xxxxxxxx" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

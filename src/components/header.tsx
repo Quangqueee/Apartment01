@@ -96,7 +96,7 @@ export default function Header() {
            <div className="order-last w-full md:order-none md:w-auto md:flex-1 md:px-8 lg:px-16">
             <form onSubmit={handleSearch} className="relative w-full">
               <Input
-                placeholder="Tìm kiếm theo tiêu đề, mã..."
+                placeholder="Tìm kiếm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pr-10"

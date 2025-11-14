@@ -14,8 +14,6 @@ import { Button } from "./ui/button";
 import { X, Save } from "lucide-react";
 import { useCallback, useState, useEffect, useTransition } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useDebounce } from "@/hooks/use-debounce";
-
 
 type FilterControlsProps = {
   isAdmin?: boolean;
@@ -37,8 +35,6 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
     roomType: searchParams.get("roomType") || "",
   });
 
-  const debouncedFilters = useDebounce(filters, 500);
-
   const createQueryString = useCallback(
     (newFilters: typeof filters) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -49,25 +45,13 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
           params.delete(key);
         }
       });
-      // Do not reset page on filter change for infinite scroll
-      // params.set("page", "1");
+      // Reset page for new filter application
+      params.set("page", "1");
       return params.toString();
     },
     [searchParams]
   );
   
-  useEffect(() => {
-    // This effect now ONLY handles pushing updates to the URL when debounced filters change.
-    const currentQueryString = new URLSearchParams(searchParams).toString();
-    const newQueryString = createQueryString(debouncedFilters);
-
-    if (currentQueryString !== newQueryString) {
-      startTransition(() => {
-          router.push(`${pathname}?${newQueryString}`);
-      });
-    }
-  }, [debouncedFilters, router, pathname, createQueryString, searchParams]);
-
   useEffect(() => {
     // This effect handles loading filters from localStorage on mount.
     // It runs ONLY on the client, AFTER initial render (hydration).
@@ -79,7 +63,7 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
         const savedFilters = JSON.parse(savedFiltersJson);
         const currentParams = new URLSearchParams(searchParams);
         
-        // Apply saved filters only if there are no filters in the current URL
+        // Apply saved filters to state if there are no filters in the current URL
         if (!currentParams.has('district') && !currentParams.has('price') && !currentParams.has('roomType')) {
           setFilters(savedFilters);
         }
@@ -103,28 +87,45 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
         console.error("Failed to remove filters from local storage", error);
       }
     }
-    // Let the debounced effect handle the navigation
+    // After resetting state, also clear the URL params
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('district');
+    params.delete('price');
+    params.delete('roomType');
+    params.set('page', '1');
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
   };
 
-  const handleSave = () => {
-    if (isAdmin) return;
-    try {
-      const filtersToSave = {
-        district: filters.district,
-        price: filters.price,
-        roomType: filters.roomType,
-      };
-      localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filtersToSave));
-      onFilterSave?.();
-    } catch (error) {
-      console.error("Failed to save filters to local storage", error);
-      toast({
-        variant: "destructive",
-        title: "Lỗi",
-        description: "Không thể lưu bộ lọc của bạn.",
-      });
+  const handleApplyAndSave = () => {
+    // Apply filters by navigating
+    const newQueryString = createQueryString(filters);
+    startTransition(() => {
+      router.push(`${pathname}?${newQueryString}`);
+    });
+
+    // Save filters to localStorage if not in admin
+    if (!isAdmin) {
+        try {
+          const filtersToSave = {
+            district: filters.district,
+            price: filters.price,
+            roomType: filters.roomType,
+          };
+          localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filtersToSave));
+        } catch (error) {
+          console.error("Failed to save filters to local storage", error);
+          toast({
+            variant: "destructive",
+            title: "Lỗi",
+            description: "Không thể lưu bộ lọc của bạn.",
+          });
+        }
     }
+    onFilterSave?.();
   };
+
 
   const hasActiveFilters = Object.values(filters).some(val => val !== "");
 
@@ -187,15 +188,13 @@ export default function FilterControls({ isAdmin = false, onFilterSave }: Filter
             Xóa bộ lọc
           </Button>
         )}
-        {!isAdmin && (
-          <Button
-            variant="outline"
-            onClick={handleSave}
-          >
-            <Save className="mr-2 h-4 w-4" />
-            Lưu bộ lọc
-          </Button>
-        )}
+        <Button
+          variant="outline"
+          onClick={handleApplyAndSave}
+        >
+          <Save className="mr-2 h-4 w-4" />
+          {isAdmin ? 'Áp dụng bộ lọc' : 'Áp dụng & Lưu'}
+        </Button>
       </div>
     </div>
   );

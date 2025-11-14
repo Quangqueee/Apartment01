@@ -146,9 +146,9 @@ export default function AdminDashboard() {
                   <TableHead>Địa chỉ</TableHead>
                   <TableHead>Mã nguồn</TableHead>
                   <TableHead>SĐT Chủ nhà</TableHead>
-                  <TableHead>Price</TableHead>
+                  <TableHead>Giá</TableHead>
                   <TableHead>Ngày cập nhật</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right">Hành động</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
