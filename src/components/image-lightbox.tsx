@@ -51,7 +51,7 @@ export default function ImageLightbox({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl p-2">
+      <DialogContent className="max-w-4xl p-2 md:bg-background bg-black border-0 md:border">
         <DialogTitle className="sr-only">Image Lightbox</DialogTitle>
         <Carousel
           className="w-full"
@@ -74,12 +74,12 @@ export default function ImageLightbox({
               </CarouselItem>
             ))}
           </CarouselContent>
-          <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2" />
-          <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2" />
+          <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 hidden md:flex" />
+          <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 hidden md:flex" />
         </Carousel>
 
         <DialogClose asChild>
-          <button className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+          <button className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground md:text-foreground text-white">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </button>
