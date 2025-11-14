@@ -102,7 +102,7 @@ const SortableImage = ({ src, index, removeImage }: SortableImageProps) => {
       style={style}
       {...attributes}
       {...listeners}
-      className="relative aspect-video touch-none"
+      className="relative aspect-video"
     >
       <Image
         src={src}
