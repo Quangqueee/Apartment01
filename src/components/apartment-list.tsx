@@ -30,7 +30,7 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
   const { ref, inView } = useInView();
   
   // This effect synchronizes the component's state with new server-rendered props.
-  // It runs when the user applies new filters or sorting.
+  // It runs when the user applies new filters, sorting, or performs a search.
   useEffect(() => {
     setApartments(initialApartments);
     setPage(1); // Reset to the first page
