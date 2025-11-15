@@ -15,6 +15,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MoreHorizontal, PlusCircle, Search, ClipboardCopy, Trash2, Pencil, ExternalLink } from "lucide-react";
@@ -38,6 +48,8 @@ export default function AdminDashboard() {
   const [totalApartments, setTotalApartments] = useState(0);
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState(searchParams.get("q") || "");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [apartmentToDelete, setApartmentToDelete] = useState<string | null>(null);
 
   const fetchApartments = useCallback(() => {
      startTransition(async () => {
@@ -71,10 +83,17 @@ export default function AdminDashboard() {
     params.set("page", "1"); // Reset to first page on new search
     router.push(`${pathname}?${params.toString()}`);
   }
+
+  const handleDeleteClick = (id: string) => {
+    setApartmentToDelete(id);
+    setDialogOpen(true);
+  };
   
-  const handleDelete = async (id: string) => {
+  const handleDelete = async () => {
+    if (!apartmentToDelete) return;
+
     startTransition(async () => {
-      const result = await deleteApartmentAction(id);
+      const result = await deleteApartmentAction(apartmentToDelete);
       if (result?.error) {
         toast({
           variant: "destructive",
@@ -86,9 +105,10 @@ export default function AdminDashboard() {
           title: "Thành công!",
           description: "Đã xóa căn hộ.",
         });
-        // Re-fetch apartments after deletion
         fetchApartments();
       }
+      setDialogOpen(false);
+      setApartmentToDelete(null);
     });
   };
 
@@ -126,6 +146,7 @@ export default function AdminDashboard() {
 
 
   return (
+    <>
     <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
       <div className="flex items-center justify-between space-y-2">
         <Link href="/">
@@ -220,7 +241,7 @@ export default function AdminDashboard() {
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                              onClick={() => handleDelete(apt.id)}
+                              onClick={() => handleDeleteClick(apt.id)}
                               className="text-destructive focus:text-destructive"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
@@ -265,7 +286,7 @@ export default function AdminDashboard() {
                             </Link>
                           </DropdownMenuItem>
                            <DropdownMenuItem
-                              onClick={() => handleDelete(apt.id)}
+                              onClick={() => handleDeleteClick(apt.id)}
                               className="text-destructive focus:text-destructive"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
@@ -300,9 +321,27 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
     </div>
+    <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the
+                apartment and remove its data from our servers.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+                onClick={handleDelete}
+                disabled={isPending}
+                className="bg-destructive hover:bg-destructive/90"
+            >
+                {isPending ? "Deleting..." : "Continue"}
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
-
-    
-
-    
