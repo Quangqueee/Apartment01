@@ -200,16 +200,15 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     },
   });
 
-  const removeImage = useCallback(
-    (indexToRemove: number) => {
-      setPreviews((currentPreviews) => {
-        const updatedPreviews = currentPreviews.filter((_, i) => i !== indexToRemove);
-        form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
-        return updatedPreviews;
-      });
-    },
-    [form]
-  );
+  const removeImage = (indexToRemove: number) => {
+    setPreviews((currentPreviews) => {
+      const updatedPreviews = currentPreviews.filter(
+        (_, i) => i !== indexToRemove
+      );
+      form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
+      return updatedPreviews;
+    });
+  };
 
 
   const handleFiles = (files: File[]) => {
