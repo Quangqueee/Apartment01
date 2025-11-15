@@ -207,3 +207,5 @@ export default function ApartmentPage({ params: { id } }: { params: { id: string
   // which can lead to mismatches if data changes.
   return <ApartmentDetails apartment={null} apartmentId={id} />;
 }
+
+    
