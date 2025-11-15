@@ -201,8 +201,9 @@ function ApartmentDetailsSkeleton() {
 // This page now needs to be a Client Component to use hooks like useUser.
 // We'll fetch data client-side if it wasn't pre-fetched during SSR.
 export default function ApartmentPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   // We pass null for initialApartment because we will fetch on the client.
   // This avoids passing a server-rendered object to a client component that then re-fetches,
   // which can lead to mismatches if data changes.
-  return <ApartmentDetails apartment={null} apartmentId={params.id} />;
+  return <ApartmentDetails apartment={null} apartmentId={id} />;
 }
