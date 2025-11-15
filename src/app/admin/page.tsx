@@ -89,7 +89,7 @@ export default function AdminDashboard() {
     setDialogOpen(true);
   };
   
-  const handleDelete = async () => {
+  const handleDeleteConfirm = async () => {
     if (!apartmentToDelete) return;
 
     startTransition(async () => {
@@ -105,7 +105,7 @@ export default function AdminDashboard() {
           title: "Thành công!",
           description: "Đã xóa căn hộ.",
         });
-        fetchApartments();
+        fetchApartments(); // Refetch after successful deletion
       }
       setDialogOpen(false);
       setApartmentToDelete(null);
@@ -333,7 +333,7 @@ export default function AdminDashboard() {
             <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-                onClick={handleDelete}
+                onClick={handleDeleteConfirm}
                 disabled={isPending}
                 className="bg-destructive hover:bg-destructive/90"
             >
