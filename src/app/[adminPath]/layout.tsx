@@ -15,9 +15,11 @@ import {
 import { Home, LayoutGrid, LogOut, PlusCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useAuth } from '@/firebase/provider';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter, notFound } from 'next/navigation';
 import { useEffect } from 'react';
 import { signOut } from 'firebase/auth';
+
+const ADMIN_PATH = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || 'admin';
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
@@ -84,7 +86,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild>
-                <Link href="/admin">
+                <Link href={`/${ADMIN_PATH}`}>
                   <LayoutGrid />
                   Dashboard
                 </Link>
@@ -92,7 +94,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild>
-                <Link href="/admin/apartments/new">
+                <Link href={`/${ADMIN_PATH}/apartments/new`}>
                   <PlusCircle />
                   Add Apartment
                 </Link>
@@ -132,6 +134,12 @@ export default function AdminLayout({
 }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const params = useParams();
+
+  // Validate the secret path
+  if (params.adminPath !== ADMIN_PATH) {
+    notFound();
+  }
 
   useEffect(() => {
     if (!isUserLoading && !user) {

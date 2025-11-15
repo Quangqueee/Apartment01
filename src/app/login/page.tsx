@@ -19,6 +19,8 @@ import { useAuth, useUser } from '@/firebase/provider';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 
+const ADMIN_PATH = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || 'admin';
+
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
@@ -31,7 +33,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/admin');
+      router.push(`/${ADMIN_PATH}`);
     }
   }, [user, isUserLoading, router]);
 

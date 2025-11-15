@@ -54,6 +54,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
+const ADMIN_PATH = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || 'admin';
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -625,7 +627,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
             {apartment ? "Update" : "Create"} Apartment
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/admin">Cancel</Link>
+            <Link href={`/${ADMIN_PATH}`}>Cancel</Link>
           </Button>
         </div>
       </form>

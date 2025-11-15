@@ -39,6 +39,8 @@ import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+const ADMIN_PATH = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || 'admin';
+
 export default function AdminDashboard() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -161,7 +163,7 @@ export default function AdminDashboard() {
         </Link>
         <div className="flex items-center space-x-2">
           <Button asChild>
-            <Link href="/admin/apartments/new">
+            <Link href={`/${ADMIN_PATH}/apartments/new`}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Add New
             </Link>
@@ -215,7 +217,7 @@ export default function AdminDashboard() {
                   {apartments.map((apt) => (
                     <TableRow key={apt.id}>
                       <TableCell className="font-medium">
-                         <Link href={`/admin/apartments/${apt.id}/edit`} className="text-primary hover:underline">
+                         <Link href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`} className="text-primary hover:underline">
                             {apt.address}
                          </Link>
                       </TableCell>
@@ -226,7 +228,7 @@ export default function AdminDashboard() {
                       </TableCell>
                       <TableCell>{formatDate(apt.updatedAt && apt.updatedAt.seconds > 0 ? apt.updatedAt : apt.createdAt)}</TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-center gap-1">
                            <Tooltip>
                               <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" asChild>
@@ -242,7 +244,7 @@ export default function AdminDashboard() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button variant="ghost" size="icon" asChild>
-                                    <Link href={`/admin/apartments/${apt.id}/edit`}>
+                                    <Link href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}>
                                         <Pencil className="h-4 w-4" />
                                     </Link>
                                 </Button>
@@ -275,7 +277,7 @@ export default function AdminDashboard() {
             {apartments.map((apt) => (
               <Card key={apt.id} className="relative">
                 <CardContent className="space-y-2 p-4">
-                  <Link href={`/admin/apartments/${apt.id}/edit`} className="pr-10 font-bold text-primary hover:underline">
+                  <Link href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`} className="pr-10 font-bold text-primary hover:underline">
                     {apt.address}
                   </Link>
                    <div className="absolute right-2 top-2">
@@ -288,7 +290,7 @@ export default function AdminDashboard() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                            <DropdownMenuItem asChild>
-                            <Link href={`/admin/apartments/${apt.id}/edit`} className="flex items-center">
+                            <Link href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`} className="flex items-center">
                               <Pencil className="mr-2 h-4 w-4" />
                               Edit
                             </Link>
