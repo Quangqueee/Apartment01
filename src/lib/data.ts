@@ -38,7 +38,6 @@ export const toApartment = (docSnap: DocumentData): Apartment => {
   return {
     id: docSnap.id,
     ...data,
-    commission: data.commission || "",
     createdAt,
     updatedAt,
   } as Apartment;
