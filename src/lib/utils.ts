@@ -19,12 +19,14 @@ export function formatDate(timestamp: { seconds: number; nanoseconds: number }):
   if (!timestamp || typeof timestamp.seconds !== 'number') {
     return "";
   }
-  // Convert timestamp to a Date object. This object's "local" time is based on the execution environment's timezone.
-  const dateInEnvironmentTz = new Date(timestamp.seconds * 1000);
-
-  // Use formatInTimeZone to format the date string *as if* the original timestamp was in the Vietnam timezone.
-  // This ensures the output is consistent regardless of where the code is run (server vs. client).
-  return formatInTimeZone(dateInEnvironmentTz, "dd/MM/yyyy", { timeZone: "Asia/Ho_Chi_Minh" });
+  const date = new Date(timestamp.seconds * 1000);
+  
+  // Return an ISO 8601 format string (e.g., "2023-11-15"). This is timezone-agnostic and consistent.
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
 }
 
 export function removeVietnameseTones(str: string) {

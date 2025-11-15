@@ -3,7 +3,7 @@ import { getApartmentById } from "@/lib/data";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice, formatDate } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils";
 import { ROOM_TYPES } from "@/lib/constants";
 import {
   MapPin,
@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Apartment } from "@/lib/types";
 import ApartmentImageGallery from "@/components/apartment-image-gallery";
+import ClientFormattedDate from "@/components/client-formatted-date";
 
 type ApartmentPageProps = {
   params: {
@@ -55,7 +56,7 @@ function ApartmentDetails({ apartment }: { apartment: Apartment }) {
                     </Badge>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <CalendarDays className="h-4 w-4" />
-                        <span>Cập nhật: {formatDate(displayDate)}</span>
+                        <span>Cập nhật: <ClientFormattedDate date={displayDate} /></span>
                     </div>
                 </div>
                 <h1 className="font-headline text-3xl font-bold tracking-tight md:text-4xl">

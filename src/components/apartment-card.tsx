@@ -10,10 +10,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice, formatDate } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils";
 import { MapPin, BedDouble, Ruler, CalendarDays } from "lucide-react";
 import { Apartment } from "@/lib/types";
 import { ROOM_TYPES } from "@/lib/constants";
+import ClientFormattedDate from "./client-formatted-date";
 
 type ApartmentCardProps = {
   apartment: Apartment;
@@ -64,7 +65,7 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                             <CalendarDays className="h-4 w-4" />
-                            <span>{formatDate(displayDate)}</span>
+                            <ClientFormattedDate date={displayDate} />
                         </div>
                     </div>
                     <div className="flex items-center justify-between">
