@@ -17,13 +17,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MoreHorizontal, PlusCircle, Search, ClipboardCopy } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, ClipboardCopy, Trash2 } from "lucide-react";
 import { getApartments } from "@/lib/data";
 import Link from "next/link";
 import { deleteApartmentAction } from "../actions";
 import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useState, useEffect, useTransition, FormEvent } from "react";
+import { useState, useEffect, useTransition, FormEvent, useCallback } from "react";
 import { Apartment } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -35,11 +35,12 @@ export default function AdminDashboard() {
   const { toast } = useToast();
 
   const [apartments, setApartments] = useState<Apartment[]>([]);
+  const [totalApartments, setTotalApartments] = useState(0);
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState(searchParams.get("q") || "");
 
-  useEffect(() => {
-    startTransition(async () => {
+  const fetchApartments = useCallback(() => {
+     startTransition(async () => {
       const page = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1;
       const result = await getApartments({
         query: searchParams.get("q") || undefined,
@@ -47,12 +48,17 @@ export default function AdminDashboard() {
         priceRange: searchParams.get("price") || undefined,
         roomType: searchParams.get("roomType") || undefined,
         page,
-        limit: 1000,
+        limit: 1000, // Fetch all for admin view
         searchBy: "sourceCodeOrAddress",
       });
       setApartments(result.apartments);
+      setTotalApartments(result.totalResults);
     });
   }, [searchParams]);
+
+  useEffect(() => {
+    fetchApartments();
+  }, [fetchApartments]);
   
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -65,6 +71,26 @@ export default function AdminDashboard() {
     params.set("page", "1"); // Reset to first page on new search
     router.push(`${pathname}?${params.toString()}`);
   }
+  
+  const handleDelete = async (id: string) => {
+    startTransition(async () => {
+      const result = await deleteApartmentAction(id);
+      if (result?.error) {
+        toast({
+          variant: "destructive",
+          title: "Lỗi!",
+          description: result.error,
+        });
+      } else {
+        toast({
+          title: "Thành công!",
+          description: "Đã xóa căn hộ.",
+        });
+        // Re-fetch apartments after deletion
+        fetchApartments();
+      }
+    });
+  };
 
   const handleCopy = (text: string) => {
     // Fallback for insecure contexts
@@ -137,7 +163,12 @@ export default function AdminDashboard() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>All Listings</CardTitle>
+           <CardTitle className="flex items-center justify-between">
+            All Listings
+            <span className="text-sm font-medium text-muted-foreground bg-secondary px-2 py-1 rounded-md">
+                {totalApartments} căn hộ
+            </span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {/* Desktop View */}
@@ -186,15 +217,13 @@ export default function AdminDashboard() {
                               View
                             </Link>
                           </DropdownMenuItem>
-                          <form action={deleteApartmentAction} className="w-full">
-                            <input type="hidden" name="id" value={apt.id} />
-                            <button
-                              type="submit"
-                              className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm text-destructive outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                          <DropdownMenuItem
+                              onClick={() => handleDelete(apt.id)}
+                              className="text-destructive focus:text-destructive"
                             >
+                              <Trash2 className="mr-2 h-4 w-4" />
                               Delete
-                            </button>
-                          </form>
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -231,15 +260,13 @@ export default function AdminDashboard() {
                               View
                             </Link>
                           </DropdownMenuItem>
-                          <form action={deleteApartmentAction} className="w-full">
-                            <input type="hidden" name="id" value={apt.id} />
-                            <button
-                              type="submit"
-                              className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm text-destructive outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                           <DropdownMenuItem
+                              onClick={() => handleDelete(apt.id)}
+                              className="text-destructive focus:text-destructive"
                             >
+                              <Trash2 className="mr-2 h-4 w-4" />
                               Delete
-                            </button>
-                          </form>
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -271,5 +298,7 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+    
 
     

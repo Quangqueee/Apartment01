@@ -134,8 +134,7 @@ export async function createOrUpdateApartmentAction(
   redirect("/admin");
 }
 
-export async function deleteApartmentAction(formData: FormData) {
-  const id = formData.get("id") as string;
+export async function deleteApartmentAction(id: string) {
   if (!id) {
     return { error: "ID is required" };
   }
@@ -205,3 +204,5 @@ export async function fetchApartmentsAction(options: {
         apartments,
     };
 }
+
+    
