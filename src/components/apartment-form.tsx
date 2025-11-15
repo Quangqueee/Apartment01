@@ -78,6 +78,7 @@ const formSchema = z.object({
   listingSummary: z.string().optional(),
   address: z.string().min(1, "Exact address is required."),
   landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
+  commission: z.string().optional(),
   imageUrls: z.array(z.string()).min(1, "At least one image is required."),
 });
 
@@ -195,6 +196,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       listingSummary: apartment?.listingSummary || "",
       address: apartment?.address || "",
       landlordPhoneNumber: apartment?.landlordPhoneNumber || "",
+      commission: apartment?.commission || "",
       imageUrls: apartment?.imageUrls || [],
     },
   });
@@ -608,6 +610,19 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormLabel>SĐT Chủ nhà</FormLabel>
                       <FormControl>
                         <Input placeholder="VD. 09xxxxxxxx" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="commission"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hoa hồng</FormLabel>
+                      <FormControl>
+                        <Input placeholder="VD. 1/2 tháng tiền nhà" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

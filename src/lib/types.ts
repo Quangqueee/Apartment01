@@ -12,6 +12,7 @@ export interface Apartment {
   listingSummary: string; // AI-generated
   address: string; // For admin use
   landlordPhoneNumber: string; // For admin use
+  commission: string; // For admin/collaborator use
   imageUrls: string[];
   createdAt: {
     seconds: number;
@@ -22,6 +23,8 @@ export interface Apartment {
     nanoseconds: number;
   };
 }
+
+export type UserRole = 'admin' | 'collaborator' | null;
 
 export type UploadedImage = {
   file: File;

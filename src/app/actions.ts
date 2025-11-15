@@ -34,6 +34,7 @@ const formSchema = z.object({
   listingSummary: z.string().optional(),
   address: z.string().min(1),
   landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
+  commission: z.string().optional(),
   imageUrls: z.array(z.string()).min(1, "At least one image is required."),
 });
 
@@ -107,6 +108,7 @@ export async function createOrUpdateApartmentAction(
     const apartmentDataWithTimestamp = { 
         ...data,
         listingSummary: data.listingSummary || "",
+        commission: data.commission || "",
         imageUrls: finalImageUrls,
         updatedAt: Timestamp.now(), // Add/update the timestamp here
     };
@@ -204,5 +206,3 @@ export async function fetchApartmentsAction(options: {
         apartments,
     };
 }
-
-    

@@ -24,7 +24,7 @@ import { removeVietnameseTones } from "./utils";
 
 const apartmentsCollection = collection(firestore, "apartments");
 
-const toApartment = (docSnap: DocumentData): Apartment => {
+export const toApartment = (docSnap: DocumentData): Apartment => {
   const data = docSnap.data();
   const createdAt = data.createdAt?.toDate ? {
     seconds: data.createdAt.seconds,
@@ -38,6 +38,7 @@ const toApartment = (docSnap: DocumentData): Apartment => {
   return {
     id: docSnap.id,
     ...data,
+    commission: data.commission || "",
     createdAt,
     updatedAt,
   } as Apartment;

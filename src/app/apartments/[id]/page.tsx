@@ -1,6 +1,8 @@
 
-import { getApartmentById } from "@/lib/data";
-import { notFound } from "next/navigation";
+'use client';
+
+import { getApartmentById } from "@/lib/data-client";
+import { notFound, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
@@ -12,25 +14,50 @@ import {
   ChevronLeft,
   FileText,
   CalendarDays,
+  Award,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Apartment } from "@/lib/types";
 import ApartmentImageGallery from "@/components/apartment-image-gallery";
 import ClientFormattedDate from "@/components/client-formatted-date";
-
-type ApartmentPageProps = {
-  params: {
-    id: string;
-  };
-};
+import { useUser } from "@/firebase/provider";
+import { useState, useEffect } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const getRoomTypeLabel = (value: string) => {
   const roomType = ROOM_TYPES.find((rt) => rt.value === value);
   return roomType ? roomType.label : "N/A";
 };
 
-function ApartmentDetails({ apartment }: { apartment: Apartment }) {
+function ApartmentDetails({ apartment: initialApartment, apartmentId }: { apartment: Apartment | null, apartmentId: string }) {
+    const { userRole, isUserLoading } = useUser();
+    const [apartment, setApartment] = useState<Apartment | null>(initialApartment);
+    const [isLoading, setIsLoading] = useState(!initialApartment);
+
+    useEffect(() => {
+        const fetchApartment = async () => {
+            if (!initialApartment) {
+                setIsLoading(true);
+                const fetchedApartment = await getApartmentById(apartmentId);
+                setApartment(fetchedApartment);
+                setIsLoading(false);
+            }
+        };
+        fetchApartment();
+    }, [initialApartment, apartmentId]);
+
+    const canViewCommission = userRole === 'admin' || userRole === 'collaborator';
+    
+    if (isLoading || isUserLoading) {
+      return <ApartmentDetailsSkeleton />;
+    }
+
+    if (!apartment) {
+        notFound();
+    }
+
     const displayDate = apartment.updatedAt && apartment.updatedAt.seconds > 0 ? apartment.updatedAt : apartment.createdAt;
+
   return (
     <>
       <main className="flex-1">
@@ -97,6 +124,16 @@ function ApartmentDetails({ apartment }: { apartment: Apartment }) {
                 </div>
               </div>
 
+              {canViewCommission && apartment.commission && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                    <h2 className="mb-2 flex items-center font-headline text-xl font-bold">
+                        <Award className="mr-3 h-5 w-5 text-primary" />
+                        Thông tin hoa hồng
+                    </h2>
+                    <p className="text-foreground/80">{apartment.commission}</p>
+                </div>
+              )}
+
               <div className="pt-8">
                  <h2 className="mb-4 flex items-center font-headline text-2xl font-bold">
                     <FileText className="mr-3 h-6 w-6 text-primary" />
@@ -119,13 +156,53 @@ function ApartmentDetails({ apartment }: { apartment: Apartment }) {
   );
 }
 
+function ApartmentDetailsSkeleton() {
+    return (
+        <div className="container mx-auto px-4 py-8 md:py-12 animate-pulse">
+            <Skeleton className="h-8 w-32 mb-8" />
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-5 lg:gap-12">
+                <div className="lg:col-span-3">
+                    <Skeleton className="w-full aspect-[4/3] rounded-lg" />
+                    <div className="hidden md:grid grid-cols-5 gap-2 mt-2">
+                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
+                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
+                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
+                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
+                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
+                    </div>
+                </div>
+                <div className="space-y-8 lg:col-span-2">
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <Skeleton className="h-6 w-24 rounded-full" />
+                            <Skeleton className="h-4 w-36" />
+                        </div>
+                        <Skeleton className="h-10 w-full rounded-lg" />
+                        <Skeleton className="h-8 w-40 rounded-lg" />
+                        <div className="space-y-4">
+                            <Skeleton className="h-12 w-full" />
+                            <Skeleton className="h-12 w-full" />
+                        </div>
+                    </div>
+                    <div className="pt-8">
+                        <Skeleton className="h-8 w-48 mb-4" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-5/6" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
 
-export default async function ApartmentPage({ params }: ApartmentPageProps) {
-  const apartment = await getApartmentById(params.id);
-
-  if (!apartment) {
-    notFound();
-  }
-
-  return <ApartmentDetails apartment={apartment} />;
+// This page now needs to be a Client Component to use hooks like useUser.
+// We'll fetch data client-side if it wasn't pre-fetched during SSR.
+export default function ApartmentPage({ params }: { params: { id: string } }) {
+  // We pass null for initialApartment because we will fetch on the client.
+  // This avoids passing a server-rendered object to a client component that then re-fetches,
+  // which can lead to mismatches if data changes.
+  return <ApartmentDetails apartment={null} apartmentId={params.id} />;
 }
