@@ -15,7 +15,7 @@ import {
   DocumentData,
 } from "firebase/firestore";
 import { getFirestore } from "firebase/firestore";
-import { initializeFirebase } from "@/firebase/client-provider";
+import { initializeFirebase } from "@/firebase";
 import { Apartment } from "./types";
 import { toApartment } from "./data"; // Assuming toApartment can be used on client
 
