@@ -15,8 +15,11 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import Image from "next/image";
-import { X } from "lucide-react";
-import { useEffect } from "react";
+import { X, Download, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Button } from "./ui/button";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 
 type ImageLightboxProps = {
   images: string[];
@@ -31,11 +34,11 @@ export default function ImageLightbox({
   onClose,
   isOpen,
 }: ImageLightboxProps) {
+  const [isDownloading, setIsDownloading] = useState(false);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!isOpen) return;
-      // We can't easily control the carousel externally for arrow keys
-      // so we let the carousel handle it. But we can handle Escape.
       if (event.key === "Escape") {
         onClose();
       }
@@ -46,6 +49,37 @@ export default function ImageLightbox({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, onClose]);
+  
+  const handleDownloadAll = async () => {
+    setIsDownloading(true);
+    const zip = new JSZip();
+
+    try {
+        const imagePromises = images.map(async (url, index) => {
+            const response = await fetch(url);
+            if (!response.ok) {
+                console.error(`Failed to fetch image: ${url}`);
+                return;
+            }
+            const blob = await response.blob();
+            // Extract file extension or default to .jpg
+            const fileExtension = url.split('.').pop()?.split('?')[0] || 'jpg';
+            zip.file(`image-${index + 1}.${fileExtension}`, blob);
+        });
+
+        await Promise.all(imagePromises);
+
+        zip.generateAsync({ type: "blob" }).then((content) => {
+            saveAs(content, "hanoi-residences-images.zip");
+        });
+
+    } catch (error) {
+        console.error("Error creating zip file:", error);
+    } finally {
+        setIsDownloading(false);
+    }
+  };
+
 
   if (!isOpen) return null;
 
@@ -79,11 +113,30 @@ export default function ImageLightbox({
         </Carousel>
 
         <DialogClose asChild>
-          <button className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground md:text-foreground text-white">
+          <button className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground md:text-foreground text-white z-20">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </button>
         </DialogClose>
+        
+        <div className="absolute left-4 top-4 z-20">
+            <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleDownloadAll}
+                disabled={isDownloading}
+                className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground md:text-foreground text-white"
+            >
+                {isDownloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                    <Download className="h-4 w-4" />
+                )}
+                <span className="sr-only">
+                    {isDownloading ? "Đang nén..." : "Tải xuống tất cả ảnh"}
+                </span>
+            </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
