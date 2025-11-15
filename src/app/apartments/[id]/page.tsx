@@ -72,7 +72,7 @@ function ApartmentDetailsSkeleton() {
 }
 
 function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
-    const { userRole, isUserLoading } = useUser();
+    const { isUserLoading } = useUser();
     const [apartment, setApartment] = useState<Apartment | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -85,8 +85,6 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
         };
         fetchApartment();
     }, [apartmentId]);
-
-    const canViewCommission = userRole === 'admin' || userRole === 'collaborator';
     
     if (isLoading || isUserLoading) {
       return <ApartmentDetailsSkeleton />;
@@ -174,16 +172,6 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
                   </div>
                 </div>
               </div>
-
-              {canViewCommission && apartment.commission && (
-                <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                    <h2 className="mb-2 flex items-center font-headline text-xl font-bold">
-                        <Award className="mr-3 h-5 w-5 text-primary" />
-                        Thông tin hoa hồng
-                    </h2>
-                    <p className="text-foreground/80">{apartment.commission}</p>
-                </div>
-              )}
 
               <div className="pt-8">
                  <h2 className="mb-4 flex items-center font-headline text-2xl font-bold">

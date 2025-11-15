@@ -130,23 +130,18 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, userRole, isUserLoading } = useUser();
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isUserLoading) {
-      if (!user) {
-        // Not logged in, redirect to login
-        router.push('/login');
-      } else if (userRole !== 'admin') {
-        // Logged in, but not an admin, redirect to home
-        console.warn('Access denied. User is not an admin.');
-        router.push('/');
-      }
+    if (!isUserLoading && !user) {
+      // If loading is finished and there's still no user, redirect to login
+      router.push('/login');
     }
-  }, [user, userRole, isUserLoading, router]);
+  }, [user, isUserLoading, router]);
 
-  if (isUserLoading || userRole !== 'admin') {
+  if (isUserLoading || !user) {
+    // Show a loader while checking for user auth or if user is not authenticated
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
