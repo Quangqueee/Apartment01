@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { getApartmentById } from "@/lib/data-client";
@@ -198,9 +199,11 @@ function ApartmentDetailsSkeleton() {
     );
 }
 
-// This page now needs to be a Client Component to use hooks like useUser.
-// We'll fetch data client-side if it wasn't pre-fetched during SSR.
-export default function ApartmentPage({ params: { id } }: { params: { id: string } }) {
+// This page is now a Server Component responsible for extracting the `id` from params.
+// It then passes the `id` to the `ApartmentDetails` Client Component.
+export default function ApartmentPage({ params }: { params: { id: string } }) {
+  const { id } = params;
+  
   // We pass null for initialApartment because we will fetch on the client.
   // This avoids passing a server-rendered object to a client component that then re-fetches,
   // which can lead to mismatches if data changes.
