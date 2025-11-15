@@ -53,35 +53,28 @@ export default function ImageLightbox({
     };
   }, [api]);
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
+    // This is a simpler download method that avoids CORS issues
+    // by not using fetch(). It tells the browser to download the
+    // image from its original URL.
     setIsDownloading(true);
     try {
       const imageUrl = images[currentSlide];
-      // Fetch the image data
-      const response = await fetch(imageUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.statusText}`);
-      }
-      const blob = await response.blob();
-
-      // Create a temporary link to trigger the download
-      const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = url;
-      
+      link.href = imageUrl;
+
+      // The 'download' attribute suggests a filename to the browser.
+      // If the server sends a Content-Disposition header, it may be overridden.
+      // We can suggest a name based on the URL.
       const fileName = imageUrl.split('/').pop()?.split('?')[0] || `image-${currentSlide + 1}.jpg`;
       link.setAttribute("download", fileName);
       
-      document.body.appendChild(link);
+      // We don't need to add the link to the body for it to work in modern browsers.
       link.click();
-
-      // Clean up
-      link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
+      
       toast({
-        title: "Tải xuống thành công",
-        description: "Ảnh đã được lưu về máy của bạn.",
+        title: "Bắt đầu tải xuống",
+        description: "Ảnh của bạn đang được tải xuống.",
       });
     } catch (error) {
       console.error("Download failed:", error);
@@ -91,6 +84,7 @@ export default function ImageLightbox({
         description: "Không thể tải ảnh. Vui lòng thử lại.",
       });
     } finally {
+      // The download starts instantly, so we can set loading to false quickly.
       setIsDownloading(false);
     }
   };
