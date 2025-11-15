@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MoreHorizontal, PlusCircle, Search, ClipboardCopy, Trash2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, ClipboardCopy, Trash2, Pencil, ExternalLink } from "lucide-react";
 import { getApartments } from "@/lib/data";
 import Link from "next/link";
 import { deleteApartmentAction } from "../actions";
@@ -208,12 +208,14 @@ export default function AdminDashboard() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                            <Link href={`/admin/apartments/${apt.id}/edit`}>
+                            <Link href={`/admin/apartments/${apt.id}/edit`} className="flex items-center">
+                              <Pencil className="mr-2 h-4 w-4" />
                               Edit
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href={`/apartments/${apt.id}`} target="_blank">
+                            <Link href={`/apartments/${apt.id}`} target="_blank" className="flex items-center">
+                              <ExternalLink className="mr-2 h-4 w-4" />
                               View
                             </Link>
                           </DropdownMenuItem>
@@ -250,13 +252,15 @@ export default function AdminDashboard() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/admin/apartments/${apt.id}/edit`}>
+                           <DropdownMenuItem asChild>
+                            <Link href={`/admin/apartments/${apt.id}/edit`} className="flex items-center">
+                              <Pencil className="mr-2 h-4 w-4" />
                               Edit
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href={`/apartments/${apt.id}`} target="_blank">
+                            <Link href={`/apartments/${apt.id}`} target="_blank" className="flex items-center">
+                              <ExternalLink className="mr-2 h-4 w-4" />
                               View
                             </Link>
                           </DropdownMenuItem>
