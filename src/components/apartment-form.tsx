@@ -334,7 +334,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
           <div className="space-y-8 lg:col-span-2">
             <Card>
               <CardHeader>
-                <CardTitle>Core Information</CardTitle>
+                <CardTitle>Thông tin chi tiết</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField
@@ -358,10 +358,10 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="details"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Thông tin chi tiết</FormLabel>
+                      <FormLabel>Mô tả căn hộ</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Describe the apartment in detail..."
+                          placeholder=""
                           className="min-h-[150px]"
                           {...field}
                         />
@@ -370,7 +370,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                     </FormItem>
                   )}
                 />
-                <FormField
+                {/* <FormField
                   control={form.control}
                   name="listingSummary"
                   render={({ field }) => (
@@ -402,7 +402,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormMessage />
                     </FormItem>
                   )}
-                />
+                /> */}
               </CardContent>
             </Card>
 
@@ -416,7 +416,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="imageUrls"
                   render={() => (
                     <FormItem>
-                      <FormLabel>Apartment Images</FormLabel>
                       <FormControl>
                         <div
                           className={cn(
@@ -447,8 +446,8 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                         </div>
                       </FormControl>
                       <FormDescription>
-                        Upload up to {MAX_IMAGES} images (JPG, PNG, WebP). Drag to reorder. The first image will be the main
-                        one.
+                        Tải lên tối đa {MAX_IMAGES} ảnh (JPG, PNG, WebP).  Ảnh được hiển thị theo thứ tự, ảnh đầu tiên làm ảnh bìa.
+                       
                       </FormDescription>
                       <DndContext
                         sensors={sensors}
@@ -482,7 +481,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
           <div className="space-y-8 lg:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle>Thông tin cơ bản</CardTitle>
+                <CardTitle>Thông tin căn hộ</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField
@@ -523,7 +522,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a district" />
+                            <SelectValue placeholder="Chọn Quận" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -569,7 +568,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>Admin Details</CardTitle>
+                <CardTitle>Admin Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField
@@ -579,7 +578,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                     <FormItem>
                       <FormLabel>Mã nguồn</FormLabel>
                       <FormControl>
-                        <Input placeholder="VD. TH001" {...field} />
+                        <Input placeholder="VD. TH0012" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

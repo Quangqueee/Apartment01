@@ -175,7 +175,7 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
                     <div className="flex items-center gap-2">
                         <Award className="h-5 w-5 text-muted-foreground" />
                         <div>
-                            <p className="font-semibold">Mã nội bộ</p>
+                            <p className="font-semibold">Mã nguồn</p>
                             <p className="text-muted-foreground">
                                 {apartment.sourceCode}
                             </p>
@@ -188,7 +188,7 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
               <div className="pt-8">
                  <h2 className="mb-4 flex items-center font-headline text-2xl font-bold">
                     <FileText className="mr-3 h-6 w-6 text-primary" />
-                    Detailed Information
+                    Thông tin căn hộ
                 </h2>
                 <div className="prose prose-lg max-w-none whitespace-pre-wrap text-foreground/80">
                     {apartment.details}

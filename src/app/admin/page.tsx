@@ -37,6 +37,7 @@ import { useState, useEffect, useTransition, FormEvent, useCallback } from "reac
 import { Apartment } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function AdminDashboard() {
   const searchParams = useSearchParams();
@@ -170,7 +171,7 @@ export default function AdminDashboard() {
       <div className="pb-4">
         <form onSubmit={handleSearch} className="relative w-full max-w-md">
             <Input 
-              placeholder="Tìm theo mã nội bộ hoặc địa chỉ..." 
+              placeholder="Tìm theo mã nguồn hoặc địa chỉ..." 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pr-10"
@@ -190,74 +191,83 @@ export default function AdminDashboard() {
         <CardHeader>
            <CardTitle className="flex items-center justify-between">
             All Listings
-            <span className="text-sm font-medium text-muted-foreground bg-secondary px-2 py-1 rounded-md">
-                {totalApartments} căn hộ
+            <span className="text-sm font-bold px-2 py-1 rounded-md">
+                {totalApartments} kết quả
             </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           {/* Desktop View */}
           <div className="hidden md:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Địa chỉ</TableHead>
-                  <TableHead>Mã nguồn</TableHead>
-                  <TableHead>SĐT Chủ nhà</TableHead>
-                  <TableHead>Giá</TableHead>
-                  <TableHead>Ngày cập nhật</TableHead>
-                  <TableHead className="text-right">Hành động</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {apartments.map((apt) => (
-                  <TableRow key={apt.id}>
-                    <TableCell className="font-medium">
-                       <Link href={`/admin/apartments/${apt.id}/edit`} className="text-primary hover:underline">
-                          {apt.address}
-                       </Link>
-                    </TableCell>
-                    <TableCell>{apt.sourceCode}</TableCell>
-                    <TableCell>{apt.landlordPhoneNumber}</TableCell>
-                    <TableCell>
-                      {apt.price} tr
-                    </TableCell>
-                    <TableCell>{formatDate(apt.updatedAt && apt.updatedAt.seconds > 0 ? apt.updatedAt : apt.createdAt)}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/admin/apartments/${apt.id}/edit`} className="flex items-center">
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/apartments/${apt.id}`} target="_blank" className="flex items-center">
-                              <ExternalLink className="mr-2 h-4 w-4" />
-                              View
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                              onClick={() => handleDeleteClick(apt.id)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+            <TooltipProvider>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Địa chỉ</TableHead>
+                    <TableHead>Mã nguồn</TableHead>
+                    <TableHead>SĐT Chủ nhà</TableHead>
+                    <TableHead>Giá</TableHead>
+                    <TableHead>Ngày cập nhật</TableHead>
+                    <TableHead className="text-right">Hành động</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {apartments.map((apt) => (
+                    <TableRow key={apt.id}>
+                      <TableCell className="font-medium">
+                         <Link href={`/admin/apartments/${apt.id}/edit`} className="text-primary hover:underline">
+                            {apt.address}
+                         </Link>
+                      </TableCell>
+                      <TableCell>{apt.sourceCode}</TableCell>
+                      <TableCell>{apt.landlordPhoneNumber}</TableCell>
+                      <TableCell>
+                        {apt.price} tr
+                      </TableCell>
+                      <TableCell>{formatDate(apt.updatedAt && apt.updatedAt.seconds > 0 ? apt.updatedAt : apt.createdAt)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-2">
+                           <Tooltip>
+                              <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" asChild>
+                                      <Link href={`/apartments/${apt.id}`} target="_blank">
+                                          <ExternalLink className="h-4 w-4" />
+                                      </Link>
+                                  </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                  <p>View Listing</p>
+                              </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" asChild>
+                                    <Link href={`/admin/apartments/${apt.id}/edit`}>
+                                        <Pencil className="h-4 w-4" />
+                                    </Link>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Edit</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                              <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(apt.id)} className="text-destructive hover:text-destructive">
+                                      <Trash2 className="h-4 w-4" />
+                                  </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                  <p>Delete</p>
+                              </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TooltipProvider>
           </div>
 
           {/* Mobile View */}
@@ -349,4 +359,3 @@ export default function AdminDashboard() {
     </>
   );
 }
-
