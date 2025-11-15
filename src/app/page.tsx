@@ -53,7 +53,13 @@ export default async function Home({ searchParams }: HomeProps) {
           </div>
           <ApartmentList 
             initialApartments={apartments} 
-            searchParams={searchParams}
+            searchParams={{
+              q: query,
+              district: district,
+              price: price,
+              roomType: roomType,
+              sort: sort,
+            }}
             totalInitialResults={totalResults}
           />
         </div>
