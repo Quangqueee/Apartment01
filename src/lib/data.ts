@@ -78,7 +78,7 @@ export async function getApartments(
   let baseQuery: Query = apartmentsCollection;
   let whereClauses = [];
 
-  // --- Build Where Clauses ---
+  // --- Build Where Clauses (excluding price) ---
   if (district) {
     whereClauses.push(where("district", "==", district));
   }
@@ -86,21 +86,6 @@ export async function getApartments(
     whereClauses.push(where("roomType", "==", roomType));
   }
   
-  // Apply price range filtering with where clauses
-  if (priceRange) {
-    const [min, max] = priceRange.split("-");
-    const minPrice = min ? parseInt(min, 10) : 0;
-    const maxPrice = max ? parseInt(max, 10) : Infinity;
-
-    if (minPrice > 0) {
-      whereClauses.push(where("price", ">=", minPrice));
-    }
-    if (maxPrice !== Infinity) {
-      whereClauses.push(where("price", "<=", maxPrice));
-    }
-  }
-
-  // Always apply where clauses if they exist
   if (whereClauses.length > 0) {
       baseQuery = query(baseQuery, ...whereClauses);
   }
@@ -108,6 +93,21 @@ export async function getApartments(
   // Initial fetch from Firestore - we only order by one field to avoid complex indexes
   const querySnapshot = await getDocs(baseQuery);
   let allMatchingApartments = querySnapshot.docs.map(toApartment);
+
+  // --- Server-side Price Filtering with rounding logic ---
+  if (priceRange) {
+    const [min, max] = priceRange.split("-");
+    const minPrice = min ? parseInt(min, 10) : 0;
+    const maxPrice = max ? parseInt(max, 10) : Infinity;
+
+    allMatchingApartments = allMatchingApartments.filter(apt => {
+        const roundedPrice = Math.floor(apt.price);
+        const meetsMin = minPrice > 0 ? roundedPrice >= minPrice : true;
+        const meetsMax = maxPrice !== Infinity ? roundedPrice <= maxPrice : true;
+        return meetsMin && meetsMax;
+    });
+  }
+
 
   // --- Post-Query Text Search (if needed) ---
   if (searchQuery) {
@@ -132,7 +132,12 @@ export async function getApartments(
   } else if (sortBy === 'price-desc') {
     allMatchingApartments.sort((a, b) => b.price - a.price);
   } else { // 'newest' or default
-    allMatchingApartments.sort((a, b) => b.updatedAt.seconds - a.updatedAt.seconds);
+    // Sort by updatedAt descending, if equal, then by createdAt descending
+    allMatchingApartments.sort((a, b) => {
+        const dateA = a.updatedAt.seconds > 0 ? a.updatedAt : a.createdAt;
+        const dateB = b.updatedAt.seconds > 0 ? b.updatedAt : b.createdAt;
+        return dateB.seconds - dateA.seconds;
+    });
   }
 
   // --- Server-Side Pagination ---

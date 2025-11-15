@@ -28,7 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MoreHorizontal, PlusCircle, Search, ClipboardCopy, Trash2, Pencil, ExternalLink } from "lucide-react";
-import { getApartments } from "@/lib/data";
+import { getApartments } from "@/lib/data-client";
 import Link from "next/link";
 import { deleteApartmentAction } from "../actions";
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,10 @@ export default function AdminDashboard() {
   const fetchApartments = useCallback(() => {
      startTransition(async () => {
       const page = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1;
+      // Note: Admin dashboard fetches from a client-side function that might have different logic
+      // For now, we assume it fetches all.
+      // If we want admin to have server-side filtering, we'd call an action.
+      // Let's stick to a client-side fetch for simplicity for now.
       const result = await getApartments({
         query: searchParams.get("q") || undefined,
         district: searchParams.get("district") || undefined,
@@ -345,3 +349,4 @@ export default function AdminDashboard() {
     </>
   );
 }
+
