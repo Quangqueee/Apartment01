@@ -97,24 +97,6 @@ export default function Header() {
               Hanoi Residences
             </h1>
           </Link>
-          
-           <div className="md:hidden">
-             <Link
-              href="/admin"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-            >
-              Admin
-            </Link>
-           </div>
-           
-           <div className="hidden md:block">
-            <Link
-              href="/admin"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-            >
-              Admin
-            </Link>
-          </div>
 
         </div>
 
