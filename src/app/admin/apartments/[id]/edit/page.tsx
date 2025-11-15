@@ -1,8 +1,17 @@
-import ApartmentForm from "@/components/apartment-form";
-import { getApartmentById } from "@/lib/data";
-import { notFound } from "next/navigation";
 
-export const dynamic = "force-dynamic";
+'use client';
+
+import { getApartmentById } from "@/lib/data-client";
+import { notFound } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Apartment } from "@/lib/types";
+import dynamic from "next/dynamic";
+import ApartmentFormSkeleton from "@/components/apartment-form-skeleton";
+
+const ApartmentForm = dynamic(() => import('@/components/apartment-form'), {
+  loading: () => <ApartmentFormSkeleton />,
+  ssr: false // The form handles its own data, no need for SSR here
+});
 
 type EditApartmentPageProps = {
   params: {
@@ -10,12 +19,18 @@ type EditApartmentPageProps = {
   };
 };
 
-export default async function EditApartmentPage({
-  params,
-}: EditApartmentPageProps) {
-  const apartment = await getApartmentById(params.id);
+export default function EditApartmentPage({ params }: EditApartmentPageProps) {
+  const [apartment, setApartment] = useState<Apartment | null | undefined>(undefined);
 
-  if (!apartment) {
+  useEffect(() => {
+    async function fetchApartment() {
+      const data = await getApartmentById(params.id);
+      setApartment(data);
+    }
+    fetchApartment();
+  }, [params.id]);
+
+  if (apartment === null) {
     notFound();
   }
 
@@ -26,7 +41,11 @@ export default async function EditApartmentPage({
           Edit Apartment
         </h2>
       </div>
-      <ApartmentForm apartment={apartment} />
+      {apartment === undefined ? (
+        <ApartmentFormSkeleton />
+      ) : (
+        <ApartmentForm apartment={apartment} />
+      )}
     </div>
   );
 }

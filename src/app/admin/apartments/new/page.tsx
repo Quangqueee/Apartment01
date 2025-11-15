@@ -1,4 +1,13 @@
-import ApartmentForm from "@/components/apartment-form";
+
+'use client';
+
+import dynamic from 'next/dynamic';
+import ApartmentFormSkeleton from "@/components/apartment-form-skeleton";
+
+// Use dynamic import for the form to speed up initial page load
+const ApartmentForm = dynamic(() => import('@/components/apartment-form'), {
+  loading: () => <ApartmentFormSkeleton />,
+});
 
 export default function NewApartmentPage() {
   return (
