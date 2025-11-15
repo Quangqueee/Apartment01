@@ -208,7 +208,7 @@ export default function AdminDashboard() {
                     <TableHead>SĐT Chủ nhà</TableHead>
                     <TableHead>Giá</TableHead>
                     <TableHead>Ngày cập nhật</TableHead>
-                    <TableHead className="text-right">Hành động</TableHead>
+                    <TableHead className="text-center">Hành động</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -226,7 +226,7 @@ export default function AdminDashboard() {
                       </TableCell>
                       <TableCell>{formatDate(apt.updatedAt && apt.updatedAt.seconds > 0 ? apt.updatedAt : apt.createdAt)}</TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1">
                            <Tooltip>
                               <TooltipTrigger asChild>
                                   <Button variant="ghost" size="icon" asChild>
