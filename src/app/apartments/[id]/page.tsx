@@ -1,6 +1,7 @@
 
+'use client';
+
 import { getApartmentById } from "@/lib/data-client";
-import { notFound, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
@@ -22,11 +23,6 @@ import { useUser } from "@/firebase/provider";
 import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-
-// ##################################################################
-// CLIENT COMPONENT SECTION
-// ##################################################################
-'use client';
 
 const getRoomTypeLabel = (value: string) => {
   const roomType = ROOM_TYPES.find((rt) => rt.value === value);
@@ -97,8 +93,6 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
     }
 
     if (!apartment) {
-        // notFound() is a hook and must be called from a Client Component.
-        // It's also valid to just render a "not found" message.
         return (
              <div className="container mx-auto px-4 py-8 md:py-12 text-center">
                 <h1 className="font-headline text-3xl font-bold">Apartment Not Found</h1>
@@ -213,10 +207,6 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
   );
 }
 
-
-// ##################################################################
-// SERVER COMPONENT (Default Export)
-// ##################################################################
 
 /**
  * This is the SERVER component wrapper for the apartment details page.
