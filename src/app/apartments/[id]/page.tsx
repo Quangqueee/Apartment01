@@ -162,12 +162,24 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold">Quận</p>                      <p className="text-muted-foreground">
-                        {apartment.district}
-                      </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <MapPin className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                        <p className="font-semibold">Quận</p>                      
+                        <p className="text-muted-foreground">
+                            {apartment.district}
+                        </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Award className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                            <p className="font-semibold">Mã nội bộ</p>
+                            <p className="text-muted-foreground">
+                                {apartment.sourceCode}
+                            </p>
+                        </div>
                     </div>
                   </div>
                 </div>
