@@ -1,7 +1,4 @@
 
-
-'use client';
-
 import { getApartmentById } from "@/lib/data-client";
 import { notFound, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -25,27 +22,73 @@ import { useUser } from "@/firebase/provider";
 import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
+
+// ##################################################################
+// CLIENT COMPONENT SECTION
+// ##################################################################
+'use client';
+
 const getRoomTypeLabel = (value: string) => {
   const roomType = ROOM_TYPES.find((rt) => rt.value === value);
   return roomType ? roomType.label : "N/A";
 };
 
-function ApartmentDetails({ apartment: initialApartment, apartmentId }: { apartment: Apartment | null, apartmentId: string }) {
+function ApartmentDetailsSkeleton() {
+    return (
+        <div className="container mx-auto px-4 py-8 md:py-12 animate-pulse">
+            <Skeleton className="h-8 w-32 mb-8" />
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-5 lg:gap-12">
+                <div className="lg:col-span-3">
+                    <Skeleton className="w-full aspect-[4/3] rounded-lg" />
+                    <div className="hidden md:grid grid-cols-5 gap-2 mt-2">
+                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
+                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
+                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
+                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
+                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
+                    </div>
+                </div>
+                <div className="space-y-8 lg:col-span-2">
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <Skeleton className="h-6 w-24 rounded-full" />
+                            <Skeleton className="h-4 w-36" />
+                        </div>
+                        <Skeleton className="h-10 w-full rounded-lg" />
+                        <Skeleton className="h-8 w-40 rounded-lg" />
+                        <div className="space-y-4">
+                            <Skeleton className="h-12 w-full" />
+                            <Skeleton className="h-12 w-full" />
+                        </div>
+                    </div>
+                    <div className="pt-8">
+                        <Skeleton className="h-8 w-48 mb-4" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-5/6" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
     const { userRole, isUserLoading } = useUser();
-    const [apartment, setApartment] = useState<Apartment | null>(initialApartment);
-    const [isLoading, setIsLoading] = useState(!initialApartment);
+    const [apartment, setApartment] = useState<Apartment | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const fetchApartment = async () => {
-            if (!initialApartment) {
-                setIsLoading(true);
-                const fetchedApartment = await getApartmentById(apartmentId);
-                setApartment(fetchedApartment);
-                setIsLoading(false);
-            }
+            setIsLoading(true);
+            const fetchedApartment = await getApartmentById(apartmentId);
+            setApartment(fetchedApartment);
+            setIsLoading(false);
         };
         fetchApartment();
-    }, [initialApartment, apartmentId]);
+    }, [apartmentId]);
 
     const canViewCommission = userRole === 'admin' || userRole === 'collaborator';
     
@@ -54,7 +97,20 @@ function ApartmentDetails({ apartment: initialApartment, apartmentId }: { apartm
     }
 
     if (!apartment) {
-        notFound();
+        // notFound() is a hook and must be called from a Client Component.
+        // It's also valid to just render a "not found" message.
+        return (
+             <div className="container mx-auto px-4 py-8 md:py-12 text-center">
+                <h1 className="font-headline text-3xl font-bold">Apartment Not Found</h1>
+                <p className="text-muted-foreground mt-4">The apartment you are looking for does not exist.</p>
+                <Button asChild variant="ghost" className="mt-8">
+                    <Link href="/">
+                    <ChevronLeft className="mr-2 h-4 w-4" />
+                    Back to Listings
+                    </Link>
+                </Button>
+            </div>
+        );
     }
 
     const displayDate = apartment.updatedAt && apartment.updatedAt.seconds > 0 ? apartment.updatedAt : apartment.createdAt;
@@ -157,55 +213,18 @@ function ApartmentDetails({ apartment: initialApartment, apartmentId }: { apartm
   );
 }
 
-function ApartmentDetailsSkeleton() {
-    return (
-        <div className="container mx-auto px-4 py-8 md:py-12 animate-pulse">
-            <Skeleton className="h-8 w-32 mb-8" />
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-5 lg:gap-12">
-                <div className="lg:col-span-3">
-                    <Skeleton className="w-full aspect-[4/3] rounded-lg" />
-                    <div className="hidden md:grid grid-cols-5 gap-2 mt-2">
-                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
-                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
-                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
-                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
-                        <Skeleton className="w-full aspect-[4/3] rounded-md" />
-                    </div>
-                </div>
-                <div className="space-y-8 lg:col-span-2">
-                    <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                            <Skeleton className="h-6 w-24 rounded-full" />
-                            <Skeleton className="h-4 w-36" />
-                        </div>
-                        <Skeleton className="h-10 w-full rounded-lg" />
-                        <Skeleton className="h-8 w-40 rounded-lg" />
-                        <div className="space-y-4">
-                            <Skeleton className="h-12 w-full" />
-                            <Skeleton className="h-12 w-full" />
-                        </div>
-                    </div>
-                    <div className="pt-8">
-                        <Skeleton className="h-8 w-48 mb-4" />
-                        <div className="space-y-2">
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-full" />
-                            <Skeleton className="h-4 w-5/6" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
 
-// This page is now a Server Component responsible for extracting the `id` from params.
-// It then passes the `id` to the `ApartmentDetails` Client Component.
+// ##################################################################
+// SERVER COMPONENT (Default Export)
+// ##################################################################
+
+/**
+ * This is the SERVER component wrapper for the apartment details page.
+ * Its only job is to safely extract the `id` from the URL parameters (`params`)
+ * and pass it to the actual page component, which is a Client Component.
+ * This pattern avoids the `params` access warning in Next.js.
+ */
 export default function ApartmentPage({ params: { id } }: { params: { id: string } }) {
-  // We pass null for initialApartment because we will fetch on the client.
-  // This avoids passing a server-rendered object to a client component that then re-fetches,
-  // which can lead to mismatches if data changes.
-  return <ApartmentDetails apartment={null} apartmentId={id} />;
+  // We pass the extracted `id` to the client component which will handle all data fetching and rendering.
+  return <ApartmentDetailsPage apartmentId={id} />;
 }
-
-    
