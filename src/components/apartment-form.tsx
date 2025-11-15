@@ -63,6 +63,7 @@ const ACCEPTED_IMAGE_TYPES = [
 ];
 const IMAGE_QUALITY = 0.75;
 const MAX_IMAGE_WIDTH = 1920;
+const MAX_IMAGES = 15;
 
 
 const formSchema = z.object({
@@ -78,7 +79,7 @@ const formSchema = z.object({
   listingSummary: z.string().optional(),
   address: z.string().min(1, "Exact address is required."),
   landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
-  imageUrls: z.array(z.string()).min(1, "At least one image is required."),
+  imageUrls: z.array(z.string()).min(1, "At least one image is required.").max(MAX_IMAGES, `You can upload a maximum of ${MAX_IMAGES} images.`),
 });
 
 type SortableImageProps = {
@@ -200,23 +201,26 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   });
 
   const removeImage = useCallback(
-    (index: number) => {
-      const updatedPreviews = previews.filter((_, i) => i !== index);
-      setPreviews(updatedPreviews);
-      form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
+    (indexToRemove: number) => {
+      setPreviews((currentPreviews) => {
+        const updatedPreviews = currentPreviews.filter((_, i) => i !== indexToRemove);
+        form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
+        return updatedPreviews;
+      });
     },
-    [previews, form]
+    [form]
   );
+
 
   const handleFiles = (files: File[]) => {
     if (files.length === 0) return;
 
     const currentImageCount = previews.length;
-    if (currentImageCount + files.length > 10) {
+    if (currentImageCount + files.length > MAX_IMAGES) {
       toast({
         variant: "destructive",
         title: "Too many images",
-        description: "You can upload a maximum of 10 images.",
+        description: `You can upload a maximum of ${MAX_IMAGES} images.`,
       });
       return;
     }
@@ -446,7 +450,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                         </div>
                       </FormControl>
                       <FormDescription>
-                        Upload one or more images (JPG, PNG, WebP). Drag to reorder. The first image will be the main
+                        Upload up to {MAX_IMAGES} images (JPG, PNG, WebP). Drag to reorder. The first image will be the main
                         one.
                       </FormDescription>
                       <DndContext
