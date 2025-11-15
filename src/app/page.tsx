@@ -23,11 +23,11 @@ const PAGE_SIZE = 9;
 
 export default async function Home({ searchParams }: HomeProps) {
   // Destructure searchParams to avoid sync access errors warned by Next.js
-  const query = searchParams.q;
-  const district = searchParams.district;
-  const price = searchParams.price;
-  const roomType = searchParams.roomType;
-  const sort = searchParams.sort;
+  const query = searchParams?.q;
+  const district = searchParams?.district;
+  const price = searchParams?.price;
+  const roomType = searchParams?.roomType;
+  const sort = searchParams?.sort;
 
   // Fetch the initial batch of apartments using the centralized getApartments function
   const { apartments, totalResults } = await getApartments({
@@ -68,3 +68,4 @@ export default async function Home({ searchParams }: HomeProps) {
     </>
   );
 }
+
