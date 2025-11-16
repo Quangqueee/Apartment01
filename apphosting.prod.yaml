@@ -1,4 +1,4 @@
 # Settings for the "prod" environment
 env:
   - variable: NEXT_PUBLIC_ADMIN_SECRET_PATH
-    value: 'your-secret-admin-path-goes-here'
+    value: 'dhnatncnegzrag'
