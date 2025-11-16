@@ -37,5 +37,6 @@ export const SORT_OPTIONS = [
     { label: "Giá: Cao đến thấp", value: "price-desc" },
 ];
 
-// Hardcoded secret path for admin access
-export const ADMIN_PATH = "dhnatncnegzrag";
+// This path is now dynamic and controlled by an environment variable.
+// It serves as a default/fallback if the env var is not set.
+export const ADMIN_PATH = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || "admin";

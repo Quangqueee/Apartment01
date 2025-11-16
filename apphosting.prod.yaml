@@ -1,7 +1,4 @@
 # Settings for the "prod" environment
-# This file is used when deploying to the "prod" environment
-# firebase deploy --only apphosting:hanoi-residences-backend
-
 env:
-  - variable: GEMINI_API_KEY
-    value: 'AIzaSyCBnLNfEMHVu_5tSXAx85ssP0beXVDHFSA'
+  # Replace with the actual secret path for your production environment
+  NEXT_PUBLIC_ADMIN_SECRET_PATH: 'your-secret-admin-path-goes-here'
