@@ -1,0 +1,7 @@
+# Settings for the 'prod' environment on Firebase App Hosting
+# These settings will be applied when you run `firebase deploy`
+
+# Environment variables available to the server-side and client-side builds.
+env:
+  - variable: NEXT_PUBLIC_ADMIN_SECRET_PATH
+    value: 'your-secret-admin-path-goes-here'
