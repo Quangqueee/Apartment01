@@ -163,7 +163,7 @@ export async function getApartmentById(id: string): Promise<Apartment | null> {
 
 export async function createApartment(
   data: Omit<Apartment, "id">
-) {
+): Promise<Apartment> {
   const docRef = await addDoc(apartmentsCollection, data);
   const newDoc = await getDoc(docRef);
   return toApartment(newDoc);
@@ -172,7 +172,7 @@ export async function createApartment(
 export async function updateApartment(
   id: string,
   data: Partial<Omit<Apartment, "id">>
-) {
+): Promise<Apartment> {
   const docRef = doc(firestore, "apartments", id);
   await updateDoc(docRef, data);
   const updatedDoc = await getDoc(docRef);

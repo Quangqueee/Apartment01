@@ -94,6 +94,7 @@ export async function createOrUpdateApartmentAction(
   }
   
   const data = validatedFields.data;
+  let apartmentId = id;
 
   try {
     let existingImageUrls: string[] | undefined = undefined;
@@ -104,23 +105,22 @@ export async function createOrUpdateApartmentAction(
     
     const finalImageUrls = await uploadAndCleanupImages(data.imageUrls, existingImageUrls);
 
-    // Always update the 'updatedAt' timestamp
     const apartmentDataWithTimestamp = { 
         ...data,
         listingSummary: data.listingSummary || "",
         imageUrls: finalImageUrls,
-        updatedAt: Timestamp.now(), // Add/update the timestamp here
+        updatedAt: Timestamp.now(),
     };
 
     if (id) {
       await updateApartment(id, apartmentDataWithTimestamp);
     } else {
-      // For new apartments, 'createdAt' is also set
       const newApartmentData = {
           ...apartmentDataWithTimestamp,
           createdAt: Timestamp.now(),
       };
-      await createApartment(newApartmentData as Omit<Apartment, "id">);
+      const newApartment = await createApartment(newApartmentData as Omit<Apartment, "id">);
+      apartmentId = newApartment.id;
     }
   } catch (error) {
     console.error("Database error:", error);
@@ -129,8 +129,8 @@ export async function createOrUpdateApartmentAction(
 
   revalidatePath(`/${ADMIN_PATH}`);
   revalidatePath("/");
-  if (id) {
-    revalidatePath(`/apartments/${id}`);
+  if (apartmentId) {
+    revalidatePath(`/apartments/${apartmentId}`);
   }
   redirect(`/${ADMIN_PATH}`);
 }
