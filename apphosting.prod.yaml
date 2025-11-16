@@ -4,4 +4,6 @@
 # Environment variables available to the server-side and client-side builds.
 env:
   - variable: NEXT_PUBLIC_ADMIN_SECRET_PATH
-    value: 'your-secret-admin-path-goes-here'
+    value: 'dhnatncnegzrag2003'
+  - variable: GEMINI_API_KEY
+    value: 'AIzaSyCBnLNfEMHVu_5tSXAx85ssP0beXVDHFSA'
