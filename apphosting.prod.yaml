@@ -1,9 +1,7 @@
-# Settings for the 'prod' environment on Firebase App Hosting
-# These settings will be applied when you run `firebase deploy`
+# Settings for the "prod" environment
+# This file is used when deploying to the "prod" environment
+# firebase deploy --only apphosting:hanoi-residences-backend
 
-# Environment variables available to the server-side and client-side builds.
 env:
-  - variable: NEXT_PUBLIC_ADMIN_SECRET_PATH
-    value: 'dhnatncnegzrag2003'
   - variable: GEMINI_API_KEY
     value: 'AIzaSyCBnLNfEMHVu_5tSXAx85ssP0beXVDHFSA'

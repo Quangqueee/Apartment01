@@ -18,6 +18,7 @@ import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
 import { Apartment } from "@/lib/types";
 import { Timestamp } from "firebase/firestore";
+import { ADMIN_PATH } from "@/lib/constants";
 
 // Initialize Firebase Storage
 const storage = getStorage(firebaseApp);
@@ -126,12 +127,12 @@ export async function createOrUpdateApartmentAction(
     return { error: "Database error. Failed to save apartment." };
   }
 
-  revalidatePath("/admin");
+  revalidatePath(`/${ADMIN_PATH}`);
   revalidatePath("/");
   if (id) {
     revalidatePath(`/apartments/${id}`);
   }
-  redirect("/admin");
+  redirect(`/${ADMIN_PATH}`);
 }
 
 export async function deleteApartmentAction(id: string) {
@@ -153,7 +154,7 @@ export async function deleteApartmentAction(id: string) {
         }));
      }
     await deleteApartmentFromDb(id);
-    revalidatePath("/admin");
+    revalidatePath(`/${ADMIN_PATH}`);
     revalidatePath("/");
     if (apartment) {
         revalidatePath(`/apartments/${id}`);

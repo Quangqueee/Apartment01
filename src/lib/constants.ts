@@ -36,3 +36,6 @@ export const SORT_OPTIONS = [
     { label: "Giá: Thấp đến cao", value: "price-asc" },
     { label: "Giá: Cao đến thấp", value: "price-desc" },
 ];
+
+// Hardcoded secret path for admin access
+export const ADMIN_PATH = "dhnatncnegzrag";

@@ -18,8 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser } from '@/firebase/provider';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
-
-const ADMIN_PATH = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || 'admin';
+import { ADMIN_PATH } from '@/lib/constants';
 
 export default function LoginPage() {
   const router = useRouter();

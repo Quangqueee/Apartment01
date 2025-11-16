@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { HANOI_DISTRICTS, ROOM_TYPES } from "@/lib/constants";
+import { ADMIN_PATH, HANOI_DISTRICTS, ROOM_TYPES } from "@/lib/constants";
 import { Apartment } from "@/lib/types";
 import {
   createOrUpdateApartmentAction,
@@ -53,8 +53,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-
-const ADMIN_PATH = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || 'admin';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = [
@@ -507,8 +505,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormLabel>Diện tích (m²)</FormLabel>
                       <FormControl>
                         <Input type="number" placeholder="45" {...field} />
-                      </FormControl>
-                      <FormMessage />
+                      </FormControl>                      <FormMessage />
                     </FormItem>
                   )}
                 />
