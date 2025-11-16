@@ -98,8 +98,8 @@ export async function createOrUpdateApartmentAction(
 
   try {
     let existingImageUrls: string[] | undefined = undefined;
-    if (id) {
-        const existingApartment = await getApartmentById(id);
+    if (apartmentId) {
+        const existingApartment = await getApartmentById(apartmentId);
         existingImageUrls = existingApartment?.imageUrls;
     }
     
@@ -112,8 +112,8 @@ export async function createOrUpdateApartmentAction(
         updatedAt: Timestamp.now(),
     };
 
-    if (id) {
-      await updateApartment(id, apartmentDataWithTimestamp);
+    if (apartmentId) {
+      await updateApartment(apartmentId, apartmentDataWithTimestamp);
     } else {
       const newApartmentData = {
           ...apartmentDataWithTimestamp,
@@ -127,6 +127,7 @@ export async function createOrUpdateApartmentAction(
     return { error: "Database error. Failed to save apartment." };
   }
 
+  // Revalidation and redirection must happen outside the try...catch block
   revalidatePath(`/${ADMIN_PATH}`);
   revalidatePath("/");
   if (apartmentId) {
