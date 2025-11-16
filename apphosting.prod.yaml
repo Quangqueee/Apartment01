@@ -1,4 +1,4 @@
 # Settings for the "prod" environment
 env:
-  # Replace with the actual secret path for your production environment
-  NEXT_PUBLIC_ADMIN_SECRET_PATH: 'your-secret-admin-path-goes-here'
+  - variable: NEXT_PUBLIC_ADMIN_SECRET_PATH
+    value: 'your-secret-admin-path-goes-here'
