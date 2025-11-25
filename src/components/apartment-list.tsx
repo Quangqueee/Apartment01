@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useInView } from "react-intersection-observer";
+import { useState, useEffect, useCallback } from "react";
 import { Loader2 } from "lucide-react";
 import { Apartment } from "@/lib/types";
 import { fetchApartmentsAction } from "@/app/actions";
 import ApartmentCard from "./apartment-card";
+import { Button } from "./ui/button";
 
 type ApartmentListProps = {
   initialApartments: Apartment[];
@@ -27,7 +27,6 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(initialApartments.length < totalInitialResults);
   const [isLoading, setIsLoading] = useState(false);
-  const { ref, inView } = useInView();
   
   // This effect synchronizes the component's state with new server-rendered props.
   // It runs when the user applies new filters, sorting, or performs a search.
@@ -71,13 +70,6 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
     setIsLoading(false);
   }, [page, hasMore, isLoading, searchParams, apartments.length, totalInitialResults]);
 
-
-  useEffect(() => {
-    if (inView && hasMore && !isLoading) {
-      loadMoreApartments();
-    }
-  }, [inView, hasMore, isLoading, loadMoreApartments]);
-
   return (
     <>
       {apartments.length > 0 ? (
@@ -88,12 +80,22 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
             ))}
           </div>
           {hasMore && (
-            <div
-              ref={ref}
-              className="mt-12 flex items-center justify-center space-x-2 text-muted-foreground"
-            >
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span>Đang tải thêm...</span>
+            <div className="mt-12 flex justify-center">
+              <Button
+                onClick={loadMoreApartments}
+                disabled={isLoading}
+                variant="outline"
+                size="lg"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Đang tải...
+                  </>
+                ) : (
+                  "Xem thêm"
+                )}
+              </Button>
             </div>
           )}
         </>
