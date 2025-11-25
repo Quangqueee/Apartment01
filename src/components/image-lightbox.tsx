@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -11,8 +10,8 @@ import {
   CarouselApi,
 } from "@/components/ui/carousel";
 import Image from "next/image";
-import { Download, Loader2, X } from "lucide-react"; // Thêm icon X để đóng
-import { useEffect, useState, useCallback } from "react";
+import { Download, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { useToast } from "@/hooks/use-toast";
 
@@ -34,64 +33,55 @@ export default function ImageLightbox({
   const [currentSlide, setCurrentSlide] = useState(selectedIndex);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Cập nhật slide hiện tại khi scroll
   useEffect(() => {
     if (!api) return;
-
     setCurrentSlide(api.selectedScrollSnap());
-
-    const onSelect = () => {
-      setCurrentSlide(api.selectedScrollSnap());
-    };
-
+    const onSelect = () => setCurrentSlide(api.selectedScrollSnap());
     api.on("select", onSelect);
     return () => {
       api.off("select", onSelect);
     };
   }, [api]);
 
-  // Đồng bộ lại vị trí slide khi mở modal
   useEffect(() => {
     if (api && isOpen) {
-      api.scrollTo(selectedIndex, true); // true để nhảy ngay lập tức không animation
+      api.scrollTo(selectedIndex, true);
     }
   }, [api, isOpen, selectedIndex]);
 
-  // Hàm Download tối ưu: Fetch Blob để tránh lỗi CORS và mở tab mới
   const handleDownload = async () => {
     const imageUrl = images[currentSlide];
     if (!imageUrl) return;
 
     setIsDownloading(true);
     try {
-      // 1. Fetch dữ liệu ảnh dưới dạng Blob
-      const response = await fetch(imageUrl);
-      if (!response.ok) throw new Error("Network response was not ok");
+      // Use the API route to fetch the image
+      const proxyUrl = `/api/download-image?url=${encodeURIComponent(
+        imageUrl
+      )}`;
+      const response = await fetch(proxyUrl);
+      if (!response.ok) {
+        throw new Error(`Network response was not ok: ${response.statusText}`);
+      }
+
       const blob = await response.blob();
-
-      // 2. Tạo URL ảo cho Blob
       const blobUrl = window.URL.createObjectURL(blob);
-
-      // 3. Tạo thẻ a ẩn để kích hoạt tải xuống
       const link = document.createElement("a");
       link.href = blobUrl;
-
-      // Lấy tên file từ URL hoặc đặt tên mặc định
       const fileName =
         imageUrl.split("/").pop()?.split("?")[0] ||
         `image-${currentSlide + 1}.jpg`;
       link.setAttribute("download", fileName);
-
       document.body.appendChild(link);
       link.click();
-
-      // 4. Dọn dẹp
-      link.remove();
+      
+      // Cleanup
+      document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
 
       toast({
         title: "Đã tải xuống",
-        description: "Ảnh đã được lưu về máy của bạn.",
+        description: "Ảnh đã được lưu về máy.",
         duration: 2000,
       });
     } catch (error) {
@@ -99,7 +89,7 @@ export default function ImageLightbox({
       toast({
         variant: "destructive",
         title: "Lỗi tải xuống",
-        description: "Không thể tải ảnh do lỗi mạng hoặc bảo mật (CORS).",
+        description: "Không thể tải ảnh. Vui lòng thử lại sau.",
       });
     } finally {
       setIsDownloading(false);
@@ -110,25 +100,27 @@ export default function ImageLightbox({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-none w-screen h-screen p-0 m-0 bg-black/95 border-none shadow-none flex flex-col overflow-hidden [&>button]:hidden">
-        <DialogTitle className="sr-only">Apartment Image Lightbox</DialogTitle>
-        <div className="absolute top-0 left-0 right-0 z-50 flex justify-between items-center p-4 bg-gradient-to-b from-black/60 to-transparent h-16 shrink-0">
-          <div className="text-white/90 text-sm font-medium px-3 py-1 bg-black/20 rounded-full backdrop-blur-md border border-white/10">
+      <DialogContent className="max-w-none w-screen h-screen p-0 m-0 bg-black border-none shadow-none block overflow-hidden [&>button]:hidden">
+        <DialogTitle className="sr-only">Chi tiết hình ảnh</DialogTitle>
+
+        {/* --- TOOLBAR --- */}
+        <div className="absolute top-0 left-0 right-0 z-50 flex justify-between items-start px-4 pt-14 md:pt-4 pb-6 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none">
+          <div className="pointer-events-auto text-white/90 text-sm font-medium px-3 py-1.5 bg-zinc-800/60 backdrop-blur-md border border-white/10 rounded-full mt-1">
             {currentSlide + 1} / {images.length}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-3 pointer-events-auto">
             <Button
               variant="ghost"
               size="icon"
               onClick={handleDownload}
               disabled={isDownloading}
-              className="text-white/90 hover:bg-white/10 hover:text-white rounded-full h-10 w-10"
+              className="text-white hover:bg-white/20 hover:text-white rounded-full h-11 w-11 transition-all active:scale-95 bg-black/30 backdrop-blur-sm"
             >
               {isDownloading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <Download className="h-5 w-5" />
+                <Download className="h-6 w-6" />
               )}
             </Button>
 
@@ -136,46 +128,42 @@ export default function ImageLightbox({
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="text-white/90 hover:bg-white/10 hover:text-white rounded-full h-10 w-10"
+              className="text-white hover:bg-white/20 hover:text-white rounded-full h-11 w-11 transition-all active:scale-95 bg-black/30 backdrop-blur-sm"
             >
-              <X className="h-6 w-6" />
+              <X className="h-7 w-7" />
             </Button>
           </div>
         </div>
 
-        <div className="flex-1 w-full h-full min-h-0 relative flex items-center justify-center">
+        {/* --- CAROUSEL --- */}
+        <div className="w-full h-full">
           <Carousel
             setApi={setApi}
             className="w-full h-full"
-            opts={{
-              startIndex: selectedIndex,
-              loop: true,
-              align: "center",
-            }}
+            opts={{ startIndex: selectedIndex, loop: true }}
           >
-            <CarouselContent className="-ml-0 h-[100vh] items-center">
+            <CarouselContent className="h-[100vh] -ml-0">
               {images.map((url, index) => (
-                <CarouselItem
-                  key={index}
-                  className="h-full pl-0 relative flex items-center justify-center"
-                >
-                  <div className="relative w-full h-full flex items-center justify-center p-4 md:p-10">
-                    <Image
-                      src={url}
-                      alt={`Lightbox image ${index + 1}`}
-                      fill
-                      priority={index === selectedIndex}
-                      className="object-contain max-h-[90vh]"
-                      sizes="100vw"
-                      quality={100}
-                    />
+                <CarouselItem key={index} className="h-full pl-0 relative">
+                  <div className="w-full h-[100vh] flex items-center justify-center">
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={url}
+                        alt={`Image ${index + 1}`}
+                        fill
+                        priority={index === selectedIndex}
+                        className="object-contain p-0 md:p-12"
+                        sizes="100vw"
+                        quality={100}
+                      />
+                    </div>
                   </div>
                 </CarouselItem>
               ))}
             </CarouselContent>
-
-            <CarouselPrevious className="left-4 bg-black/20 border-white/10 text-white hover:bg-black/40 hover:text-white hidden md:flex h-12 w-12" />
-            <CarouselNext className="right-4 bg-black/20 border-white/10 text-white hover:bg-black/40 hover:text-white hidden md:flex h-12 w-12" />
+            
+            <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full border border-white/20 bg-black/50 text-white transition-all hidden md:flex items-center justify-center z-50 hover:bg-black/80" />
+            <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full border border-white/20 bg-black/50 text-white transition-all hidden md:flex items-center justify-center z-50 hover:bg-black/80" />
           </Carousel>
         </div>
       </DialogContent>
