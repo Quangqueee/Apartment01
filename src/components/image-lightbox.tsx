@@ -50,51 +50,65 @@ export default function ImageLightbox({
   }, [api, isOpen, selectedIndex]);
 
   const handleDownload = async () => {
-    const imageUrl = images[currentSlide];
-    if (!imageUrl) return;
+    if (!images || images.length === 0) return;
 
     setIsDownloading(true);
+    toast({
+      title: "Bắt đầu tải xuống...",
+      description: `Chuẩn bị tải ${images.length} ảnh.`,
+    });
+
     try {
-      // Use the API route to fetch the image
-      const proxyUrl = `/api/download-image?url=${encodeURIComponent(
-        imageUrl
-      )}`;
-      const response = await fetch(proxyUrl);
-      if (!response.ok) {
-        throw new Error(`Network response was not ok: ${response.statusText}`);
+      // Loop through all images and trigger download for each
+      for (let i = 0; i < images.length; i++) {
+        const imageUrl = images[i];
+        const proxyUrl = `/api/download-image?url=${encodeURIComponent(imageUrl)}`;
+        
+        try {
+          const response = await fetch(proxyUrl);
+          if (!response.ok) {
+            console.warn(`Could not download image ${i + 1}: ${response.statusText}`);
+            continue; // Skip to the next image if one fails
+          }
+
+          const blob = await response.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = blobUrl;
+          const fileName =
+            imageUrl.split("/").pop()?.split("?")[0] || `image-${i + 1}.jpg`;
+          link.setAttribute("download", fileName);
+          document.body.appendChild(link);
+          link.click();
+
+          // Cleanup
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(blobUrl);
+
+        } catch (fetchError) {
+           console.error(`Error fetching image ${i + 1}:`, fetchError);
+           // Continue to the next image
+        }
       }
 
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      const fileName =
-        imageUrl.split("/").pop()?.split("?")[0] ||
-        `image-${currentSlide + 1}.jpg`;
-      link.setAttribute("download", fileName);
-      document.body.appendChild(link);
-      link.click();
-      
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-
       toast({
-        title: "Đã tải xuống",
-        description: "Ảnh đã được lưu về máy.",
-        duration: 2000,
+        title: "Hoàn tất!",
+        description: "Tất cả ảnh đã được yêu cầu tải xuống.",
+        duration: 3000,
       });
+
     } catch (error) {
-      console.error("Download failed:", error);
+      console.error("Download process failed:", error);
       toast({
         variant: "destructive",
-        title: "Lỗi tải xuống",
-        description: "Không thể tải ảnh. Vui lòng thử lại sau.",
+        title: "Lỗi",
+        description: "Đã xảy ra lỗi trong quá trình tải xuống.",
       });
     } finally {
       setIsDownloading(false);
     }
   };
+
 
   if (!isOpen) return null;
 
