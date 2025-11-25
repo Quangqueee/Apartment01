@@ -3,10 +3,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2 } from "lucide-react";
+import { useInView } from "react-intersection-observer";
 import { Apartment } from "@/lib/types";
 import { fetchApartmentsAction } from "@/app/actions";
 import ApartmentCard from "./apartment-card";
-import { Button } from "./ui/button";
 
 type ApartmentListProps = {
   initialApartments: Apartment[];
@@ -27,12 +27,15 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(initialApartments.length < totalInitialResults);
   const [isLoading, setIsLoading] = useState(false);
-  
+  const { ref, inView } = useInView({
+    threshold: 0,
+    triggerOnce: false,
+  });
+
   // This effect is crucial for correctly resetting the state when the user applies new filters or searches.
-  // When `initialApartments` changes, it signifies a new server render with new props.
   useEffect(() => {
     setApartments(initialApartments);
-    setPage(1); // Reset to the first page for the new list
+    setPage(1);
     setHasMore(initialApartments.length < totalInitialResults);
   }, [initialApartments, totalInitialResults]);
 
@@ -57,40 +60,31 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
       const newApartments = [...apartments, ...result.apartments];
       setApartments(newApartments);
       setPage(nextPage);
-      // Recalculate hasMore based on the new total number of apartments
       setHasMore(newApartments.length < totalInitialResults);
     } else {
-      setHasMore(false); // No more results came back
+      setHasMore(false);
     }
     setIsLoading(false);
   }, [page, hasMore, isLoading, searchParams, apartments, totalInitialResults]);
+
+  useEffect(() => {
+    if (inView && !isLoading) {
+      loadMoreApartments();
+    }
+  }, [inView, isLoading, loadMoreApartments]);
 
   return (
     <>
       {apartments.length > 0 ? (
         <>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-8">
-            {apartments.map((apartment) => (
-              <ApartmentCard key={apartment.id} apartment={apartment} />
+            {apartments.map((apartment, index) => (
+               <ApartmentCard key={`${apartment.id}-${index}`} apartment={apartment} />
             ))}
           </div>
           {hasMore && (
-            <div className="mt-12 flex justify-center">
-              <Button
-                onClick={loadMoreApartments}
-                disabled={isLoading}
-                variant="outline"
-                size="lg"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Đang tải...
-                  </>
-                ) : (
-                  "Xem thêm"
-                )}
-              </Button>
+             <div ref={ref} className="mt-12 flex justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           )}
         </>
