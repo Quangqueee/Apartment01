@@ -23,6 +23,7 @@ import { useUser } from "@/firebase/provider";
 import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
+import Footer from "@/components/footer";
 
 
 const getRoomTypeLabel = (value: string) => {
@@ -196,11 +197,7 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
           </div>
         </div>
       </main>
-      <footer className="mt-12 border-t bg-secondary/50 py-6 text-center">
-        <p className="text-muted-foreground">
-          Interested? Contact us at +84 355 885 851
-        </p>
-      </footer>
+      <Footer />
     </>
   );
 }

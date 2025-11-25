@@ -28,18 +28,13 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
   const [hasMore, setHasMore] = useState(initialApartments.length < totalInitialResults);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Effect to sync state when filters/search changes, causing a new initial render
+  // This effect is crucial for correctly resetting the state when the user applies new filters or searches.
+  // When `initialApartments` changes, it signifies a new server render with new props.
   useEffect(() => {
     setApartments(initialApartments);
-    setPage(1); // Reset to the first page
+    setPage(1); // Reset to the first page for the new list
     setHasMore(initialApartments.length < totalInitialResults);
   }, [initialApartments, totalInitialResults]);
-
-  // Effect to re-evaluate `hasMore` whenever the `apartments` list changes.
-  // This correctly hides the "Load More" button after navigating back from a detail page.
-  useEffect(() => {
-    setHasMore(apartments.length < totalInitialResults);
-  }, [apartments, totalInitialResults]);
 
 
   const loadMoreApartments = useCallback(async () => {
@@ -59,13 +54,16 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
     });
 
     if (result.apartments && result.apartments.length > 0) {
+      const newApartments = [...apartments, ...result.apartments];
+      setApartments(newApartments);
       setPage(nextPage);
-      setApartments((prev) => [...prev, ...result.apartments]);
+      // Recalculate hasMore based on the new total number of apartments
+      setHasMore(newApartments.length < totalInitialResults);
     } else {
       setHasMore(false); // No more results came back
     }
     setIsLoading(false);
-  }, [page, hasMore, isLoading, searchParams, totalInitialResults]);
+  }, [page, hasMore, isLoading, searchParams, apartments, totalInitialResults]);
 
   return (
     <>
@@ -107,4 +105,3 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
     </>
   );
 }
-
