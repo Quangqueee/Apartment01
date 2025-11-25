@@ -28,13 +28,18 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
   const [hasMore, setHasMore] = useState(initialApartments.length < totalInitialResults);
   const [isLoading, setIsLoading] = useState(false);
   
-  // This effect synchronizes the component's state with new server-rendered props.
-  // It runs when the user applies new filters, sorting, or performs a search.
+  // Effect to sync state when filters/search changes, causing a new initial render
   useEffect(() => {
     setApartments(initialApartments);
     setPage(1); // Reset to the first page
     setHasMore(initialApartments.length < totalInitialResults);
   }, [initialApartments, totalInitialResults]);
+
+  // Effect to re-evaluate `hasMore` whenever the `apartments` list changes.
+  // This correctly hides the "Load More" button after navigating back from a detail page.
+  useEffect(() => {
+    setHasMore(apartments.length < totalInitialResults);
+  }, [apartments, totalInitialResults]);
 
 
   const loadMoreApartments = useCallback(async () => {
@@ -46,7 +51,7 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
     const result = await fetchApartmentsAction({
       query: searchParams.q,
       district: searchParams.district,
-      priceRange: searchParams.price, // map 'price' from URL to 'priceRange'
+      priceRange: searchParams.price,
       roomType: searchParams.roomType,
       sortBy: searchParams.sort,
       page: nextPage,
@@ -55,20 +60,12 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
 
     if (result.apartments && result.apartments.length > 0) {
       setPage(nextPage);
-      // Use a callback with setApartments to ensure we're appending to the most recent state
       setApartments((prev) => [...prev, ...result.apartments]);
-      // The total number of results comes from the initial page load.
-      // We need to use a callback here as well to get the latest `apartments` length
-      setHasMore(prevHasMore => {
-          const newTotal = apartments.length + result.apartments.length;
-          return newTotal < totalInitialResults;
-      });
-
     } else {
-      setHasMore(false);
+      setHasMore(false); // No more results came back
     }
     setIsLoading(false);
-  }, [page, hasMore, isLoading, searchParams, apartments.length, totalInitialResults]);
+  }, [page, hasMore, isLoading, searchParams, totalInitialResults]);
 
   return (
     <>
@@ -110,3 +107,4 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
     </>
   );
 }
+
