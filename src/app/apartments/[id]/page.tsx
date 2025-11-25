@@ -22,6 +22,7 @@ import ClientFormattedDate from "@/components/client-formatted-date";
 import { useUser } from "@/firebase/provider";
 import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
 
 
 const getRoomTypeLabel = (value: string) => {
@@ -75,6 +76,7 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
     const { isUserLoading } = useUser();
     const [apartment, setApartment] = useState<Apartment | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const router = useRouter();
 
     useEffect(() => {
         const fetchApartment = async () => {
@@ -95,11 +97,9 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
              <div className="container mx-auto px-4 py-8 md:py-12 text-center">
                 <h1 className="font-headline text-3xl font-bold">Apartment Not Found</h1>
                 <p className="text-muted-foreground mt-4">The apartment you are looking for does not exist.</p>
-                <Button asChild variant="ghost" className="mt-8">
-                    <Link href="/">
+                <Button variant="ghost" className="mt-8" onClick={() => router.back()}>
                     <ChevronLeft className="mr-2 h-4 w-4" />
                     Back to Listings
-                    </Link>
                 </Button>
             </div>
         );
@@ -111,11 +111,9 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
     <>
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8 md:py-12">
-          <Button asChild variant="ghost" className="mb-8">
-            <Link href="/">
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Back to Listings
-            </Link>
+          <Button variant="ghost" className="mb-8" onClick={() => router.back()}>
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Back to Listings
           </Button>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-5 lg:gap-12">
             <div className="lg:col-span-3">
