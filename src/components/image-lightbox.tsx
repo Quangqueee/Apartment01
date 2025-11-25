@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -109,14 +110,8 @@ export default function ImageLightbox({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      {/* TỐI ƯU CSS DIALOG: 
-         - max-w-none w-screen h-screen: Full màn hình tuyệt đối
-         - bg-black/90: Nền đen mờ đậm chất điện ảnh
-         - border-none: Bỏ viền mặc định của Shadcn
-         - p-0: Bỏ padding để ảnh tràn viền
-      */}
       <DialogContent className="max-w-none w-screen h-screen p-0 m-0 bg-black/95 border-none shadow-none flex flex-col overflow-hidden [&>button]:hidden">
-        {/* --- HEADER/TOOLBAR (Giữ nguyên) --- */}
+        <DialogTitle className="sr-only">Apartment Image Lightbox</DialogTitle>
         <div className="absolute top-0 left-0 right-0 z-50 flex justify-between items-center p-4 bg-gradient-to-b from-black/60 to-transparent h-16 shrink-0">
           <div className="text-white/90 text-sm font-medium px-3 py-1 bg-black/20 rounded-full backdrop-blur-md border border-white/10">
             {currentSlide + 1} / {images.length}
@@ -148,9 +143,6 @@ export default function ImageLightbox({
           </div>
         </div>
 
-        {/* --- CAROUSEL (Phần đã sửa lỗi hiển thị ảnh) --- */}
-        {/* 1. flex-1: Để Carousel chiếm toàn bộ khoảng trống còn lại dưới Header */}
-        {/* 2. min-h-0: Quan trọng cho Flexbox lồng nhau để không bị vỡ layout */}
         <div className="flex-1 w-full h-full min-h-0 relative flex items-center justify-center">
           <Carousel
             setApi={setApi}
@@ -161,22 +153,19 @@ export default function ImageLightbox({
               align: "center",
             }}
           >
-            {/* 3. h-[100vh]: Mẹo nhỏ. Thay vì h-full đôi khi bị lỗi với Embla carousel,
-             ta set cứng chiều cao bằng màn hình để đảm bảo ảnh luôn có chỗ hiển thị */}
-            <CarouselContent className="h-[100vh] -ml-0 items-center">
+            <CarouselContent className="-ml-0 h-[100vh] items-center">
               {images.map((url, index) => (
                 <CarouselItem
                   key={index}
                   className="h-full pl-0 relative flex items-center justify-center"
                 >
-                  {/* 4. Container chứa ảnh */}
                   <div className="relative w-full h-full flex items-center justify-center p-4 md:p-10">
                     <Image
                       src={url}
                       alt={`Lightbox image ${index + 1}`}
                       fill
                       priority={index === selectedIndex}
-                      className="object-contain max-h-[90vh]" // Giới hạn max-height để không bị che bởi header/footer ảo nếu có
+                      className="object-contain max-h-[90vh]"
                       sizes="100vw"
                       quality={100}
                     />
