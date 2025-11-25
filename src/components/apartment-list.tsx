@@ -3,10 +3,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2 } from "lucide-react";
-import { useInView } from "react-intersection-observer";
 import { Apartment } from "@/lib/types";
 import { fetchApartmentsAction } from "@/app/actions";
 import ApartmentCard from "./apartment-card";
+import { Button } from "./ui/button";
 
 type ApartmentListProps = {
   initialApartments: Apartment[];
@@ -27,15 +27,14 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(initialApartments.length < totalInitialResults);
   const [isLoading, setIsLoading] = useState(false);
-  const { ref, inView } = useInView({
-    threshold: 0,
-    triggerOnce: false,
-  });
 
-  // This effect is crucial for correctly resetting the state when the user applies new filters or searches.
+  // This effect correctly resets the state when filters change and
+  // also correctly determines the `hasMore` state when navigating back to a page
+  // with a longer list from the bfcache.
   useEffect(() => {
     setApartments(initialApartments);
-    setPage(1);
+    const initialPage = Math.ceil(initialApartments.length / PAGE_SIZE);
+    setPage(initialPage > 0 ? initialPage : 1);
     setHasMore(initialApartments.length < totalInitialResults);
   }, [initialApartments, totalInitialResults]);
 
@@ -67,12 +66,6 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
     setIsLoading(false);
   }, [page, hasMore, isLoading, searchParams, apartments, totalInitialResults]);
 
-  useEffect(() => {
-    if (inView && !isLoading) {
-      loadMoreApartments();
-    }
-  }, [inView, isLoading, loadMoreApartments]);
-
   return (
     <>
       {apartments.length > 0 ? (
@@ -83,8 +76,14 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
             ))}
           </div>
           {hasMore && (
-             <div ref={ref} className="mt-12 flex justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+             <div className="mt-12 flex justify-center">
+                <Button onClick={loadMoreApartments} disabled={isLoading} variant="outline" className="min-w-[150px]">
+                    {isLoading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                       "Xem thêm"
+                    )}
+                </Button>
             </div>
           )}
         </>
