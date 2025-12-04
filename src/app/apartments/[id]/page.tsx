@@ -21,7 +21,7 @@ import { Apartment } from "@/lib/types";
 import ApartmentImageGallery from "@/components/apartment-image-gallery";
 import ClientFormattedDate from "@/components/client-formatted-date";
 import { useUser } from "@/firebase/provider";
-import { useState, useEffect, useTransition } from "react";
+import { useState, useEffect, useTransition, use } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { checkFavoriteStatusAction, toggleFavoriteAction } from "@/app/actions";
@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import ContactCard from "@/components/contact-card";
 import Link from "next/link";
+import Footer from "@/components/footer";
 
 
 const getRoomTypeLabel = (value: string) => {
@@ -310,6 +311,7 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
           </div>
         </div>
       </main>
+      <Footer />
     </>
   );
 }
@@ -322,8 +324,7 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
  * This pattern avoids the `params` access warning in Next.js.
  */
 export default function ApartmentPage({ params }: { params: { id: string } }) {
+  const { id } = use(Promise.resolve(params));
   // We pass the extracted `id` to the client component which will handle all data fetching and rendering.
-  return <ApartmentDetailsPage apartmentId={params.id} />;
+  return <ApartmentDetailsPage apartmentId={id} />;
 }
-
-    

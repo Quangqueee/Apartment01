@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Phone, MessageCircle } from "lucide-react";
 import Link from "next/link";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 const ZaloIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg viewBox="0 0 24 24" fill="none" {...props}>
@@ -37,7 +39,50 @@ export default function ContactCard({ phoneNumber }: ContactCardProps) {
                         <p className="text-sm text-muted-foreground">Sẵn sàng hỗ trợ</p>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+
+                {/* Mobile view: Icon buttons */}
+                <div className="flex justify-around sm:hidden">
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button asChild size="icon" variant="outline" className="rounded-full h-14 w-14 bg-background">
+                                    <Link href={phoneLink}>
+                                        <Phone className="h-6 w-6"/>
+                                        <span className="sr-only">Gọi điện</span>
+                                    </Link>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Gọi điện</p></TooltipContent>
+                        </Tooltip>
+                        
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button asChild size="icon" className="rounded-full h-14 w-14 bg-[#0068FF] hover:bg-[#0052CC] text-white">
+                                    <Link href={zaloLink} target="_blank">
+                                        <ZaloIcon className="h-7 w-7"/>
+                                        <span className="sr-only">Zalo</span>
+                                    </Link>
+                                </Button>
+                             </TooltipTrigger>
+                            <TooltipContent><p>Chat Zalo</p></TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button asChild size="icon" className="rounded-full h-14 w-14 bg-[#25D366] hover:bg-[#1DA851] text-white">
+                                    <Link href={whatsappLink} target="_blank">
+                                        <MessageCircle className="h-6 w-6"/>
+                                        <span className="sr-only">WhatsApp</span>
+                                    </Link>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Chat WhatsApp</p></TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                </div>
+                
+                {/* Desktop view: Full buttons */}
+                <div className="hidden sm:grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <Button asChild variant="outline" className="bg-background">
                         <Link href={phoneLink}>
                             <Phone className="mr-2"/> Gọi điện
