@@ -1,4 +1,3 @@
-
 "use server";
 
 import { z } from "zod";
@@ -20,14 +19,13 @@ import {
 } from "@/lib/data";
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
-import { Apartment, Favorite } from "@/lib/types";
+import { Apartment } from "@/lib/types";
 import { Timestamp, doc, setDoc } from "firebase/firestore";
 import { ADMIN_PATH } from "@/lib/constants";
 import { firestore } from "@/firebase/server-init";
 
 // Initialize Firebase Storage
 const storage = getStorage(firebaseApp);
-
 
 const formSchema = z.object({
   title: z.string().min(5),
@@ -65,7 +63,7 @@ async function uploadAndCleanupImages(currentImageUrls: string[], existingImageU
     const urlsToDelete = existingImageUrls.filter(
       (url) => !newImageUrls.includes(url)
     );
-    
+
     // Delete them
     await Promise.all(
       urlsToDelete.map(async (url) => {
@@ -85,7 +83,6 @@ async function uploadAndCleanupImages(currentImageUrls: string[], existingImageU
   return newImageUrls;
 }
 
-
 export async function createOrUpdateApartmentAction(
   id: string | undefined,
   values: z.infer<typeof formSchema>
@@ -97,32 +94,32 @@ export async function createOrUpdateApartmentAction(
     const errorMessage = errorIssues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ');
     return { error: `Invalid fields! ${errorMessage}` };
   }
-  
+
   const data = validatedFields.data;
   let apartmentId = id;
 
   try {
     let existingImageUrls: string[] | undefined = undefined;
     if (apartmentId) {
-        const existingApartment = await getApartmentById(apartmentId);
-        existingImageUrls = existingApartment?.imageUrls;
+      const existingApartment = await getApartmentById(apartmentId);
+      existingImageUrls = existingApartment?.imageUrls;
     }
-    
+
     const finalImageUrls = await uploadAndCleanupImages(data.imageUrls, existingImageUrls);
 
-    const apartmentDataWithTimestamp = { 
-        ...data,
-        listingSummary: data.listingSummary || "",
-        imageUrls: finalImageUrls,
-        updatedAt: Timestamp.now(),
+    const apartmentDataWithTimestamp = {
+      ...data,
+      listingSummary: data.listingSummary || "",
+      imageUrls: finalImageUrls,
+      updatedAt: Timestamp.now(),
     };
 
     if (apartmentId) {
       await updateApartment(apartmentId, apartmentDataWithTimestamp);
     } else {
       const newApartmentData = {
-          ...apartmentDataWithTimestamp,
-          createdAt: Timestamp.now(),
+        ...apartmentDataWithTimestamp,
+        createdAt: Timestamp.now(),
       };
       const newApartment = await createApartment(newApartmentData as Omit<Apartment, "id">);
       apartmentId = newApartment.id;
@@ -146,27 +143,27 @@ export async function deleteApartmentAction(id: string) {
     return { error: "ID is required" };
   }
   try {
-     const apartment = await getApartmentById(id);
-     if (apartment && apartment.imageUrls.length > 0) {
-        await Promise.all(apartment.imageUrls.map(async (url) => {
-            try {
-                const imageRef = ref(storage, url);
-                await deleteObject(imageRef);
-            } catch (error: any) {
-                if (error.code !== 'storage/object-not-found') {
-                    console.error(`Failed to delete image: ${url}`, error);
-                }
-            }
-        }));
-     }
+    const apartment = await getApartmentById(id);
+    if (apartment && apartment.imageUrls.length > 0) {
+      await Promise.all(apartment.imageUrls.map(async (url) => {
+        try {
+          const imageRef = ref(storage, url);
+          await deleteObject(imageRef);
+        } catch (error: any) {
+          if (error.code !== 'storage/object-not-found') {
+            console.error(`Failed to delete image: ${url}`, error);
+          }
+        }
+      }));
+    }
     await deleteApartmentFromDb(id);
     revalidatePath(`/${ADMIN_PATH}`);
     revalidatePath("/");
     if (apartment) {
-        revalidatePath(`/apartments/${id}`);
+      revalidatePath(`/apartments/${id}`);
     }
   } catch (error) {
-     console.error("Database error on delete:", error);
+    console.error("Database error on delete:", error);
     return { error: "Database error. Failed to delete apartment." };
   }
 }
@@ -205,75 +202,109 @@ export async function fetchApartmentsAction(options: {
   sortBy?: string;
   userId?: string;
 }) {
-    const { apartments, totalResults } = await getApartments(options);
+  const { apartments, totalResults } = await getApartments(options);
 
-    // If a user is logged in, check which apartments are favorited
-    if (options.userId) {
-        const favoriteIds = await getFavoriteApartments(options.userId);
-        const favoriteIdSet = new Set(favoriteIds.map(fav => fav.id));
-        const apartmentsWithFavorites = apartments.map(apt => ({
-            ...apt,
-            isFavorited: favoriteIdSet.has(apt.id)
-        }));
-        return { apartments: apartmentsWithFavorites, totalResults };
-    }
-    
-    return { apartments, totalResults };
+  // If a user is logged in, check which apartments are favorited
+  if (options.userId) {
+    const favoriteIds = await getFavoriteApartments(options.userId);
+    const favoriteIdSet = new Set(favoriteIds.map(fav => fav.id));
+    const apartmentsWithFavorites = apartments.map(apt => ({
+      ...apt,
+      isFavorited: favoriteIdSet.has(apt.id)
+    }));
+    return { apartments: apartmentsWithFavorites, totalResults };
+  }
+
+  return { apartments, totalResults };
 }
 
+// ---------------------------------------------------------
+// FIX: Hàm toggleFavoriteAction đã được nâng cấp xử lý lỗi
+// ---------------------------------------------------------
 export async function toggleFavoriteAction({
   userId,
   apartmentId,
-  isFavorited,
+  path
 }: {
   userId: string;
   apartmentId: string;
-  isFavorited: boolean;
+  isFavorited?: boolean;
+  path?: string;
 }) {
   if (!userId) {
     return { error: "User not authenticated." };
   }
+  if (!apartmentId) {
+    return { error: "Apartment ID missing." };
+  }
+
   try {
-    if (isFavorited) {
-      await removeFavorite(userId, apartmentId);
+    // BƯỚC 0: Đảm bảo User Document tồn tại (Phòng trường hợp user mới chưa được lưu vào DB)
+    // Nếu user đã có thì hàm này tự merge, không mất dữ liệu cũ.
+    await createUserDocument(userId, "");
+
+    // BƯỚC 1: Kiểm tra trạng thái
+    const isCurrentlyFavorited = await isApartmentFavorited(userId, apartmentId);
+
+    if (isCurrentlyFavorited) {
+      // UNFAVORITE
+      try {
+        await removeFavorite(userId, apartmentId);
+      } catch (removeError: any) {
+        if (removeError.code === 'not-found' || removeError.code === 5 || removeError.message?.includes('NOT_FOUND')) {
+          console.warn(`[Favorite] Document already missing, ignoring error.`);
+        } else {
+          throw removeError;
+        }
+      }
     } else {
-      await addFavorite(userId, apartmentId);
+      // FAVORITE
+      try {
+        // Vì data.ts đã sửa thành setDoc, nên dòng này sẽ chạy mượt
+        await addFavorite(userId, apartmentId);
+      } catch (addError: any) {
+        console.error("Add favorite error:", addError);
+        throw addError;
+      }
     }
-    
-    // We remove revalidatePath to prevent page reload.
-    // The client will handle the UI update optimistically.
-    
-    return { success: true, isFavorited: !isFavorited };
+
+    // BƯỚC 3: Revalidate
+    if (path) {
+      revalidatePath(path);
+    } else {
+      revalidatePath("/");
+    }
+
+    return { success: true, isFavorited: !isCurrentlyFavorited };
+
   } catch (error) {
-    console.error("Toggle favorite error:", error);
+    console.error("Toggle favorite CRITICAL error:", error);
     return { error: "Failed to update favorite status." };
   }
 }
 
 export async function checkFavoriteStatusAction(userId: string, apartmentId: string) {
-    if (!userId) {
-        return { isFavorited: false };
-    }
-    try {
-        const isFavorited = await isApartmentFavorited(userId, apartmentId);
-        return { isFavorited };
-    } catch (error) {
-        console.error("Check favorite status error:", error);
-        return { isFavorited: false };
-    }
+  if (!userId) {
+    return { isFavorited: false };
+  }
+  try {
+    const isFavorited = await isApartmentFavorited(userId, apartmentId);
+    return { isFavorited };
+  } catch (error) {
+    console.error("Check favorite status error:", error);
+    return { isFavorited: false };
+  }
 }
 
-
 export async function createUserDocument(userId: string, email: string) {
-    if (!userId) return;
-    try {
-        const userRef = doc(firestore, "users", userId);
-        await setDoc(userRef, {
-            email: email,
-            createdAt: Timestamp.now()
-        }, { merge: true }); // Use merge to avoid overwriting existing data if any
-    } catch (error) {
-        console.error("Failed to create user document:", error);
-        // We don't throw here to not block the user flow
-    }
+  if (!userId) return;
+  try {
+    const userRef = doc(firestore, "users", userId);
+    await setDoc(userRef, {
+      email: email,
+      createdAt: Timestamp.now()
+    }, { merge: true });
+  } catch (error) {
+    console.error("Failed to create user document:", error);
+  }
 }

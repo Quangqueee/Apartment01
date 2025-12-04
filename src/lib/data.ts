@@ -1,4 +1,3 @@
-
 import {
   collection,
   doc,
@@ -7,6 +6,7 @@ import {
   getDocs,
   updateDoc,
   deleteDoc,
+  setDoc, // <--- Đã thêm import setDoc
   query,
   where,
   orderBy,
@@ -32,11 +32,11 @@ export const toApartment = (docSnap: DocumentData): Apartment => {
   const createdAt = data.createdAt?.toDate ? {
     seconds: data.createdAt.seconds,
     nanoseconds: data.createdAt.nanoseconds,
-  } : { seconds: 0, nanoseconds: 0 }; 
+  } : { seconds: 0, nanoseconds: 0 };
   const updatedAt = data.updatedAt?.toDate ? {
     seconds: data.updatedAt.seconds,
     nanoseconds: data.updatedAt.nanoseconds,
-  } : { seconds: 0, nanoseconds: 0 }; 
+  } : { seconds: 0, nanoseconds: 0 };
 
   return {
     id: docSnap.id,
@@ -47,20 +47,20 @@ export const toApartment = (docSnap: DocumentData): Apartment => {
 };
 
 export const toFavorite = (docSnap: DocumentData): Favorite => {
-    const data = docSnap.data();
-    return {
-        id: docSnap.id,
-        addedAt: data.addedAt
-    }
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    addedAt: data.addedAt
+  }
 }
 
 // Helper function to get the last document of the previous page
 async function getLastDocOfPreviousPage(q: Query, page: number, pageSize: number) {
-    if (page <= 1) return null;
-    const endAt = (page - 1) * pageSize;
-    const prevPageQuery = query(q, limit(endAt));
-    const snapshot = await getDocs(prevPageQuery);
-    return snapshot.docs[snapshot.docs.length - 1];
+  if (page <= 1) return null;
+  const endAt = (page - 1) * pageSize;
+  const prevPageQuery = query(q, limit(endAt));
+  const snapshot = await getDocs(prevPageQuery);
+  return snapshot.docs[snapshot.docs.length - 1];
 }
 
 export async function getApartments(
@@ -76,7 +76,7 @@ export async function getApartments(
   } = {}
 ) {
   const {
-    query: searchQuery, 
+    query: searchQuery,
     district,
     priceRange,
     roomType,
@@ -96,9 +96,9 @@ export async function getApartments(
   if (roomType) {
     whereClauses.push(where("roomType", "==", roomType));
   }
-  
+
   if (whereClauses.length > 0) {
-      baseQuery = query(baseQuery, ...whereClauses);
+    baseQuery = query(baseQuery, ...whereClauses);
   }
 
   // Initial fetch from Firestore - we only order by one field to avoid complex indexes
@@ -112,10 +112,10 @@ export async function getApartments(
     const maxPrice = max ? parseInt(max, 10) : Infinity;
 
     allMatchingApartments = allMatchingApartments.filter(apt => {
-        const roundedPrice = Math.floor(apt.price);
-        const meetsMin = minPrice > 0 ? roundedPrice >= minPrice : true;
-        const meetsMax = maxPrice !== Infinity ? roundedPrice <= maxPrice : true;
-        return meetsMin && meetsMax;
+      const roundedPrice = Math.floor(apt.price);
+      const meetsMin = minPrice > 0 ? roundedPrice >= minPrice : true;
+      const meetsMax = maxPrice !== Infinity ? roundedPrice <= maxPrice : true;
+      return meetsMin && meetsMax;
     });
   }
 
@@ -145,9 +145,9 @@ export async function getApartments(
   } else { // 'newest' or default
     // Sort by updatedAt descending, if equal, then by createdAt descending
     allMatchingApartments.sort((a, b) => {
-        const dateA = a.updatedAt.seconds > 0 ? a.updatedAt : a.createdAt;
-        const dateB = b.updatedAt.seconds > 0 ? b.updatedAt : b.createdAt;
-        return dateB.seconds - dateA.seconds;
+      const dateA = a.updatedAt.seconds > 0 ? a.updatedAt : a.createdAt;
+      const dateB = b.updatedAt.seconds > 0 ? b.updatedAt : b.createdAt;
+      return dateB.seconds - dateA.seconds;
     });
   }
 
@@ -157,9 +157,9 @@ export async function getApartments(
   const endIndex = startIndex + pageSize;
   const paginatedApartments = allMatchingApartments.slice(startIndex, endIndex);
 
-  return { 
-      apartments: paginatedApartments, 
-      totalResults,
+  return {
+    apartments: paginatedApartments,
+    totalResults,
   };
 }
 
@@ -199,39 +199,40 @@ export async function deleteApartment(id: string): Promise<void> {
 // --- Favorites Functions ---
 
 export async function addFavorite(userId: string, apartmentId: string) {
-    const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
-    return await updateDoc(favoriteRef, {
-        addedAt: Timestamp.now()
-    });
+  const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
+  // FIX QUAN TRỌNG: Đổi từ updateDoc sang setDoc để tạo mới document nếu chưa có
+  return await setDoc(favoriteRef, {
+    addedAt: Timestamp.now()
+  });
 }
 
 export async function removeFavorite(userId: string, apartmentId: string) {
-    const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
-    return await deleteDoc(favoriteRef);
+  const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
+  return await deleteDoc(favoriteRef);
 }
 
 export async function isApartmentFavorited(userId: string, apartmentId: string): Promise<boolean> {
-    const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
-    const docSnap = await getDoc(favoriteRef);
-    return docSnap.exists();
+  const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
+  const docSnap = await getDoc(favoriteRef);
+  return docSnap.exists();
 }
 
 export async function getFavoriteApartments(userId: string): Promise<Favorite[]> {
-    if (!userId) return [];
-    const favoritesCol = collection(usersCollection, userId, "favorites");
-    const q = query(favoritesCol, orderBy("addedAt", "desc"));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(toFavorite);
+  if (!userId) return [];
+  const favoritesCol = collection(usersCollection, userId, "favorites");
+  const q = query(favoritesCol, orderBy("addedAt", "desc"));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(toFavorite);
 }
 
 export async function getFullFavoriteApartments(userId: string): Promise<Apartment[]> {
-    if (!userId) return [];
-    
-    const favoriteIds = await getFavoriteApartments(userId);
-    if (favoriteIds.length === 0) return [];
+  if (!userId) return [];
 
-    const apartmentPromises = favoriteIds.map(fav => getApartmentById(fav.id));
-    const apartments = await Promise.all(apartmentPromises);
-    
-    return apartments.filter((apt): apt is Apartment => apt !== null);
+  const favoriteIds = await getFavoriteApartments(userId);
+  if (favoriteIds.length === 0) return [];
+
+  const apartmentPromises = favoriteIds.map(fav => getApartmentById(fav.id));
+  const apartments = await Promise.all(apartmentPromises);
+
+  return apartments.filter((apt): apt is Apartment => apt !== null);
 }
