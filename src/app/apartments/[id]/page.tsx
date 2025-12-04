@@ -253,8 +253,6 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
                   {formatPrice(apartment.price)}
                 </p>
 
-                <ContactCard phoneNumber="+84355885851" />
-
                 <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm pt-6 border-t">
                   <div className="flex items-center gap-3">
                     <BedDouble className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
@@ -294,6 +292,10 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
                   </div>
                 </div>
               </div>
+              
+              <div className="space-y-6">
+                <ContactCard phoneNumber="+84355885851" />
+              </div>
 
               <div className="pt-8 border-t">
                  <h2 className="mb-4 flex items-center font-headline text-2xl font-bold">
@@ -323,3 +325,5 @@ export default function ApartmentPage({ params }: { params: { id: string } }) {
   // We pass the extracted `id` to the client component which will handle all data fetching and rendering.
   return <ApartmentDetailsPage apartmentId={params.id} />;
 }
+
+    
