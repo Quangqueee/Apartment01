@@ -98,12 +98,12 @@ export default function ApartmentCard({ apartment, onFavoriteToggle }: Apartment
           variant="ghost"
           className={cn(
             "absolute top-2 right-2 rounded-full h-9 w-9 text-white bg-black/40 hover:bg-black/60 hover:text-white",
-            apartment.isFavorited && "bg-transparent text-red-500 hover:text-red-500" // Change style when favorited
+            apartment.isFavorited && "text-red-500 hover:text-red-500"
           )}
           onClick={handleFavoriteToggle}
           disabled={isPending}
         >
-          <Heart className={cn("h-5 w-5", apartment.isFavorited ? "fill-red-500" : "fill-transparent")} />
+          <Heart className={cn("h-5 w-5", apartment.isFavorited ? "fill-current" : "fill-transparent")} />
           <span className="sr-only">Yêu thích</span>
         </Button>
       </div>
