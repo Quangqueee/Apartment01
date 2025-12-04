@@ -107,6 +107,12 @@ function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
+          <Link href="/profile">
+            <User className="mr-2 h-4 w-4" />
+            <span>Tài khoản</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link href="/favorites">
             <Heart className="mr-2 h-4 w-4" />
             <span>Yêu thích</span>

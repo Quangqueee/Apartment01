@@ -23,6 +23,19 @@ export interface Apartment {
   };
 }
 
+// Represents a document in the /users/{userId} collection
+export interface UserProfile {
+  id: string;
+  email: string;
+  displayName?: string;
+  phoneNumber?: string;
+  address?: string;
+  createdAt: {
+    seconds: number;
+    nanoseconds: number;
+  };
+}
+
 export type UploadedImage = {
   file: File;
   preview: string;

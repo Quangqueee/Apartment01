@@ -15,7 +15,8 @@ import {
   addFavorite,
   removeFavorite,
   getFavoriteApartments,
-  isApartmentFavorited
+  isApartmentFavorited,
+  updateUserProfile as updateUserProfileInDb,
 } from "@/lib/data";
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
@@ -298,5 +299,36 @@ export async function createUserDocument(userId: string, email: string) {
     }, { merge: true });
   } catch (error) {
     console.error("Failed to create user document:", error);
+  }
+}
+
+const profileFormSchema = z.object({
+  displayName: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  address: z.string().optional(),
+});
+
+
+export async function updateUserProfileAction(
+  userId: string,
+  values: z.infer<typeof profileFormSchema>
+) {
+  if (!userId) {
+    return { error: "User not authenticated." };
+  }
+
+  const validatedFields = profileFormSchema.safeParse(values);
+
+  if (!validatedFields.success) {
+    return { error: "Invalid data provided." };
+  }
+
+  try {
+    await updateUserProfileInDb(userId, validatedFields.data);
+    revalidatePath('/profile');
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update user profile:", error);
+    return { error: "An error occurred while updating the profile." };
   }
 }

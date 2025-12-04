@@ -19,7 +19,7 @@ import {
   collectionGroup,
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
-import { Apartment, Favorite } from "./types";
+import { Apartment, Favorite, UserProfile } from "./types";
 import { removeVietnameseTones } from "./utils";
 
 
@@ -235,4 +235,31 @@ export async function getFullFavoriteApartments(userId: string): Promise<Apartme
   const apartments = await Promise.all(apartmentPromises);
 
   return apartments.filter((apt): apt is Apartment => apt !== null);
+}
+
+// --- User Profile Functions ---
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  if (!userId) return null;
+  const userRef = doc(firestore, "users", userId);
+  const docSnap = await getDoc(userRef);
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      email: data.email,
+      displayName: data.displayName,
+      phoneNumber: data.phoneNumber,
+      address: data.address,
+      createdAt: data.createdAt,
+    };
+  }
+  return null;
+}
+
+export async function updateUserProfile(
+  userId: string,
+  data: Partial<Omit<UserProfile, "id" | "email" | "createdAt">>
+) {
+  const userRef = doc(firestore, "users", userId);
+  return await updateDoc(userRef, data);
 }
