@@ -31,12 +31,6 @@ export default function FavoritesPage() {
   const sort = searchParams.get('sort');
 
   useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router]);
-
-  useEffect(() => {
     async function fetchFavorites() {
       if (user) {
         setIsLoading(true);
@@ -44,10 +38,13 @@ export default function FavoritesPage() {
         const apartmentsWithFavStatus = apartments.map(apt => ({ ...apt, isFavorited: true }));
         setAllFavoriteApartments(apartmentsWithFavStatus);
         setIsLoading(false);
+      } else if (!isUserLoading) {
+        // If user is not logged in, no need to fetch, just stop loading.
+        setIsLoading(false);
       }
     }
     fetchFavorites();
-  }, [user]);
+  }, [user, isUserLoading]);
 
   const filteredAndSortedApartments = useMemo(() => {
     let filtered = [...allFavoriteApartments];
@@ -85,8 +82,8 @@ export default function FavoritesPage() {
       filtered.sort((a, b) => b.price - a.price);
     } else { // 'newest' or default
       filtered.sort((a, b) => {
-        const dateA = a.updatedAt.seconds > 0 ? a.updatedAt : a.createdAt;
-        const dateB = b.updatedAt.seconds > 0 ? b.updatedAt : b.createdAt;
+        const dateA = a.updatedAt?.seconds > 0 ? a.updatedAt : a.createdAt;
+        const dateB = b.updatedAt?.seconds > 0 ? b.updatedAt : b.createdAt;
         return dateB.seconds - dateA.seconds;
       });
     }
@@ -108,6 +105,29 @@ export default function FavoritesPage() {
     );
   }
   
+  if (!user) {
+    return (
+        <>
+            <Header />
+            <main className="flex-1">
+                <div className="container mx-auto px-4 py-8 md:py-12 flex flex-col items-center justify-center text-center h-full min-h-[60vh]">
+                    <h1 className="font-headline text-3xl font-bold tracking-tight md:text-4xl">
+                        Yêu thích
+                    </h1>
+                    <p className="mt-4 font-headline text-2xl">Đăng nhập để xem danh sách Yêu thích của bạn</p>
+                    <p className="mt-2 max-w-md text-muted-foreground">
+                        Bạn có thể tạo, xem hoặc chỉnh sửa danh sách Yêu thích sau khi đăng nhập.
+                    </p>
+                    <Button asChild className="mt-6">
+                        <Link href="/login">Đăng nhập</Link>
+                    </Button>
+                </div>
+            </main>
+            <Footer />
+        </>
+    );
+  }
+
   return (
     <>
       <Header />
