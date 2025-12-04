@@ -27,8 +27,8 @@ import { useRouter } from "next/navigation";
 import { checkFavoriteStatusAction, toggleFavoriteAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import Footer from "@/components/footer";
-import Header from "@/components/header";
+import ContactCard from "@/components/contact-card";
+import Link from "next/link";
 
 
 const getRoomTypeLabel = (value: string) => {
@@ -132,9 +132,7 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
     if (isLoading || isUserLoading) {
       return (
           <>
-            <Header />
             <ApartmentDetailsSkeleton />
-            <Footer />
           </>
       );
     }
@@ -156,16 +154,67 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
 
   return (
     <>
-      <Header />
+      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto flex h-16 items-center justify-between p-4">
+             <Link href="/" className="flex items-center gap-2">
+                <svg
+                className="h-8 w-8 text-primary"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                >
+                <path
+                    d="M12 2L2 7V21H22V7L12 2Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+                <path
+                    d="M12 12L2 7"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+                <path
+                    d="M12 12L22 7"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+                <path
+                    d="M12 12V21"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+                <path
+                    d="M16 17H8V14H16V17Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+                </svg>
+
+                <h1 className="hidden font-headline text-2xl font-bold tracking-tight text-foreground md:block">
+                Hanoi Residences
+                </h1>
+            </Link>
+             <Button variant="ghost" className="mb-8" onClick={() => router.back()}>
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Về trang danh sách
+            </Button>
+        </div>
+      </header>
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8 md:py-12">
-          <Button variant="ghost" className="mb-8" onClick={() => router.back()}>
-            <ChevronLeft className="mr-2 h-4 w-4" />
-            Back to Listings
-          </Button>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-5 lg:gap-12">
             <div className="lg:col-span-3">
-              <div className="sticky top-8 space-y-4">
+              <div className="sticky top-24 space-y-4">
                 <ApartmentImageGallery imageUrls={apartment.imageUrls} title={apartment.title} />
               </div>
             </div>
@@ -203,56 +252,55 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
                 <p className="text-3xl font-semibold text-primary">
                   {formatPrice(apartment.price)}
                 </p>
-                <div className="flex flex-col gap-4 text-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <BedDouble className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="font-semibold">Loại phòng</p>
-                        <p className="capitalize text-muted-foreground">
-                          {getRoomTypeLabel(apartment.roomType)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Ruler className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="font-semibold">Diện tích</p>
-                        <p className="text-muted-foreground">
-                          {apartment.area} m²
-                        </p>
-                      </div>
+
+                <ContactCard phoneNumber="+84355885851" />
+
+                <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm pt-6 border-t">
+                  <div className="flex items-center gap-3">
+                    <BedDouble className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold">Loại phòng</p>
+                      <p className="capitalize text-muted-foreground">
+                        {getRoomTypeLabel(apartment.roomType)}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <MapPin className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                        <p className="font-semibold">Quận</p>                      
-                        <p className="text-muted-foreground">
-                            {apartment.district}
-                        </p>
-                        </div>
+                  <div className="flex items-center gap-3">
+                    <Ruler className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold">Diện tích</p>
+                      <p className="text-muted-foreground">
+                        {apartment.area} m²
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Award className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                            <p className="font-semibold">Mã nguồn</p>
-                            <p className="text-muted-foreground">
-                                {apartment.sourceCode}
-                            </p>
-                        </div>
-                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                      <MapPin className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                      <div>
+                      <p className="font-semibold">Quận</p>                      
+                      <p className="text-muted-foreground">
+                          {apartment.district}
+                      </p>
+                      </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                      <Award className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+                      <div>
+                          <p className="font-semibold">Mã nguồn</p>
+                          <p className="text-muted-foreground">
+                              {apartment.sourceCode}
+                          </p>
+                      </div>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-8">
+              <div className="pt-8 border-t">
                  <h2 className="mb-4 flex items-center font-headline text-2xl font-bold">
                     <FileText className="mr-3 h-6 w-6 text-primary" />
                     Thông tin căn hộ
                 </h2>
-                <div className="prose prose-lg max-w-none whitespace-pre-wrap text-foreground/80">
+                <div className="prose prose-sm max-w-none whitespace-pre-wrap text-foreground/80">
                     {apartment.details}
                 </div>
               </div>
@@ -260,7 +308,6 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
           </div>
         </div>
       </main>
-      <Footer />
     </>
   );
 }
