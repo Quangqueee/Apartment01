@@ -30,6 +30,7 @@ function UserNav() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
+  const isMobile = useIsMobile();
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -42,29 +43,42 @@ function UserNav() {
   }
 
   if (!user) {
+    if (isMobile) {
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="h-9 w-9 rounded-full">
+              <User className="h-5 w-5" />
+              <span className="sr-only">Mở menu người dùng</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuItem asChild>
+              <Link href="/login">
+                <LogIn className="mr-2 h-4 w-4" />
+                <span>Đăng nhập</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/signup">
+                <UserPlus className="mr-2 h-4 w-4" />
+                <span>Đăng ký</span>
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    }
+    // Desktop view
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="h-9 w-9 rounded-full">
-            <User className="h-5 w-5" />
-            <span className="sr-only">Mở menu người dùng</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56" align="end" forceMount>
-          <DropdownMenuItem asChild>
-            <Link href="/login">
-              <LogIn className="mr-2 h-4 w-4" />
-              <span>Đăng nhập</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/signup">
-              <UserPlus className="mr-2 h-4 w-4" />
-              <span>Đăng ký</span>
-            </Link>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex items-center gap-4">
+        <Link href="/login" className="text-sm font-medium text-foreground/80 hover:text-foreground hover:underline underline-offset-4">
+            Đăng nhập
+        </Link>
+        <Link href="/signup" className="text-sm font-medium text-foreground/80 hover:text-foreground hover:underline underline-offset-4">
+            Đăng ký
+        </Link>
+      </div>
     );
   }
 
