@@ -6,7 +6,7 @@ import FilterControls from "./filter-controls";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
-import { SlidersHorizontal, Search, User, Heart, LogOut, Loader2 } from "lucide-react";
+import { SlidersHorizontal, Search, User, Heart, LogOut, Loader2, LogIn, UserPlus } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Input } from "./ui/input";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -43,14 +43,28 @@ function UserNav() {
 
   if (!user) {
     return (
-      <div className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/login">Đăng nhập</Link>
-        </Button>
-        <Button asChild size="sm">
-          <Link href="/signup">Đăng ký</Link>
-        </Button>
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="h-9 w-9 rounded-full">
+            <User className="h-5 w-5" />
+            <span className="sr-only">Mở menu người dùng</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
+          <DropdownMenuItem asChild>
+            <Link href="/login">
+              <LogIn className="mr-2 h-4 w-4" />
+              <span>Đăng nhập</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/signup">
+              <UserPlus className="mr-2 h-4 w-4" />
+              <span>Đăng ký</span>
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   }
 
