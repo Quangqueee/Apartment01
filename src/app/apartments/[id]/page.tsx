@@ -272,7 +272,7 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
  * and pass it to the actual page component, which is a Client Component.
  * This pattern avoids the `params` access warning in Next.js.
  */
-export default function ApartmentPage({ params: { id } }: { params: { id: string } }) {
+export default function ApartmentPage({ params }: { params: { id: string } }) {
   // We pass the extracted `id` to the client component which will handle all data fetching and rendering.
-  return <ApartmentDetailsPage apartmentId={id} />;
+  return <ApartmentDetailsPage apartmentId={params.id} />;
 }
