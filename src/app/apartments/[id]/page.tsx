@@ -200,15 +200,10 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
                     strokeLinejoin="round"
                 />
                 </svg>
-
-                <h1 className="hidden font-headline text-2xl font-bold tracking-tight text-foreground md:block">
-                Hanoi Residences
+                <h1 className="font-headline text-xl font-bold tracking-tight text-foreground md:text-2xl">
+                    Hanoi Residences
                 </h1>
             </Link>
-             <Button variant="ghost" className="mb-8" onClick={() => router.back()}>
-                <ChevronLeft className="mr-2 h-4 w-4" />
-                Về trang danh sách
-            </Button>
         </div>
       </header>
       <main className="flex-1">
