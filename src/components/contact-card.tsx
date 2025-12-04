@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 const ZaloIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-        <path d="M2.001 10.342C2 6.002 2.52 3.322 6.541 2.222c4.02-.9 8.281 1.26 9.721 5.221.6 1.62 1.02 4.02 1.02 8.161 0 3.72-1.2 5.4-3.66 6.12-2.16.66-5.46.3-7.8-.78-2.64-1.2-4.62-3.3-5.22-4.92-.66-1.8-.72-3.9-.6-5.76zm1.5.06c-.06 1.62.06 3.42.6 4.92.54 1.44 2.16 3.18 4.5 4.26 2.34 1.08 5.46 1.44 7.5  .84 2.04-.6 3.12-2.1 3.12-5.46 0-4.08-.42-6.42-1.02-8.04-1.2-3.24-4.8-4.98-8.1-4.2-3.54.84-4.08 3.12-4.08 6.66v1.02zm3.3.06H12v-1.5H6.801v1.5zm8.7-.9v3.96h-1.5V9.502h1.5zm-4.32.96h1.5v1.5h-1.5v-1.5zm-3.12 3.42c-.9 0-1.62-.72-1.62-1.62s.72-1.62 1.62-1.62 1.62.72 1.62 1.62-.72 1.62-1.62 1.62z"/>
+      <path d="M16.5 5.5H7.5C4.73858 5.5 2.5 7.73858 2.5 10.5V13.5C2.5 16.2614 4.73858 18.5 7.5 18.5H9.5V15.5H6.5V10.5C6.5 9.39543 7.39543 8.5 8.5 8.5H15.5C16.6046 8.5 17.5 9.39543 17.5 10.5V15.5H14.5V18.5H16.5C19.2614 18.5 21.5 16.2614 21.5 13.5V10.5C21.5 7.73858 19.2614 5.5 16.5 5.5ZM11.5 10.5H8.5V13.5H11.5V10.5ZM12.5 14.5V11.5C12.5 10.9477 12.9477 10.5 13.5 10.5H15.5V14.5H12.5Z" />
     </svg>
 );
 
@@ -59,7 +59,7 @@ export default function ContactCard({ phoneNumber }: ContactCardProps) {
                             <TooltipTrigger asChild>
                                 <Button asChild size="icon" className="rounded-full h-14 w-14 bg-[#0068FF] hover:bg-[#0052CC] text-white">
                                     <Link href={zaloLink} target="_blank">
-                                        <ZaloIcon className="h-8 w-8"/>
+                                        <ZaloIcon className="h-9 w-9"/>
                                         <span className="sr-only">Zalo</span>
                                     </Link>
                                 </Button>
@@ -103,3 +103,4 @@ export default function ContactCard({ phoneNumber }: ContactCardProps) {
         </Card>
     );
 }
+
