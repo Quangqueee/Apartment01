@@ -15,12 +15,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useUser } from '@/firebase/provider';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { ADMIN_PATH } from '@/lib/constants';
 import { createUserDocument } from '@/app/actions';
-import { Separator } from '@/components/ui/separator';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 48 48" {...props}>
@@ -56,6 +55,36 @@ export default function LoginPage() {
     }
   }, [user, isUserLoading, router, redirectUrl]);
 
+  // Handle Google Redirect Result
+  useEffect(() => {
+    const handleRedirect = async () => {
+      try {
+        setIsGoogleLoading(true);
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          await createUserDocument(result.user.uid, result.user.email || '');
+          toast({
+            title: 'Đăng nhập thành công!',
+            description: `Chào mừng bạn, ${result.user.displayName || 'người dùng mới'}!`,
+          });
+          // Let the other useEffect handle the redirection based on user role
+        }
+      } catch (error: any) {
+        if(error.code !== 'auth/no-auth-event') {
+          console.error('Google sign in failed after redirect', error);
+          toast({
+            variant: 'destructive',
+            title: 'Đăng nhập Google thất bại',
+            description: 'Đã có lỗi xảy ra. Vui lòng thử lại.',
+          });
+        }
+      } finally {
+        setIsGoogleLoading(false);
+      }
+    };
+    handleRedirect();
+  }, [auth, toast]);
+
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -79,6 +108,7 @@ export default function LoginPage() {
         title: 'Đăng nhập thất bại',
         description: description,
       });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -86,25 +116,7 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     const provider = new GoogleAuthProvider();
-    try {
-        const result = await signInWithPopup(auth, provider);
-        // Create a document for new user, if they sign up via google for the first time
-        if (result.user) {
-            await createUserDocument(result.user.uid, result.user.email || '');
-        }
-        toast({
-            title: 'Đăng nhập thành công!',
-            description: `Chào mừng bạn, ${result.user.displayName || 'người dùng mới'}!`,
-        });
-    } catch (error: any) {
-        console.error('Google sign in failed', error);
-        toast({
-            variant: 'destructive',
-            title: 'Đăng nhập Google thất bại',
-            description: 'Đã có lỗi xảy ra. Vui lòng thử lại.',
-        });
-        setIsGoogleLoading(false);
-    }
+    await signInWithRedirect(auth, provider);
   };
 
   if (isUserLoading || user) {
@@ -192,5 +204,3 @@ export default function LoginPage() {
     </main>
   );
 }
-
-    
