@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import "./globals.css";
+import MobileNav from "@/components/mobile-nav";
 
 export const metadata: Metadata = {
   title: "Hanoi Residences",
@@ -25,9 +26,10 @@ export default function RootLayout({
       </head>
       <body className="font-body bg-background text-foreground antialiased">
         <FirebaseClientProvider>
-          <div className="relative flex min-h-screen w-full flex-col">
+          <div className="relative flex min-h-screen w-full flex-col pb-16 md:pb-0">
             {children}
           </div>
+          <MobileNav />
           <Toaster />
         </FirebaseClientProvider>
       </body>
