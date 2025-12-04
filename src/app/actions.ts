@@ -13,12 +13,17 @@ import {
   deleteApartment as deleteApartmentFromDb,
   getApartmentById,
   getApartments,
+  addFavorite,
+  removeFavorite,
+  getFavoriteApartments,
+  isApartmentFavorited
 } from "@/lib/data";
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
-import { Apartment } from "@/lib/types";
-import { Timestamp } from "firebase/firestore";
+import { Apartment, Favorite } from "@/lib/types";
+import { Timestamp, doc, setDoc } from "firebase/firestore";
 import { ADMIN_PATH } from "@/lib/constants";
+import { firestore } from "@/firebase/server-init";
 
 // Initialize Firebase Storage
 const storage = getStorage(firebaseApp);
@@ -198,11 +203,78 @@ export async function fetchApartmentsAction(options: {
   page?: number;
   limit?: number;
   sortBy?: string;
+  userId?: string;
 }) {
-    // This action simply passes the options to the centralized getApartments function.
-    const { apartments } = await getApartments(options);
+    const { apartments, totalResults } = await getApartments(options);
+
+    // If a user is logged in, check which apartments are favorited
+    if (options.userId) {
+        const favoriteIds = await getFavoriteApartments(options.userId);
+        const favoriteIdSet = new Set(favoriteIds.map(fav => fav.id));
+        const apartmentsWithFavorites = apartments.map(apt => ({
+            ...apt,
+            isFavorited: favoriteIdSet.has(apt.id)
+        }));
+        return { apartments: apartmentsWithFavorites, totalResults };
+    }
     
-    return {
-        apartments,
-    };
+    return { apartments, totalResults };
+}
+
+export async function toggleFavoriteAction({
+  userId,
+  apartmentId,
+  isFavorited,
+}: {
+  userId: string;
+  apartmentId: string;
+  isFavorited: boolean;
+}) {
+  if (!userId) {
+    return { error: "User not authenticated." };
+  }
+  try {
+    if (isFavorited) {
+      await removeFavorite(userId, apartmentId);
+    } else {
+      await addFavorite(userId, apartmentId);
+    }
+    // Revalidate the path to update the UI
+    revalidatePath("/");
+    revalidatePath(`/apartments/${apartmentId}`);
+    revalidatePath("/favorites");
+    
+    return { success: true, isFavorited: !isFavorited };
+  } catch (error) {
+    console.error("Toggle favorite error:", error);
+    return { error: "Failed to update favorite status." };
+  }
+}
+
+export async function checkFavoriteStatusAction(userId: string, apartmentId: string) {
+    if (!userId) {
+        return { isFavorited: false };
+    }
+    try {
+        const isFavorited = await isApartmentFavorited(userId, apartmentId);
+        return { isFavorited };
+    } catch (error) {
+        console.error("Check favorite status error:", error);
+        return { isFavorited: false };
+    }
+}
+
+
+export async function createUserDocument(userId: string, email: string) {
+    if (!userId) return;
+    try {
+        const userRef = doc(firestore, "users", userId);
+        await setDoc(userRef, {
+            email: email,
+            createdAt: Timestamp.now()
+        }, { merge: true }); // Use merge to avoid overwriting existing data if any
+    } catch (error) {
+        console.error("Failed to create user document:", error);
+        // We don't throw here to not block the user flow
+    }
 }

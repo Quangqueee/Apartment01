@@ -6,10 +6,94 @@ import FilterControls from "./filter-controls";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
-import { SlidersHorizontal, Search } from "lucide-react";
+import { SlidersHorizontal, Search, User, Heart, LogOut, Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Input } from "./ui/input";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useAuth, useUser } from "@/firebase/provider";
+import { signOut } from "firebase/auth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
+
+function UserNav() {
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    // Redirect to home to refresh state
+    router.push('/');
+  };
+
+  if (isUserLoading) {
+    return <Loader2 className="h-6 w-6 animate-spin" />;
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center gap-2">
+        <Button asChild variant="ghost" size="sm">
+          <Link href="/login">Đăng nhập</Link>
+        </Button>
+        <Button asChild size="sm">
+          <Link href="/signup">Đăng ký</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const userInitial = user.email ? user.email.charAt(0).toUpperCase() : '?';
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+          <Avatar className="h-9 w-9">
+            <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || ''} />
+            <AvatarFallback>{userInitial}</AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">
+              {user.displayName || 'User'}
+            </p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {user.email}
+            </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/favorites">
+            <Heart className="mr-2 h-4 w-4" />
+            <span>Yêu thích</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Đăng xuất</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 
 export default function Header() {
   const isMobile = useIsMobile();
@@ -97,7 +181,7 @@ export default function Header() {
               Hanoi Residences
             </h1>
           </Link>
-
+            <UserNav />
         </div>
 
         <div className="flex w-full flex-col gap-4 md:flex-row md:items-center">

@@ -1,12 +1,13 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import { Loader2 } from "lucide-react";
 import { Apartment } from "@/lib/types";
 import { fetchApartmentsAction } from "@/app/actions";
 import ApartmentCard from "./apartment-card";
 import { Button } from "./ui/button";
+import { useUser } from "@/firebase/provider";
 
 type ApartmentListProps = {
   initialApartments: Apartment[];
@@ -23,10 +24,31 @@ type ApartmentListProps = {
 const PAGE_SIZE = 9;
 
 export default function ApartmentList({ initialApartments, searchParams, totalInitialResults }: ApartmentListProps) {
+  const { user } = useUser();
   const [apartments, setApartments] = useState(initialApartments);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(initialApartments.length < totalInitialResults);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchWithFavorites = async () => {
+      // When the user logs in/out, re-fetch the initial list to get favorite status
+      const result = await fetchApartmentsAction({
+        ...searchParams,
+        userId: user?.uid,
+        page: 1,
+        limit: apartments.length > PAGE_SIZE ? apartments.length : PAGE_SIZE, // Fetch up to current number of items
+      });
+      if (result.apartments) {
+        setApartments(result.apartments);
+      }
+    };
+
+    if (user !== undefined) { // Check if user state is resolved
+      fetchWithFavorites();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // This effect correctly resets the state when filters change and
   // also correctly determines the `hasMore` state when navigating back to a page
@@ -53,6 +75,7 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
       sortBy: searchParams.sort,
       page: nextPage,
       limit: PAGE_SIZE,
+      userId: user?.uid,
     });
 
     if (result.apartments && result.apartments.length > 0) {
@@ -64,7 +87,7 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
       setHasMore(false);
     }
     setIsLoading(false);
-  }, [page, hasMore, isLoading, searchParams, apartments, totalInitialResults]);
+  }, [page, hasMore, isLoading, searchParams, apartments, totalInitialResults, user]);
 
   return (
     <>

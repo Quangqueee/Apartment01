@@ -2,7 +2,6 @@
 'use client';
 
 import { getApartmentById } from "@/lib/data-client";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
 import { ROOM_TYPES } from "@/lib/constants";
@@ -14,16 +13,22 @@ import {
   FileText,
   CalendarDays,
   Award,
+  Heart,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Apartment } from "@/lib/types";
 import ApartmentImageGallery from "@/components/apartment-image-gallery";
 import ClientFormattedDate from "@/components/client-formatted-date";
 import { useUser } from "@/firebase/provider";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
+import { checkFavoriteStatusAction, toggleFavoriteAction } from "@/app/actions";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import Footer from "@/components/footer";
+import Header from "@/components/header";
 
 
 const getRoomTypeLabel = (value: string) => {
@@ -74,23 +79,64 @@ function ApartmentDetailsSkeleton() {
 }
 
 function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
-    const { isUserLoading } = useUser();
+    const { user, isUserLoading } = useUser();
+    const { toast } = useToast();
     const [apartment, setApartment] = useState<Apartment | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isFavorited, setIsFavorited] = useState(false);
+    const [isFavLoading, startFavTransition] = useTransition();
     const router = useRouter();
 
     useEffect(() => {
-        const fetchApartment = async () => {
+        const fetchApartmentData = async () => {
             setIsLoading(true);
             const fetchedApartment = await getApartmentById(apartmentId);
             setApartment(fetchedApartment);
+            if (fetchedApartment && user) {
+                const { isFavorited } = await checkFavoriteStatusAction(user.uid, apartmentId);
+                setIsFavorited(isFavorited);
+            }
             setIsLoading(false);
         };
-        fetchApartment();
-    }, [apartmentId]);
+        fetchApartmentData();
+    }, [apartmentId, user]);
+
+    const handleFavoriteToggle = () => {
+        if (!user) {
+            toast({
+                variant: "destructive",
+                title: "Bạn cần đăng nhập",
+                description: "Vui lòng đăng nhập để sử dụng chức năng yêu thích.",
+            });
+            router.push('/login');
+            return;
+        }
+        startFavTransition(async () => {
+            const result = await toggleFavoriteAction({
+                userId: user.uid,
+                apartmentId: apartmentId,
+                isFavorited: isFavorited,
+            });
+            if (result.success) {
+                setIsFavorited(result.isFavorited);
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Lỗi",
+                    description: result.error,
+                });
+            }
+        });
+    };
     
     if (isLoading || isUserLoading) {
-      return <ApartmentDetailsSkeleton />;
+      return (
+          <>
+            <Header />
+            <ApartmentDetailsSkeleton />
+            <Footer />
+          </>
+      );
     }
 
     if (!apartment) {
@@ -110,6 +156,7 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
 
   return (
     <>
+      <Header />
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8 md:py-12">
           <Button variant="ghost" className="mb-8" onClick={() => router.back()}>
@@ -134,9 +181,25 @@ function ApartmentDetailsPage({ apartmentId }: { apartmentId: string }) {
                         <span>Cập nhật: <ClientFormattedDate date={displayDate} /></span>
                     </div>
                 </div>
-                <h1 className="font-headline text-3xl font-bold tracking-tight md:text-4xl">
-                  {apartment.title}
-                </h1>
+                <div className="flex items-start justify-between gap-4">
+                    <h1 className="font-headline text-3xl font-bold tracking-tight md:text-4xl">
+                    {apartment.title}
+                    </h1>
+                    {user && (
+                         <Button
+                            size="icon"
+                            variant="outline"
+                            className={cn(
+                                "rounded-full h-11 w-11 flex-shrink-0",
+                                isFavorited && "border-red-500 bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-600"
+                            )}
+                            onClick={handleFavoriteToggle}
+                            disabled={isFavLoading}
+                        >
+                            {isFavLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Heart className={cn("h-5 w-5", isFavorited && "fill-current")} />}
+                        </Button>
+                    )}
+                </div>
                 <p className="text-3xl font-semibold text-primary">
                   {formatPrice(apartment.price)}
                 </p>

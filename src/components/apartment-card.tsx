@@ -11,19 +11,49 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils";
-import { MapPin, BedDouble, Ruler, CalendarDays } from "lucide-react";
+import { MapPin, BedDouble, Ruler, CalendarDays, Heart } from "lucide-react";
 import { Apartment } from "@/lib/types";
 import { ROOM_TYPES } from "@/lib/constants";
 import ClientFormattedDate from "./client-formatted-date";
+import { useUser } from "@/firebase/provider";
+import { toggleFavoriteAction } from "@/app/actions";
+import { useTransition } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "./ui/button";
+import { cn } from "@/lib/utils";
+
 
 type ApartmentCardProps = {
-  apartment: Apartment;
+  apartment: Apartment & { isFavorited?: boolean };
 };
 
 export default function ApartmentCard({ apartment }: ApartmentCardProps) {
+  const { user } = useUser();
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+
   const getRoomTypeLabel = (value: string) => {
     const roomType = ROOM_TYPES.find((rt) => rt.value === value);
     return roomType ? roomType.label : "N/A";
+  };
+
+  const handleFavoriteToggle = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigating when clicking the heart
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Bạn cần đăng nhập",
+        description: "Vui lòng đăng nhập để sử dụng chức năng yêu thích.",
+      });
+      return;
+    }
+    startTransition(async () => {
+      await toggleFavoriteAction({
+        userId: user.uid,
+        apartmentId: apartment.id,
+        isFavorited: !!apartment.isFavorited,
+      });
+    });
   };
 
   const primaryImage = apartment.imageUrls?.[0];
@@ -33,22 +63,41 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
   return (
     <Card
       key={apartment.id}
-      className="flex h-full flex-col overflow-hidden transition-shadow duration-300 hover:shadow-xl"
+      className="flex h-full flex-col overflow-hidden transition-shadow duration-300 hover:shadow-xl group"
     >
-      <Link href={linkHref} className="block">
-        {primaryImage && (
-            <div className="relative w-full aspect-[4/3]">
-            <Image
-                src={primaryImage}
-                alt={apartment.title}
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className="object-cover select-none pointer-events-none"
-                data-ai-hint="apartment exterior"
-            />
-            </div>
+      <div className="relative">
+        <Link href={linkHref} className="block">
+          {primaryImage && (
+              <div className="relative w-full aspect-[4/3]">
+              <Image
+                  src={primaryImage}
+                  alt={apartment.title}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  className="object-cover select-none pointer-events-none"
+                  data-ai-hint="apartment exterior"
+              />
+              </div>
+          )}
+        </Link>
+        {user && (
+           <Button
+            size="icon"
+            variant="ghost"
+            className={cn(
+              "absolute top-2 right-2 rounded-full h-9 w-9 text-white bg-black/40 hover:bg-black/60 hover:text-white",
+              "transition-opacity opacity-0 group-hover:opacity-100", // Show on hover
+              apartment.isFavorited && "opacity-100" // Always show if favorited
+            )}
+            onClick={handleFavoriteToggle}
+            disabled={isPending}
+          >
+            <Heart className={cn("h-5 w-5", apartment.isFavorited ? "fill-red-500 text-red-500" : "fill-transparent")} />
+            <span className="sr-only">Yêu thích</span>
+          </Button>
         )}
-      </Link>
+      </div>
+
       <div className="flex flex-1 flex-col">
         <Link href={linkHref} className="flex flex-1 flex-col">
             <CardHeader>

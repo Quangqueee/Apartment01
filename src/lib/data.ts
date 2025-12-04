@@ -16,13 +16,16 @@ import {
   DocumentData,
   Timestamp,
   getCountFromServer,
+  collectionGroup,
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
-import { Apartment } from "./types";
+import { Apartment, Favorite } from "./types";
 import { removeVietnameseTones } from "./utils";
 
 
 const apartmentsCollection = collection(firestore, "apartments");
+const usersCollection = collection(firestore, "users");
+
 
 export const toApartment = (docSnap: DocumentData): Apartment => {
   const data = docSnap.data();
@@ -42,6 +45,14 @@ export const toApartment = (docSnap: DocumentData): Apartment => {
     updatedAt,
   } as Apartment;
 };
+
+export const toFavorite = (docSnap: DocumentData): Favorite => {
+    const data = docSnap.data();
+    return {
+        id: docSnap.id,
+        addedAt: data.addedAt
+    }
+}
 
 // Helper function to get the last document of the previous page
 async function getLastDocOfPreviousPage(q: Query, page: number, pageSize: number) {
@@ -130,7 +141,7 @@ export async function getApartments(
   if (sortBy === 'price-asc') {
     allMatchingApartments.sort((a, b) => a.price - b.price);
   } else if (sortBy === 'price-desc') {
-    allMatchingApartments.sort((a, b) => b.price - a.price);
+    allMatchingApartments.sort((a, b) => b.price - b.price);
   } else { // 'newest' or default
     // Sort by updatedAt descending, if equal, then by createdAt descending
     allMatchingApartments.sort((a, b) => {
@@ -182,4 +193,45 @@ export async function updateApartment(
 export async function deleteApartment(id: string): Promise<void> {
   const docRef = doc(firestore, "apartments", id);
   await deleteDoc(docRef);
+}
+
+
+// --- Favorites Functions ---
+
+export async function addFavorite(userId: string, apartmentId: string) {
+    const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
+    return await updateDoc(favoriteRef, {
+        addedAt: Timestamp.now()
+    });
+}
+
+export async function removeFavorite(userId: string, apartmentId: string) {
+    const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
+    return await deleteDoc(favoriteRef);
+}
+
+export async function isApartmentFavorited(userId: string, apartmentId: string): Promise<boolean> {
+    const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
+    const docSnap = await getDoc(favoriteRef);
+    return docSnap.exists();
+}
+
+export async function getFavoriteApartments(userId: string): Promise<Favorite[]> {
+    if (!userId) return [];
+    const favoritesCol = collection(usersCollection, userId, "favorites");
+    const q = query(favoritesCol, orderBy("addedAt", "desc"));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(toFavorite);
+}
+
+export async function getFullFavoriteApartments(userId: string): Promise<Apartment[]> {
+    if (!userId) return [];
+    
+    const favoriteIds = await getFavoriteApartments(userId);
+    if (favoriteIds.length === 0) return [];
+
+    const apartmentPromises = favoriteIds.map(fav => getApartmentById(fav.id));
+    const apartments = await Promise.all(apartmentPromises);
+    
+    return apartments.filter((apt): apt is Apartment => apt !== null);
 }

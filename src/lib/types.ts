@@ -27,3 +27,12 @@ export type UploadedImage = {
   file: File;
   preview: string;
 };
+
+// Represents a document in the /users/{userId}/favorites subcollection
+export interface Favorite {
+    id: string; // This will be the apartmentId
+    addedAt: {
+        seconds: number;
+        nanoseconds: number;
+    };
+}
