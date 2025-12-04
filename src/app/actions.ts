@@ -239,10 +239,9 @@ export async function toggleFavoriteAction({
     } else {
       await addFavorite(userId, apartmentId);
     }
-    // Revalidate the path to update the UI
-    revalidatePath("/");
-    revalidatePath(`/apartments/${apartmentId}`);
-    revalidatePath("/favorites");
+    
+    // We remove revalidatePath to prevent page reload.
+    // The client will handle the UI update optimistically.
     
     return { success: true, isFavorited: !isFavorited };
   } catch (error) {

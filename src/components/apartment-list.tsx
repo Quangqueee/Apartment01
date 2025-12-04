@@ -30,6 +30,16 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
   const [hasMore, setHasMore] = useState(initialApartments.length < totalInitialResults);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Optimistically update favorite status
+  const handleFavoriteToggle = (apartmentId: string, isFavorited: boolean) => {
+    setApartments(currentApartments =>
+      currentApartments.map(apt =>
+        apt.id === apartmentId ? { ...apt, isFavorited } : apt
+      )
+    );
+  };
+
+
   useEffect(() => {
     const fetchWithFavorites = async () => {
       // When the user logs in/out, re-fetch the initial list to get favorite status
@@ -95,7 +105,11 @@ export default function ApartmentList({ initialApartments, searchParams, totalIn
         <>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-8">
             {apartments.map((apartment, index) => (
-               <ApartmentCard key={`${apartment.id}-${index}`} apartment={apartment} />
+               <ApartmentCard 
+                  key={`${apartment.id}-${index}`} 
+                  apartment={apartment} 
+                  onFavoriteToggle={handleFavoriteToggle} 
+                />
             ))}
           </div>
           {hasMore && (

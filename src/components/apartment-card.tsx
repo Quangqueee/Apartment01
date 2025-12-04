@@ -25,9 +25,10 @@ import { cn } from "@/lib/utils";
 
 type ApartmentCardProps = {
   apartment: Apartment & { isFavorited?: boolean };
+  onFavoriteToggle?: (apartmentId: string, isFavorited: boolean) => void;
 };
 
-export default function ApartmentCard({ apartment }: ApartmentCardProps) {
+export default function ApartmentCard({ apartment, onFavoriteToggle }: ApartmentCardProps) {
   const { user } = useUser();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -48,11 +49,20 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
       return;
     }
     startTransition(async () => {
-      await toggleFavoriteAction({
+      const result = await toggleFavoriteAction({
         userId: user.uid,
         apartmentId: apartment.id,
         isFavorited: !!apartment.isFavorited,
       });
+       if (result.success && onFavoriteToggle) {
+        onFavoriteToggle(apartment.id, result.isFavorited);
+      } else if (result.error) {
+        toast({
+          variant: "destructive",
+          title: "Lỗi",
+          description: result.error,
+        });
+      }
     });
   };
 
@@ -66,7 +76,7 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
       className="flex h-full flex-col overflow-hidden transition-shadow duration-300 hover:shadow-xl group"
     >
       <div className="relative">
-        <Link href={linkHref} className="block">
+        <Link href={linkHref} className="block" target="_blank" rel="noopener noreferrer">
           {primaryImage && (
               <div className="relative w-full aspect-[4/3]">
               <Image
@@ -86,20 +96,19 @@ export default function ApartmentCard({ apartment }: ApartmentCardProps) {
             variant="ghost"
             className={cn(
               "absolute top-2 right-2 rounded-full h-9 w-9 text-white bg-black/40 hover:bg-black/60 hover:text-white",
-              "transition-opacity opacity-0 group-hover:opacity-100", // Show on hover
-              apartment.isFavorited && "opacity-100" // Always show if favorited
+              apartment.isFavorited && "bg-transparent text-red-500 hover:text-red-500" // Change style when favorited
             )}
             onClick={handleFavoriteToggle}
             disabled={isPending}
           >
-            <Heart className={cn("h-5 w-5", apartment.isFavorited ? "fill-red-500 text-red-500" : "fill-transparent")} />
+            <Heart className={cn("h-5 w-5", apartment.isFavorited ? "fill-red-500" : "fill-transparent")} />
             <span className="sr-only">Yêu thích</span>
           </Button>
         )}
       </div>
 
       <div className="flex flex-1 flex-col">
-        <Link href={linkHref} className="flex flex-1 flex-col">
+        <Link href={linkHref} className="flex flex-1 flex-col" target="_blank" rel="noopener noreferrer">
             <CardHeader>
                 <CardTitle className="font-headline text-xl tracking-tight">
                     {apartment.title}
