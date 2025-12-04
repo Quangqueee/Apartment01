@@ -224,12 +224,11 @@ export async function fetchApartmentsAction(options: {
 export async function toggleFavoriteAction({
   userId,
   apartmentId,
-  path
+  isFavorited
 }: {
   userId: string;
   apartmentId: string;
   isFavorited?: boolean;
-  path?: string;
 }) {
   if (!userId) {
     return { error: "User not authenticated." };
@@ -266,13 +265,6 @@ export async function toggleFavoriteAction({
         console.error("Add favorite error:", addError);
         throw addError;
       }
-    }
-
-    // BƯỚC 3: Revalidate
-    if (path) {
-      revalidatePath(path);
-    } else {
-      revalidatePath("/");
     }
 
     return { success: true, isFavorited: !isCurrentlyFavorited };
