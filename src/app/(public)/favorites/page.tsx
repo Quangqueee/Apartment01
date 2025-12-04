@@ -110,7 +110,7 @@ export default function FavoritesPage() {
         <>
             <Header />
             <main className="flex-1">
-                <div className="container mx-auto px-4 py-8 md:py-12 flex flex-col items-center justify-center text-center h-full min-h-[60vh]">
+                <div className="container mx-auto px-4 py-8 md:py-12 flex flex-col justify-center h-full min-h-[60vh]">
                     <h1 className="font-headline text-3xl font-bold tracking-tight md:text-4xl">
                         Yêu thích
                     </h1>
@@ -118,7 +118,7 @@ export default function FavoritesPage() {
                     <p className="mt-2 max-w-md text-muted-foreground">
                         Bạn có thể tạo, xem hoặc chỉnh sửa danh sách Yêu thích sau khi đăng nhập.
                     </p>
-                    <Button asChild className="mt-6">
+                    <Button asChild className="mt-6 w-fit">
                         <Link href="/login">Đăng nhập</Link>
                     </Button>
                 </div>
