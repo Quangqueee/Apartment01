@@ -164,3 +164,19 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     return null;
   }
 }
+
+export async function getFullFavoriteApartments(userId: string): Promise<Apartment[]> {
+  if (!userId) return [];
+
+  const favoritesCol = collection(usersCollection, userId, "favorites");
+  const q = query(favoritesCol, orderBy("addedAt", "desc"));
+  const snapshot = await getDocs(q);
+  const favoriteIds = snapshot.docs.map(doc => doc.id);
+  
+  if (favoriteIds.length === 0) return [];
+
+  const apartmentPromises = favoriteIds.map(id => getApartmentById(id));
+  const apartments = await Promise.all(apartmentPromises);
+
+  return apartments.filter((apt): apt is Apartment => apt !== null);
+}

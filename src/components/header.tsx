@@ -110,10 +110,13 @@ export default function Header() {
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
 
+  const hideSearchAndFilter = ["/profile", "/favorites", "/login", "/signup"].some(path => pathname.startsWith(path));
+
   useEffect(() => {
     // When switching between mobile and desktop, adjust filter visibility
-    setFiltersVisible(!isMobile);
-  }, [isMobile]);
+    // Also consider if we are on a page where they should be hidden
+    setFiltersVisible(!isMobile && !hideSearchAndFilter);
+  }, [isMobile, hideSearchAndFilter]);
 
   useEffect(() => {
     // Sync search input with URL params on navigation
@@ -190,50 +193,54 @@ export default function Header() {
           </Link>
           {!isMobile && <UserNav />}
         </div>
+        
+        {!hideSearchAndFilter && (
+          <>
+            <div className="flex w-full flex-col gap-4 md:flex-row md:items-center">
+                <form onSubmit={handleSearch} className="relative w-full md:flex-1">
+                  <Input
+                    placeholder="Tìm kiếm"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="submit"
+                    size="icon"
+                    variant="ghost"
+                    className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+                  >
+                    <Search className="h-4 w-4" />
+                    <span className="sr-only">Tìm kiếm</span>
+                  </Button>
+                </form>
 
-        <div className="flex w-full flex-col gap-4 md:flex-row md:items-center">
-            <form onSubmit={handleSearch} className="relative w-full md:flex-1">
-              <Input
-                placeholder="Tìm kiếm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pr-10"
-              />
-              <Button
-                type="submit"
-                size="icon"
-                variant="ghost"
-                className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
-              >
-                <Search className="h-4 w-4" />
-                <span className="sr-only">Tìm kiếm</span>
-              </Button>
-            </form>
+                <Button
+                  variant="outline"
+                  className="w-full md:w-auto"
+                  onClick={() => setFiltersVisible(!filtersVisible)}
+                >
+                  <SlidersHorizontal className="mr-2 h-4 w-4" />
+                  Bộ lọc
+                </Button>
+            </div>
 
-            <Button
-              variant="outline"
-              className="w-full md:w-auto"
-              onClick={() => setFiltersVisible(!filtersVisible)}
+
+            <div
+              className={cn(
+                "transform-gpu transition-all duration-300 ease-in-out",
+                !filtersVisible
+                  ? "max-h-0 opacity-0 invisible"
+                  : "max-h-[500px] opacity-100 visible"
+              )}
             >
-              <SlidersHorizontal className="mr-2 h-4 w-4" />
-              Bộ lọc
-            </Button>
-        </div>
-
-
-        <div
-          className={cn(
-            "transform-gpu transition-all duration-300 ease-in-out",
-            !filtersVisible
-              ? "max-h-0 opacity-0 invisible"
-              : "max-h-[500px] opacity-100 visible"
-          )}
-        >
-          <FilterControls
-            onFilterSave={() => isMobile && setFiltersVisible(false)}
-            onCollapse={handleCollapse}
-          />
-        </div>
+              <FilterControls
+                onFilterSave={() => isMobile && setFiltersVisible(false)}
+                onCollapse={handleCollapse}
+              />
+            </div>
+          </>
+        )}
       </div>
     </header>
   );

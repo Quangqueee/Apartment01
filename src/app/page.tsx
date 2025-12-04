@@ -22,22 +22,15 @@ type HomeProps = {
 const PAGE_SIZE = 9;
 
 export default async function Home({ searchParams }: HomeProps) {
-  // Destructure searchParams to avoid sync access errors warned by Next.js
-  const query = searchParams?.q;
-  const district = searchParams?.district;
-  const price = searchParams?.price;
-  const roomType = searchParams?.roomType;
-  const sort = searchParams?.sort;
-
   // Fetch the initial batch of apartments using the centralized getApartments function
   const { apartments, totalResults } = await getApartments({
-    query: query,
-    district: district,
-    priceRange: price,
-    roomType: roomType,
+    query: searchParams.q,
+    district: searchParams.district,
+    priceRange: searchParams.price,
+    roomType: searchParams.roomType,
     page: 1, // Always fetch the first page on initial load
     limit: PAGE_SIZE,
-    sortBy: sort,
+    sortBy: searchParams.sort,
   });
 
   return (
@@ -53,13 +46,7 @@ export default async function Home({ searchParams }: HomeProps) {
           </div>
           <ApartmentList 
             initialApartments={apartments} 
-            searchParams={{
-              q: query,
-              district: district,
-              price: price,
-              roomType: roomType,
-              sort: sort,
-            }}
+            searchParams={searchParams}
             totalInitialResults={totalResults}
           />
         </div>

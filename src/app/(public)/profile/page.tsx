@@ -62,13 +62,6 @@ export default function ProfilePage() {
                 </div>
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </Link>
-             <Link href="/favorites" className="flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-muted/50">
-                <div className="flex items-center gap-4">
-                    <Heart className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">Căn hộ yêu thích</span>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </Link>
              <button onClick={handleLogout} className="w-full flex items-center justify-between rounded-lg border bg-card p-4 transition-colors hover:bg-muted/50">
                 <div className="flex items-center gap-4">
                     <LogOut className="h-5 w-5 text-destructive" />
