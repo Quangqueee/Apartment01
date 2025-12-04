@@ -16,7 +16,7 @@ import {
 } from "firebase/firestore";
 import { getFirestore } from "firebase/firestore";
 import { initializeFirebase } from "@/firebase";
-import { Apartment } from "./types";
+import { Apartment, UserProfile } from "./types";
 import { toApartment } from "./data"; // Assuming toApartment can be used on client
 import { removeVietnameseTones } from "./utils";
 
@@ -24,6 +24,7 @@ import { removeVietnameseTones } from "./utils";
 // Initialize Firebase on the client
 const { firestore } = initializeFirebase();
 const apartmentsCollection = collection(firestore, "apartments");
+const usersCollection = collection(firestore, "users");
 
 // This function is intended to run on the client side.
 export async function getApartmentById(id: string): Promise<Apartment | null> {
@@ -139,4 +140,27 @@ export async function getApartments(
       apartments: paginatedApartments, 
       totalResults,
   };
+}
+
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+  if (!userId) return null;
+  const userRef = doc(usersCollection, userId);
+  try {
+    const docSnap = await getDoc(userRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        email: data.email,
+        displayName: data.displayName,
+        phoneNumber: data.phoneNumber,
+        address: data.address,
+        createdAt: data.createdAt
+      } as UserProfile;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching user profile client-side:", error);
+    return null;
+  }
 }
