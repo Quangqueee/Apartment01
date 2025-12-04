@@ -18,6 +18,7 @@ import { useAuth, useUser } from '@/firebase/provider';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { ADMIN_PATH } from '@/lib/constants';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,9 +37,14 @@ export default function LoginPage() {
   useEffect(() => {
     // If user is already logged in, redirect them
     if (!isUserLoading && user) {
-      router.push(redirectUrl);
+        // Special redirect for admin user
+        if (email === 'admin@example.com') {
+             router.push(`/${ADMIN_PATH}`);
+        } else {
+             router.push(redirectUrl);
+        }
     }
-  }, [user, isUserLoading, router, redirectUrl]);
+  }, [user, isUserLoading, router, redirectUrl, email]);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
