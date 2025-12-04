@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/firebase/provider';
 import { getFullFavoriteApartments } from '@/lib/data';
 import { Apartment } from '@/lib/types';
@@ -12,15 +12,25 @@ import Header from '@/components/header';
 import Footer from '@/components/footer';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { removeVietnameseTones } from '@/lib/utils';
+import SortControls from '@/components/sort-controls';
 
 export default function FavoritesPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
-  const [favoriteApartments, setFavoriteApartments] = useState<(Apartment & { isFavorited?: boolean })[]>([]);
+  const searchParams = useSearchParams();
+
+  const [allFavoriteApartments, setAllFavoriteApartments] = useState<(Apartment & { isFavorited?: boolean })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Read filter params from URL
+  const query = searchParams.get('q');
+  const district = searchParams.get('district');
+  const price = searchParams.get('price');
+  const roomType = searchParams.get('roomType');
+  const sort = searchParams.get('sort');
+
   useEffect(() => {
-    // If user check is done and there's no user, redirect to login
     if (!isUserLoading && !user) {
       router.push('/login');
     }
@@ -31,16 +41,65 @@ export default function FavoritesPage() {
       if (user) {
         setIsLoading(true);
         const apartments = await getFullFavoriteApartments(user.uid);
-        // Mark all fetched apartments as favorited
         const apartmentsWithFavStatus = apartments.map(apt => ({ ...apt, isFavorited: true }));
-        setFavoriteApartments(apartmentsWithFavStatus);
+        setAllFavoriteApartments(apartmentsWithFavStatus);
         setIsLoading(false);
       }
     }
     fetchFavorites();
   }, [user]);
 
-  // Show a global loader while checking user auth
+  const filteredAndSortedApartments = useMemo(() => {
+    let filtered = [...allFavoriteApartments];
+
+    // Client-side filtering
+    if (query) {
+      const normalizedQuery = removeVietnameseTones(query.toLowerCase());
+      filtered = filtered.filter(apt => 
+        removeVietnameseTones(apt.title.toLowerCase()).includes(normalizedQuery) ||
+        removeVietnameseTones(apt.sourceCode.toLowerCase()).includes(normalizedQuery)
+      );
+    }
+    if (district) {
+      filtered = filtered.filter(apt => apt.district === district);
+    }
+    if (roomType) {
+      filtered = filtered.filter(apt => apt.roomType === roomType);
+    }
+    if (price) {
+      const [min, max] = price.split("-");
+      const minPrice = min ? parseInt(min, 10) : 0;
+      const maxPrice = max ? parseInt(max, 10) : Infinity;
+      filtered = filtered.filter(apt => {
+        const roundedPrice = Math.floor(apt.price);
+        const meetsMin = minPrice > 0 ? roundedPrice >= minPrice : true;
+        const meetsMax = maxPrice !== Infinity ? roundedPrice <= maxPrice : true;
+        return meetsMin && meetsMax;
+      });
+    }
+
+    // Client-side sorting
+    if (sort === 'price-asc') {
+      filtered.sort((a, b) => a.price - b.price);
+    } else if (sort === 'price-desc') {
+      filtered.sort((a, b) => b.price - a.price);
+    } else { // 'newest' or default
+      filtered.sort((a, b) => {
+        const dateA = a.updatedAt.seconds > 0 ? a.updatedAt : a.createdAt;
+        const dateB = b.updatedAt.seconds > 0 ? b.updatedAt : b.createdAt;
+        return dateB.seconds - dateA.seconds;
+      });
+    }
+
+    return filtered;
+  }, [allFavoriteApartments, query, district, price, roomType, sort]);
+
+  const handleFavoriteToggle = (apartmentId: string) => {
+    // Optimistically remove from both lists
+    setAllFavoriteApartments(prev => prev.filter(apt => apt.id !== apartmentId));
+  };
+
+
   if (isUserLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -54,13 +113,20 @@ export default function FavoritesPage() {
       <Header />
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8 md:py-12">
-          <h1 className="font-headline text-3xl font-bold tracking-tight md:text-4xl mb-8">
-            Căn hộ yêu thích
-          </h1>
+          <div className="mb-8 flex flex-col items-baseline justify-between gap-4 md:flex-row">
+            <h1 className="font-headline text-3xl font-bold tracking-tight md:text-4xl">
+              Căn hộ yêu thích
+            </h1>
+            <div className="flex w-full items-center justify-between md:w-auto md:justify-end">
+              <p className="text-sm text-muted-foreground md:mr-4">
+                Tìm thấy <span className="font-bold text-foreground">{filteredAndSortedApartments.length}</span> kết quả.
+              </p>
+              <SortControls />
+            </div>
+          </div>
           
           {isLoading ? (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-8">
-                {/* Skeleton Loader */}
                 {[...Array(3)].map((_, i) => (
                     <div key={i} className="space-y-4 p-4 rounded-lg border animate-pulse">
                         <div className="w-full aspect-[4/3] rounded-md bg-muted"></div>
@@ -72,12 +138,21 @@ export default function FavoritesPage() {
                     </div>
                 ))}
             </div>
-          ) : favoriteApartments.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-8">
-              {favoriteApartments.map((apartment, index) => (
-                <ApartmentCard key={`${apartment.id}-${index}`} apartment={apartment} />
-              ))}
-            </div>
+          ) : allFavoriteApartments.length > 0 ? (
+             filteredAndSortedApartments.length > 0 ? (
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-8">
+                  {filteredAndSortedApartments.map((apartment, index) => (
+                    <ApartmentCard key={`${apartment.id}-${index}`} apartment={apartment} onFavoriteToggle={handleFavoriteToggle} />
+                  ))}
+                </div>
+            ) : (
+                <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed text-center">
+                    <h2 className="font-headline text-2xl">Không có kết quả phù hợp</h2>
+                    <p className="mt-2 text-muted-foreground">
+                        Không có căn hộ yêu thích nào khớp với bộ lọc của bạn.
+                    </p>
+                </div>
+            )
           ) : (
             <div className="flex flex-col items-center justify-center text-center py-20 rounded-lg border border-dashed">
                 <div className="rounded-full border border-dashed p-4">
