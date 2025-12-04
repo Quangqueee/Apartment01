@@ -21,6 +21,7 @@ import { useTransition } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 
 type ApartmentCardProps = {
@@ -30,6 +31,7 @@ type ApartmentCardProps = {
 
 export default function ApartmentCard({ apartment, onFavoriteToggle }: ApartmentCardProps) {
   const { user } = useUser();
+  const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
@@ -46,6 +48,7 @@ export default function ApartmentCard({ apartment, onFavoriteToggle }: Apartment
         title: "Bạn cần đăng nhập",
         description: "Vui lòng đăng nhập để sử dụng chức năng yêu thích.",
       });
+      router.push('/login');
       return;
     }
     startTransition(async () => {
@@ -90,21 +93,19 @@ export default function ApartmentCard({ apartment, onFavoriteToggle }: Apartment
               </div>
           )}
         </Link>
-        {user && (
-           <Button
-            size="icon"
-            variant="ghost"
-            className={cn(
-              "absolute top-2 right-2 rounded-full h-9 w-9 text-white bg-black/40 hover:bg-black/60 hover:text-white",
-              apartment.isFavorited && "bg-transparent text-red-500 hover:text-red-500" // Change style when favorited
-            )}
-            onClick={handleFavoriteToggle}
-            disabled={isPending}
-          >
-            <Heart className={cn("h-5 w-5", apartment.isFavorited ? "fill-red-500" : "fill-transparent")} />
-            <span className="sr-only">Yêu thích</span>
-          </Button>
-        )}
+        <Button
+          size="icon"
+          variant="ghost"
+          className={cn(
+            "absolute top-2 right-2 rounded-full h-9 w-9 text-white bg-black/40 hover:bg-black/60 hover:text-white",
+            apartment.isFavorited && "bg-transparent text-red-500 hover:text-red-500" // Change style when favorited
+          )}
+          onClick={handleFavoriteToggle}
+          disabled={isPending}
+        >
+          <Heart className={cn("h-5 w-5", apartment.isFavorited ? "fill-red-500" : "fill-transparent")} />
+          <span className="sr-only">Yêu thích</span>
+        </Button>
       </div>
 
       <div className="flex flex-1 flex-col">

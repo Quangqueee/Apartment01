@@ -58,8 +58,19 @@ export default function LoginPage() {
   // Handle Google Redirect Result
   useEffect(() => {
     const handleRedirect = async () => {
+      // This is to avoid flicker when the user is already logged in
+      if (user) return;
+      
       try {
-        setIsGoogleLoading(true);
+        // Set loading state only if we expect a redirect result
+        const isRedirecting = sessionStorage.getItem('google-redirect');
+        if (isRedirecting) {
+            setIsGoogleLoading(true);
+            sessionStorage.removeItem('google-redirect');
+        } else {
+            return;
+        }
+
         const result = await getRedirectResult(auth);
         if (result && result.user) {
           await createUserDocument(result.user.uid, result.user.email || '');
@@ -82,8 +93,10 @@ export default function LoginPage() {
         setIsGoogleLoading(false);
       }
     };
-    handleRedirect();
-  }, [auth, toast]);
+    if (auth) {
+        handleRedirect();
+    }
+  }, [auth, toast, user]);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -115,6 +128,7 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
+    sessionStorage.setItem('google-redirect', 'true');
     const provider = new GoogleAuthProvider();
     await signInWithRedirect(auth, provider);
   };
