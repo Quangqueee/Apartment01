@@ -1,9 +1,16 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,
+  },
+  experimental: {
+    turbopack: {
+      // This helps Turbopack locate the project root, fixing the "inferred workspace root" error.
+      root: process.cwd(),
+    },
   },
   images: {
     remotePatterns: [
