@@ -172,7 +172,7 @@ export default function AdminDashboard() {
       <div className="pb-4">
         <form onSubmit={handleSearch} className="relative w-full max-w-md">
             <Input 
-              placeholder="Tìm theo mã nguồn hoặc địa chỉ..." 
+              placeholder="Tìm theo ID hoặc địa chỉ..." 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pr-10"
@@ -205,7 +205,7 @@ export default function AdminDashboard() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Địa chỉ</TableHead>
-                    <TableHead>Mã nguồn</TableHead>
+                    <TableHead>ID</TableHead>
                     <TableHead>SĐT Chủ nhà</TableHead>
                     <TableHead>Giá</TableHead>
                     <TableHead>Ngày cập nhật</TableHead>
@@ -310,7 +310,7 @@ export default function AdminDashboard() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                  <p className="text-sm"><span className="font-medium text-muted-foreground">Mã nguồn:</span> {apt.sourceCode}</p>
+                  <p className="text-sm"><span className="font-medium text-muted-foreground">ID:</span> {apt.sourceCode}</p>
                   <p className="text-sm">Giá: {apt.price} tr</p>
                   <div className="flex items-center gap-2 text-sm">
                     <span className="font-medium text-muted-foreground">SĐT Chủ nhà:</span>

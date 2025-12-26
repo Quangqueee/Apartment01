@@ -164,10 +164,20 @@ export async function getApartments(
 }
 
 export async function getApartmentById(id: string): Promise<Apartment | null> {
-  const docRef = doc(firestore, "apartments", id);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return toApartment(docSnap);
+  // Kiểm tra nếu id không tồn tại hoặc không phải chuỗi
+  if (!id || typeof id !== 'string') {
+    console.warn("getApartmentById: Invalid or missing ID provided.");
+    return null;
+  }
+
+  try {
+    const docRef = doc(firestore, "apartments", id);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return toApartment(docSnap);
+    }
+  } catch (error) {
+    console.error("Error fetching apartment by ID:", error);
   }
   return null;
 }

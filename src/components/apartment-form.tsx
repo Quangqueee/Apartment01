@@ -575,7 +575,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="sourceCode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Mã nguồn</FormLabel>
+                      <FormLabel>ID</FormLabel>
                       <FormControl>
                         <Input placeholder="VD. TH0012" {...field} />
                       </FormControl>

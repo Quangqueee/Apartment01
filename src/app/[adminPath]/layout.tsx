@@ -1,5 +1,4 @@
-
-'use client';
+"use client";
 
 import {
   SidebarProvider,
@@ -11,14 +10,14 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarInset,
-} from '@/components/ui/sidebar';
-import { Home, LayoutGrid, LogOut, PlusCircle, Loader2 } from 'lucide-react';
-import Link from 'next/link';
-import { useUser, useAuth } from '@/firebase/provider';
-import { useRouter, notFound } from 'next/navigation';
-import { useEffect } from 'react';
-import { signOut } from 'firebase/auth';
-import { ADMIN_PATH } from '@/lib/constants';
+} from "@/components/ui/sidebar";
+import { Home, LayoutGrid, LogOut, PlusCircle, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useUser, useAuth } from "@/firebase/provider";
+import { useRouter, notFound } from "next/navigation";
+import { useEffect, use } from "react"; // Thêm 'use' từ react
+import { signOut } from "firebase/auth";
+import { ADMIN_PATH } from "@/lib/constants";
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
@@ -26,7 +25,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
   const handleLogout = async () => {
     await signOut(auth);
-    router.push('/login');
+    router.push("/login");
   };
 
   return (
@@ -34,7 +33,8 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
       <Sidebar>
         <SidebarHeader className="p-4">
           <Link href="/" className="flex items-center gap-2">
-             <svg
+            {/* SVG Logo Hanoi Residences */}
+            <svg
               className="h-8 w-8 text-primary"
               viewBox="0 0 24 24"
               fill="none"
@@ -130,26 +130,26 @@ export default function AdminLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { adminPath: string };
+  params: Promise<{ adminPath: string }>; // CẬP NHẬT: Kiểu dữ liệu là Promise
 }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
-  // This is the security check.
-  // It ensures the path from the URL matches our secret admin path.
-  if (params.adminPath !== ADMIN_PATH) {
-    notFound(); // If they don't match, show a 404 page.
+  // BẮT BUỘC: Giải nén params bằng hook use() vì đây là Client Component
+  const { adminPath } = use(params);
+
+  // Kiểm tra bảo mật đường dẫn admin bí mật
+  if (adminPath !== ADMIN_PATH) {
+    notFound();
   }
 
   useEffect(() => {
     if (!isUserLoading && !user) {
-      // If loading is finished and there's still no user, redirect to login
-      router.push('/login');
+      router.push("/login");
     }
   }, [user, isUserLoading, router]);
 
   if (isUserLoading || !user) {
-    // Show a loader while checking for user auth or if user is not authenticated
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />

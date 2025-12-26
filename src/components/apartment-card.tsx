@@ -1,153 +1,95 @@
-
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { formatPrice } from "@/lib/utils";
-import { MapPin, BedDouble, Ruler, CalendarDays, Heart } from "lucide-react";
 import { Apartment } from "@/lib/types";
-import { ROOM_TYPES } from "@/lib/constants";
-import ClientFormattedDate from "./client-formatted-date";
-import { useUser } from "@/firebase/provider";
-import { toggleFavoriteAction } from "@/app/actions";
-import { useTransition } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "./ui/button";
-import { cn } from "@/lib/utils";
-import { useRouter } from "next/navigation";
+import { MapPin, Maximize, ArrowUpRight, Heart, Clock } from "lucide-react";
+import { useState, useEffect } from "react";
+import { formatRelativeTime } from "@/lib/utils";
 
+export default function ApartmentCard({ apartment }: { apartment: Apartment }) {
+  const [isFavorite, setIsFavorite] = useState(false);
 
-type ApartmentCardProps = {
-  apartment: Apartment & { isFavorited?: boolean };
-  onFavoriteToggle?: (apartmentId: string, isFavorited: boolean) => void;
-};
+  // Kiểm tra trạng thái yêu thích từ localStorage khi mount
+  useEffect(() => {
+    const favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
+    setIsFavorite(favorites.includes(apartment.id));
+  }, [apartment.id]);
 
-export default function ApartmentCard({ apartment, onFavoriteToggle }: ApartmentCardProps) {
-  const { user } = useUser();
-  const router = useRouter();
-  const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
+  const toggleFavorite = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-  const getRoomTypeLabel = (value: string) => {
-    const roomType = ROOM_TYPES.find((rt) => rt.value === value);
-    return roomType ? roomType.label : "N/A";
-  };
+    const favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
+    let updatedFavorites;
 
-  const handleFavoriteToggle = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent navigating when clicking the heart
-    if (!user) {
-      toast({
-        variant: "destructive",
-        title: "Bạn cần đăng nhập",
-        description: "Vui lòng đăng nhập để sử dụng chức năng yêu thích.",
-      });
-      router.push('/login');
-      return;
+    if (isFavorite) {
+      // Bỏ thích: Lọc bỏ ID
+      updatedFavorites = favorites.filter((id: string) => id !== apartment.id);
+    } else {
+      // THÊM MỚI: Đưa ID mới lên ĐẦU MẢNG để hiện thị đầu tiên
+      updatedFavorites = [apartment.id, ...favorites.filter((id: string) => id !== apartment.id)];
     }
-    startTransition(async () => {
-      const result = await toggleFavoriteAction({
-        userId: user.uid,
-        apartmentId: apartment.id,
-        isFavorited: !!apartment.isFavorited,
-      });
-       if (result.success && onFavoriteToggle) {
-        onFavoriteToggle(apartment.id, result.isFavorited);
-      } else if (result.error) {
-        toast({
-          variant: "destructive",
-          title: "Lỗi",
-          description: result.error,
-        });
-      }
-    });
+
+    localStorage.setItem("favorites", JSON.stringify(updatedFavorites));
+    setIsFavorite(!isFavorite);
+    
+    // Kích hoạt sự kiện để trang Favorites biết và cập nhật lại giao diện
+    window.dispatchEvent(new Event("favoritesUpdated"));
   };
 
-  const primaryImage = apartment.imageUrls?.[0];
-  const linkHref = `/apartments/${apartment.id}`;
-  const displayDate = apartment.updatedAt && apartment.updatedAt.seconds > 0 ? apartment.updatedAt : apartment.createdAt;
+  const timeToDisplay = apartment.updatedAt?.seconds ? apartment.updatedAt : apartment.createdAt;
 
   return (
-    <Card
-      key={apartment.id}
-      className="flex h-full flex-col overflow-hidden transition-shadow duration-300 hover:shadow-xl group"
-    >
-      <div className="relative">
-        <Link href={linkHref} className="block" target="_blank" rel="noopener noreferrer">
-          {primaryImage && (
-              <div className="relative w-full aspect-[4/3]">
-              <Image
-                  src={primaryImage}
-                  alt={apartment.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  className="object-cover select-none pointer-events-none"
-                  data-ai-hint="apartment exterior"
-              />
-              </div>
-          )}
-        </Link>
-        <Button
-          size="icon"
-          variant="ghost"
-          className={cn(
-            "absolute top-2 right-2 rounded-full h-9 w-9 text-white bg-black/40 hover:bg-black/60 hover:text-white",
-            apartment.isFavorited && "text-red-500 hover:text-red-500"
-          )}
-          onClick={handleFavoriteToggle}
-          disabled={isPending}
-        >
-          <Heart className={cn("h-5 w-5", apartment.isFavorited ? "fill-current" : "fill-transparent")} />
-          <span className="sr-only">Yêu thích</span>
-        </Button>
-      </div>
+    <div className="group relative overflow-hidden rounded-3xl bg-white transition-all duration-300 hover:shadow-2xl">
+      <button
+        onClick={toggleFavorite}
+        className="absolute right-4 top-4 z-20 rounded-full bg-white/90 p-2.5 shadow-sm backdrop-blur-sm transition-all active:scale-90"
+      >
+        <Heart className={`h-5 w-5 transition-colors ${isFavorite ? "fill-red-500 text-red-500" : "text-gray-400"}`} />
+      </button>
 
-      <div className="flex flex-1 flex-col">
-        <Link href={linkHref} className="flex flex-1 flex-col" target="_blank" rel="noopener noreferrer">
-            <CardHeader>
-                <CardTitle className="font-headline text-xl tracking-tight">
-                    {apartment.title}
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-1 flex-col justify-end gap-4">
-                <div className="flex flex-col gap-3 text-sm">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                            <MapPin className="h-4 w-4" />
-                            <span>{apartment.district}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                            <CalendarDays className="h-4 w-4" />
-                            <ClientFormattedDate date={displayDate} />
-                        </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <BedDouble className="h-5 w-5 text-primary" />
-                            <Badge variant="secondary" className="capitalize">
-                                {getRoomTypeLabel(apartment.roomType)}
-                            </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Ruler className="h-5 w-5 text-primary" />
-                            <span className="text-muted-foreground">{apartment.area} m²</span>
-                        </div>
-                    </div>
-                </div>
-                <div className="flex items-center justify-between pt-2">
-                    <p className="text-xl font-semibold text-primary">
-                        {formatPrice(apartment.price)}
-                    </p>
-                </div>
-            </CardContent>
-        </Link>
-      </div>
-    </Card>
+      <Link href={`/apartments/${apartment.id}`} className="block">
+        <div className="relative aspect-[4/3] overflow-hidden rounded-t-3xl">
+          <img
+            src={apartment.imageUrls[0]}
+            alt={apartment.title}
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+          />
+        </div>
+
+        <div className="py-6 px-4">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-xl font-bold text-gray-900 line-clamp-1 group-hover:text-orange-600 transition-colors">
+              {apartment.title}
+            </h3>
+            <ArrowUpRight className="h-5 w-5 text-gray-300 group-hover:text-orange-600 shrink-0" />
+          </div>
+
+          <div className="mt-3 flex items-center justify-between border-b pb-3">
+            <div className="flex items-center text-sm text-gray-500 font-medium">
+              <MapPin className="mr-1 h-4 w-4 text-orange-500" />
+              {apartment.district}
+            </div>
+            <div className="flex items-center text-[11px] text-gray-400 font-semibold uppercase tracking-tight">
+              <Clock className="mr-1 h-3.5 w-3.5" />
+              {formatRelativeTime(timeToDisplay)}
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50/50 p-2 rounded-lg">
+            <span className="flex items-center gap-1.5">
+              <Maximize className="h-3.5 w-3.5" /> {apartment.area} m²
+            </span>
+            <span className="h-1 w-1 rounded-full bg-gray-300" />
+            <span>{apartment.roomType === "studio" ? "Studio" : apartment.roomType}</span>
+          </div>
+
+          <div className="mt-5 flex items-baseline gap-1">
+            <span className="text-2xl font-black text-orange-600">{apartment.price.toLocaleString("vi-VN")}</span>
+            <span className="text-xs font-bold text-gray-500 uppercase">triệu / tháng</span>
+          </div>
+        </div>
+      </Link>
+    </div>
   );
 }

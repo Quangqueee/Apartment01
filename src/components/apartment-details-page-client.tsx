@@ -302,7 +302,7 @@ export default function ApartmentDetailsPageClient({ apartmentId }: { apartmentI
                   <div className="flex items-center gap-3">
                       <Award className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
                       <div>
-                          <p className="font-semibold">Mã nguồn</p>
+                          <p className="font-semibold">ID</p>
                           <p className="text-muted-foreground">
                               {apartment.sourceCode}
                           </p>
