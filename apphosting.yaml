@@ -1,8 +1,7 @@
-# Settings to manage and configure a Firebase App Hosting backend.
-# https://firebase.google.com/docs/app-hosting/configure
-
+# apphosting.yaml
 runConfig:
   maxInstances: 1
+
 environmentVariables:
   - name: NPM_CONFIG_LEGACY_PEER_DEPS
     value: "true"
