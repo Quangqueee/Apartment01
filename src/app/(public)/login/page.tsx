@@ -1,220 +1,121 @@
+"use client";
 
-'use client';
-
-import { useState, FormEvent, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth, useUser } from '@/firebase/provider';
-import { signInWithEmailAndPassword, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth';
-import { Loader2 } from 'lucide-react';
-import Link from 'next/link';
-import { ADMIN_PATH } from '@/lib/constants';
-import { createUserDocument } from '@/app/actions';
-
-const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 48 48" {...props}>
-    <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-    <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z" />
-    <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
-    <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.012 36.49 44 30.823 44 24c0-1.341-.138-2.65-.389-3.917z" />
-  </svg>
-);
-
+import { useState, useEffect } from "react";
+import { login, loginWithGoogle } from "@/lib/auth-service";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Mail, Lock, Loader2, ArrowLeft } from "lucide-react";
 
 export default function LoginPage() {
+  const [mounted, setMounted] = useState(false);
+  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const auth = useAuth();
-  const { user, isUserLoading } = useUser();
-  const { toast } = useToast();
-  
-  const redirectUrl = searchParams.get('redirect') || '/';
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  useEffect(() => {
-    if (!isUserLoading && user) {
-        if (user.email === 'admin@example.com') {
-             router.push(`/${ADMIN_PATH}`);
-        } else {
-             router.push(redirectUrl);
-        }
-    }
-  }, [user, isUserLoading, router, redirectUrl]);
-
-  // Handle Google Redirect Result
-  useEffect(() => {
-    const handleRedirect = async () => {
-      // This is to avoid flicker when the user is already logged in
-      if (user) return;
-      
-      try {
-        // Set loading state only if we expect a redirect result
-        const isRedirecting = sessionStorage.getItem('google-redirect');
-        if (isRedirecting) {
-            setIsGoogleLoading(true);
-            sessionStorage.removeItem('google-redirect');
-        } else {
-            return;
-        }
-
-        const result = await getRedirectResult(auth);
-        if (result && result.user) {
-          await createUserDocument(result.user.uid, result.user.email || '');
-          toast({
-            title: 'Đăng nhập thành công!',
-            description: `Chào mừng bạn, ${result.user.displayName || 'người dùng mới'}!`,
-          });
-          // Let the other useEffect handle the redirection based on user role
-        }
-      } catch (error: any) {
-        if(error.code !== 'auth/no-auth-event') {
-          console.error('Google sign in failed after redirect', error);
-          toast({
-            variant: 'destructive',
-            title: 'Đăng nhập Google thất bại',
-            description: 'Đã có lỗi xảy ra. Vui lòng thử lại.',
-          });
-        }
-      } finally {
-        setIsGoogleLoading(false);
-      }
-    };
-    if (auth) {
-        handleRedirect();
-    }
-  }, [auth, toast, user]);
-
-  const handleLogin = async (e: FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({
-        title: 'Đăng nhập thành công!',
-        description: 'Chào mừng bạn quay trở lại.',
-      });
-    } catch (error: any) {
-      console.error('Login failed:', error);
-      let description = 'Vui lòng kiểm tra lại thông tin đăng nhập.';
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        description = 'Email hoặc mật khẩu không đúng.';
-      }
-       else if (error.code === 'auth/invalid-email') {
-        description = 'Địa chỉ email không hợp lệ.';
-      }
-      toast({
-        variant: 'destructive',
-        title: 'Đăng nhập thất bại',
-        description: description,
-      });
+      await login(formData.email, formData.password);
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      alert("Thông tin đăng nhập không chính xác!");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true);
-    sessionStorage.setItem('google-redirect', 'true');
-    const provider = new GoogleAuthProvider();
-    await signInWithRedirect(auth, provider);
-  };
-
-  if (isUserLoading || user) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-secondary/50">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
+  if (!mounted) return null;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-secondary/50 p-4">
-      <div className="absolute left-4 top-4">
-        <Button variant="ghost" asChild>
-            <Link href="/">‹ Về trang chủ</Link>
-        </Button>
+    <div className="flex min-h-[85vh] items-center justify-center bg-slate-50/50 px-4 py-12">
+      <div className="relative w-full max-w-md rounded-[2.5rem] bg-white p-10 shadow-2xl border border-gray-100">
+        <Link
+          href="/"
+          className="absolute left-6 top-6 flex items-center gap-1 text-[11px] font-bold text-gray-400 hover:text-orange-600"
+        >
+          <ArrowLeft className="h-4 w-4" /> TRANG CHỦ
+        </Link>
+
+        <div className="text-center mb-8 mt-6">
+          <h1 className="text-3xl font-black uppercase text-gray-900 tracking-tighter">
+            Đăng nhập
+          </h1>
+          <p className="text-xs text-gray-400 mt-2 italic font-medium">
+            Chào mừng trở lại Hanoi Residences
+          </p>
+        </div>
+
+        <button
+          onClick={() => loginWithGoogle().then(() => router.push("/"))}
+          className="flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-200 py-3.5 font-bold text-gray-700 hover:bg-gray-50 transition-all mb-6 shadow-sm active:scale-95"
+        >
+          <img
+            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+            className="h-5 w-5"
+            alt="Google"
+          />
+          TIẾP TỤC VỚI GOOGLE
+        </button>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="relative">
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="email"
+              placeholder="Email"
+              required
+              className="w-full rounded-2xl bg-gray-50 py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+            />
+          </div>
+          <div className="relative">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="password"
+              placeholder="Mật khẩu"
+              required
+              className="w-full rounded-2xl bg-gray-50 py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
+            />
+          </div>
+
+          {/* NÚT QUÊN MẬT KHẨU ĐÃ ĐƯỢC THÊM TẠI ĐÂY */}
+          <div className="flex justify-end pr-2">
+            <Link
+              href="/forgot-password"
+              className="text-[11px] font-bold text-gray-400 hover:text-orange-600 transition-colors uppercase tracking-widest"
+            >
+              Quên mật khẩu?
+            </Link>
+          </div>
+
+          <button className="w-full rounded-2xl bg-gray-900 py-4 font-bold text-white hover:bg-orange-600 transition-all shadow-lg active:scale-95 flex justify-center">
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              "ĐĂNG NHẬP"
+            )}
+          </button>
+        </form>
+
+        <p className="mt-8 text-center text-sm text-gray-500 font-medium">
+          Chưa có tài khoản?{" "}
+          <Link
+            href="/signup"
+            className="font-bold text-orange-600 hover:underline"
+          >
+            Đăng ký ngay
+          </Link>
+        </p>
       </div>
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="font-headline text-2xl">Đăng nhập</CardTitle>
-          <CardDescription>
-            Chọn phương thức đăng nhập để tiếp tục.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-            <Button variant="outline" onClick={handleGoogleSignIn} disabled={isLoading || isGoogleLoading}>
-                {isGoogleLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                    <GoogleIcon className="mr-2 h-4 w-4" />
-                )}
-                Tiếp tục với Google
-            </Button>
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                        Hoặc tiếp tục với
-                    </span>
-                </div>
-            </div>
-            <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                        id="email"
-                        type="email"
-                        placeholder="mail@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        disabled={isLoading || isGoogleLoading}
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="password">Mật khẩu</Label>
-                    <Input
-                        id="password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        disabled={isLoading || isGoogleLoading}
-                    />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
-                    {isLoading && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    Đăng nhập với Email
-                </Button>
-            </form>
-        </CardContent>
-         <CardContent className="pt-0">
-             <div className="mt-4 text-center text-sm">
-                Chưa có tài khoản?{" "}
-                <Link href="/signup" className="underline hover:text-primary">
-                    Đăng ký
-                </Link>
-            </div>
-          </CardContent>
-      </Card>
-    </main>
+    </div>
   );
 }

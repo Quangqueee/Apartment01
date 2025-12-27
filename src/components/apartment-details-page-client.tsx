@@ -274,36 +274,36 @@ export default function ApartmentDetailsPageClient({ apartmentId }: { apartmentI
                 <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm pt-6 border-t">
                   <div className="flex items-center gap-3">
                     <BedDouble className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold">Loại phòng</p>
+                    <div className="flex items-center gap-1">
+                      <p className="font-semibold">Loại phòng:</p>
                       <p className="capitalize text-muted-foreground">
-                        {getRoomTypeLabel(apartment.roomType)}
+                        {apartment.roomType}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <Ruler className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold">Diện tích</p>
-                      <p className="text-muted-foreground">
+                   <div className="flex items-center gap-1">
+                      <p className="font-semibold">Diện tích:</p>
+                      <p className="text-200">
                         {apartment.area} m²
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                       <MapPin className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                      <div>
-                      <p className="font-semibold">Quận</p>                      
-                      <p className="text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                      <p className="font-semibold">Quận:</p>                      
+                      <p className="text-200">
                           {apartment.district}
                       </p>
                       </div>
                   </div>
                   <div className="flex items-center gap-3">
                       <Award className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                      <div>
-                          <p className="font-semibold">ID</p>
-                          <p className="text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                          <p className="font-semibold">ID:</p>
+                          <p className="text-200">
                               {apartment.sourceCode}
                           </p>
                       </div>

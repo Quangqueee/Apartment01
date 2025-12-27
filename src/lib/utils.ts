@@ -55,9 +55,9 @@ export function formatRelativeTime(timestamp: { seconds: number } | any) {
   if (diffInHours < 1) {
     return "Vừa xong";
   } else if (diffInHours < 24) {
-    return `Cập nhật ${diffInHours} giờ trước`;
+    return `${diffInHours} giờ trước`;
   } else if (diffInDays < 7) {
-    return `Cập nhật ${diffInDays} ngày trước`;
+    return `${diffInDays} ngày trước`;
   } else {
     // Trả về định dạng DD/MM/YYYY
     return updateDate.toLocaleDateString('vi-VN');

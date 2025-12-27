@@ -1,192 +1,194 @@
+"use client";
+import { useState, useRef, useEffect } from "react";
+import { useUser } from "@/firebase/provider";
+import { db, storage } from "@/firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import {
+  Camera,
+  Save,
+  Phone,
+  MapPin,
+  User,
+  Loader2,
+  ArrowLeft,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
+import Header from "@/components/header";
+import Footer from "@/components/footer";
 
-'use client';
-
-import { use, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useUser } from '@/firebase/provider';
-import { getUserProfile } from '@/lib/data-client';
-import { UserProfile } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
-import Header from '@/components/header';
-import Footer from '@/components/footer';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useToast } from '@/hooks/use-toast';
-import { updateUserProfileAction } from '@/app/actions';
-import Link from 'next/link';
-
-const profileFormSchema = z.object({
-  displayName: z.string().optional(),
-  phoneNumber: z.string().optional(),
-  address: z.string().optional(),
-});
-
-type ProfileFormValues = z.infer<typeof profileFormSchema>;
-
-function ProfileForm({ userProfile, userId }: { userProfile: UserProfile; userId: string }) {
-  const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export default function ProfileEditPage() {
+  const { user, isUserLoading } = useUser() as any;
+  const userData = (useUser() as any).userData;
   const router = useRouter();
-  const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileFormSchema),
-    defaultValues: {
-      displayName: userProfile.displayName || '',
-      phoneNumber: userProfile.phoneNumber || '',
-      address: userProfile.address || '',
-    },
+  const [isUpdating, setIsUpdating] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [formData, setFormData] = useState({
+    displayName: "",
+    phoneNumber: "",
+    preferredDistrict: "",
   });
 
-  const onSubmit = async (values: ProfileFormValues) => {
-    setIsSubmitting(true);
-    const result = await updateUserProfileAction(userId, values);
-    if (result.success) {
-      toast({
-        title: 'Thành công',
-        description: 'Thông tin cá nhân của bạn đã được cập nhật.',
-      });
-      router.push('/profile'); // Redirect back to profile hub
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Lỗi',
-        description: result.error,
+  useEffect(() => {
+    if (user || userData) {
+      setFormData({
+        displayName: userData?.displayName || user?.displayName || "",
+        phoneNumber: userData?.phoneNumber || "",
+        preferredDistrict: userData?.preferredDistrict || "",
       });
     }
-    setIsSubmitting(false);
+  }, [user, userData]);
+
+  const handleUpdate = async () => {
+    if (!user) return;
+    setIsUpdating(true);
+    try {
+      await updateDoc(doc(db, "users", user.uid), { ...formData });
+      toast({
+        title: "Thành công",
+        description: "Hồ sơ nhu cầu đã được cập nhật.",
+      });
+      router.push("/profile");
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: "Không thể lưu.",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Chỉnh sửa thông tin</CardTitle>
-        <CardDescription>
-          Cập nhật thông tin của bạn. Email không thể thay đổi.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="space-y-2">
-              <FormLabel>Email</FormLabel>
-              <Input value={userProfile.email} disabled className="bg-muted/50" />
-            </div>
-            <FormField
-              control={form.control}
-              name="displayName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Họ và tên</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nhập họ và tên của bạn" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="phoneNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Số điện thoại</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nhập số điện thoại của bạn" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Địa chỉ</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nhập địa chỉ của bạn" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex items-center gap-4">
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Lưu thay đổi
-              </Button>
-               <Button variant="ghost" asChild>
-                <Link href="/profile">Hủy</Link>
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
-  );
-}
-
-export default function EditProfilePage() {
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login?redirect=/profile/edit');
-    }
-  }, [user, isUserLoading, router]);
-
-  useEffect(() => {
-    async function fetchProfile() {
-      if (user) {
-        setIsLoadingProfile(true);
-        const profile = await getUserProfile(user.uid);
-        setUserProfile(profile);
-        setIsLoadingProfile(false);
-      }
-    }
-    fetchProfile();
-  }, [user]);
-
-  if (isUserLoading || isLoadingProfile) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-  
-  if (!user) {
-    return null;
-  }
-
-  return (
-    <>
+    <div className="min-h-screen bg-white font-body">
       <Header />
-      <main className="flex-1">
-        <div className="container mx-auto max-w-2xl px-4 py-8 md:py-12">
-            <Button variant="ghost" asChild className="mb-4">
-                 <Link href="/profile">‹ Quay lại</Link>
-            </Button>
-          {userProfile ? (
-            <ProfileForm userProfile={userProfile} userId={user.uid} />
-          ) : (
-             <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed text-center">
-                <h2 className="font-headline text-2xl">Không thể tải thông tin</h2>
-                <p className="mt-2 text-muted-foreground">
-                    Đã có lỗi xảy ra khi tải thông tin cá nhân của bạn.
-                </p>
+      <main className="container mx-auto max-w-4xl px-6 py-12 lg:py-24">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-400 hover:text-primary mb-10"
+        >
+          <ArrowLeft size={16} /> Quay lại hồ sơ
+        </button>
+
+        <div className="lg:grid lg:grid-cols-12 lg:gap-20">
+          <div className="lg:col-span-5 mb-12 lg:mb-0">
+            <h1 className="font-headline text-5xl font-black tracking-tighter italic mb-6">
+              Hồ sơ nhu cầu
+            </h1>
+            <p className="text-gray-500 font-medium italic border-l-4 border-primary pl-6 leading-relaxed">
+              Thông tin này sẽ giúp đội ngũ Sale của Hanoi Residences chọn lọc
+              những căn hộ tinh túy nhất dành riêng cho bạn.
+            </p>
+
+            {/* Đổi Avatar ngay trang Edit */}
+            <div className="mt-12 flex flex-col items-center lg:items-start">
+              <div className="relative">
+                <div className="h-40 w-40 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-gray-50">
+                  <img
+                    src={
+                      userData?.photoURL ||
+                      user?.photoURL ||
+                      "/default-avatar.png"
+                    }
+                    className="h-full w-full object-cover"
+                    alt="Avatar"
+                  />
+                </div>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute bottom-2 right-2 p-3 bg-primary text-white rounded-full shadow-xl border-4 border-white active:scale-90 transition-all"
+                >
+                  <Camera size={20} />
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !user) return;
+                    setIsUpdating(true);
+                    const storageRef = ref(storage, `avatars/${user.uid}`);
+                    await uploadBytes(storageRef, file);
+                    const url = await getDownloadURL(storageRef);
+                    await updateDoc(doc(db, "users", user.uid), {
+                      photoURL: url,
+                    });
+                    setIsUpdating(false);
+                    toast({ title: "Đã cập nhật ảnh" });
+                  }}
+                  accept="image/*"
+                />
+              </div>
             </div>
-          )}
+          </div>
+
+          <div className="lg:col-span-7 space-y-8 bg-gray-50/50 p-8 lg:p-12 rounded-[3rem] border border-gray-100">
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">
+                Họ và tên
+              </label>
+              <Input
+                value={formData.displayName}
+                onChange={(e) =>
+                  setFormData({ ...formData, displayName: e.target.value })
+                }
+                className="h-16 rounded-2xl border-none bg-white px-6 font-bold shadow-sm"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">
+                Số điện thoại (Nhận báo giá Zalo)
+              </label>
+              <Input
+                value={formData.phoneNumber}
+                onChange={(e) =>
+                  setFormData({ ...formData, phoneNumber: e.target.value })
+                }
+                className="h-16 rounded-2xl border-none bg-white px-6 font-bold shadow-sm"
+                placeholder="09xx..."
+              />
+            </div>
+
+            <div className="space-y-3">
+              <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">
+                Khu vực ưu tiên thuê
+              </label>
+              <Input
+                value={formData.preferredDistrict}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    preferredDistrict: e.target.value,
+                  })
+                }
+                className="h-16 rounded-2xl border-none bg-white px-6 font-bold shadow-sm"
+                placeholder="VD: Tây Hồ, Ba Đình..."
+              />
+            </div>
+
+            <Button
+              onClick={handleUpdate}
+              disabled={isUpdating}
+              className="w-full h-18 rounded-3xl bg-primary text-white font-black uppercase tracking-widest shadow-2xl mt-6"
+            >
+              {isUpdating ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Lưu hồ sơ ngay
+            </Button>
+          </div>
         </div>
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

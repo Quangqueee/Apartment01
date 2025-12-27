@@ -34,7 +34,7 @@ export default function SortControls() {
             <SelectTrigger id="sort-by" className="w-[180px]">
                 <SelectValue placeholder="Sắp xếp theo" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white">
             {SORT_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
