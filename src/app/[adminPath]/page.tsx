@@ -1,362 +1,121 @@
-
 "use client";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MoreHorizontal, PlusCircle, Search, ClipboardCopy, Trash2, Pencil, ExternalLink } from "lucide-react";
-import { getApartments } from "@/lib/data-client";
 import Link from "next/link";
-import { deleteApartmentAction } from "../actions";
-import { Input } from "@/components/ui/input";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useState, useEffect, useTransition, FormEvent, useCallback } from "react";
-import { Apartment } from "@/lib/types";
-import { formatDate } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Building2,
+  Users,
+  ArrowRight,
+  BarChart3,
+  ShieldCheck,
+  BedDouble,
+} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { ADMIN_PATH } from "@/lib/constants";
 
 export default function AdminDashboard() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-  const { toast } = useToast();
-
-  const [apartments, setApartments] = useState<Apartment[]>([]);
-  const [totalApartments, setTotalApartments] = useState(0);
-  const [isPending, startTransition] = useTransition();
-  const [query, setQuery] = useState(searchParams.get("q") || "");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [apartmentToDelete, setApartmentToDelete] = useState<string | null>(null);
-
-  const fetchApartments = useCallback(() => {
-     startTransition(async () => {
-      const page = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1;
-      // Note: Admin dashboard fetches from a client-side function that might have different logic
-      // For now, we assume it fetches all.
-      // If we want admin to have server-side filtering, we'd call an action.
-      // Let's stick to a client-side fetch for simplicity for now.
-      const result = await getApartments({
-        query: searchParams.get("q") || undefined,
-        district: searchParams.get("district") || undefined,
-        priceRange: searchParams.get("price") || undefined,
-        roomType: searchParams.get("roomType") || undefined,
-        page,
-        limit: 1000, // Fetch all for admin view
-        searchBy: "sourceCodeOrAddress",
-      });
-      setApartments(result.apartments);
-      setTotalApartments(result.totalResults);
-    });
-  }, [searchParams]);
-
-  useEffect(() => {
-    fetchApartments();
-  }, [fetchApartments]);
-  
-  const handleSearch = (e: FormEvent) => {
-    e.preventDefault();
-    const params = new URLSearchParams(searchParams.toString());
-    if (query) {
-      params.set("q", query);
-    } else {
-      params.delete("q");
-    }
-    params.set("page", "1"); // Reset to first page on new search
-    router.push(`${pathname}?${params.toString()}`);
-  }
-
-  const handleDeleteClick = (id: string) => {
-    setApartmentToDelete(id);
-    setDialogOpen(true);
-  };
-  
-  const handleDeleteConfirm = async () => {
-    if (!apartmentToDelete) return;
-
-    startTransition(async () => {
-      const result = await deleteApartmentAction(apartmentToDelete);
-      if (result?.error) {
-        toast({
-          variant: "destructive",
-          title: "Lỗi!",
-          description: result.error,
-        });
-      } else {
-        toast({
-          title: "Thành công!",
-          description: "Đã xóa căn hộ.",
-        });
-        fetchApartments(); // Refetch after successful deletion
-      }
-      setDialogOpen(false);
-      setApartmentToDelete(null);
-    });
-  };
-
-  const handleCopy = (text: string) => {
-    // Fallback for insecure contexts
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    
-    // Make the textarea out of sight
-    textArea.style.position = "fixed";
-    textArea.style.top = "-9999px";
-    textArea.style.left = "-9999px";
-    
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    
-    try {
-      document.execCommand("copy");
-      toast({
-        title: "Đã sao chép!",
-        description: "Số điện thoại đã được sao chép vào bộ nhớ tạm.",
-      });
-    } catch (err) {
-      console.error("Failed to copy text: ", err);
-      toast({
-        variant: "destructive",
-        title: "Lỗi!",
-        description: "Không thể sao chép số điện thoại.",
-      });
-    }
-
-    document.body.removeChild(textArea);
-  };
-
+  const menus = [
+    {
+      title: "Quản lý Căn hộ",
+      desc: "Xem danh sách, chỉnh sửa, xóa và thêm mới căn hộ.",
+      icon: Building2,
+      href: `/${ADMIN_PATH}/apartments`,
+      color: "bg-blue-500",
+      bg: "bg-blue-50",
+      active: true,
+    },
+    {
+      title: "Quản lý Khách hàng",
+      desc: "Xem thông tin người dùng, số điện thoại và nhu cầu.",
+      icon: Users,
+      href: `/${ADMIN_PATH}/users`,
+      color: "bg-green-500",
+      bg: "bg-green-50",
+      active: true,
+    },
+    {
+      title: "Quản lý Phòng trống",
+      desc: "Theo dõi tình trạng phòng, lịch check-in/out.",
+      icon: BedDouble,
+      href: "#",
+      color: "bg-orange-500",
+      bg: "bg-orange-50",
+      active: false, // Chưa làm
+    },
+    {
+      title: "Hiệu quả Kinh doanh",
+      desc: "Biểu đồ doanh thu, báo cáo tài chính hàng tháng.",
+      icon: BarChart3,
+      href: "#",
+      color: "bg-purple-500",
+      bg: "bg-purple-50",
+      active: false, // Chưa làm
+    },
+    {
+      title: "Phân quyền Nhân viên",
+      desc: "Quản lý tài khoản admin, sale và phân quyền.",
+      icon: ShieldCheck,
+      href: "#",
+      color: "bg-gray-600",
+      bg: "bg-gray-100",
+      active: false, // Chưa làm
+    },
+  ];
 
   return (
-    <>
-    <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
-      <div className="flex items-center justify-between space-y-2">
-        <Link href="/">
-            <h2 className="font-headline text-3xl font-bold tracking-tight transition-colors hover:text-primary">
-                Apartment Dashboard
-            </h2>
-        </Link>
-        <div className="flex items-center space-x-2">
-          <Button asChild>
-            <Link href={`/${ADMIN_PATH}/apartments/new`}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add New
-            </Link>
-          </Button>
-        </div>
+    <div className="space-y-8">
+      <div>
+        <h2 className="font-headline text-3xl font-bold text-gray-900">
+          Tổng quan
+        </h2>
+        <p className="text-gray-500">
+          Chọn một mục để bắt đầu quản lý hệ thống.
+        </p>
       </div>
-      <div className="pb-4">
-        <form onSubmit={handleSearch} className="relative w-full max-w-md">
-            <Input 
-              placeholder="Tìm theo ID hoặc địa chỉ..." 
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="pr-10"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              variant="ghost"
-              className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
-            >
-              <Search className="h-4 w-4" />
-              <span className="sr-only">Tìm kiếm</span>
-            </Button>
-          </form>
-      </div>
-      <Card>
-        <CardHeader>
-           <CardTitle className="flex items-center justify-between">
-            All Listings
-            <span className="text-sm font-bold px-2 py-1 rounded-md">
-                {totalApartments} kết quả
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Desktop View */}
-          <div className="hidden md:block">
-            <TooltipProvider>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Địa chỉ</TableHead>
-                    <TableHead>ID</TableHead>
-                    <TableHead>SĐT Chủ nhà</TableHead>
-                    <TableHead>Giá</TableHead>
-                    <TableHead>Ngày cập nhật</TableHead>
-                    <TableHead className="text-center">Hành động</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {apartments.map((apt) => (
-                    <TableRow key={apt.id}>
-                      <TableCell className="font-medium">
-                         <Link href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`} className="text-primary hover:underline">
-                            {apt.address}
-                         </Link>
-                      </TableCell>
-                      <TableCell>{apt.sourceCode}</TableCell>
-                      <TableCell>{apt.landlordPhoneNumber}</TableCell>
-                      <TableCell>
-                        {apt.price} tr
-                      </TableCell>
-                      <TableCell>{formatDate(apt.updatedAt && apt.updatedAt.seconds > 0 ? apt.updatedAt : apt.createdAt)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-1">
-                           <Tooltip>
-                              <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" asChild>
-                                      <Link href={`/apartments/${apt.id}`} target="_blank">
-                                          <ExternalLink className="h-4 w-4" />
-                                      </Link>
-                                  </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                  <p>View Listing</p>
-                              </TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" asChild>
-                                    <Link href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}>
-                                        <Pencil className="h-4 w-4" />
-                                    </Link>
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Edit</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                              <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(apt.id)} className="text-destructive hover:text-destructive">
-                                      <Trash2 className="h-4 w-4" />
-                                  </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                  <p>Delete</p>
-                              </TooltipContent>
-                          </Tooltip>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TooltipProvider>
-          </div>
 
-          {/* Mobile View */}
-          <div className="space-y-4 md:hidden">
-            {apartments.map((apt) => (
-              <Card key={apt.id} className="relative">
-                <CardContent className="space-y-2 p-4">
-                  <Link href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`} className="pr-10 font-bold text-primary hover:underline">
-                    {apt.address}
-                  </Link>
-                   <div className="absolute right-2 top-2">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                           <DropdownMenuItem asChild>
-                            <Link href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`} className="flex items-center">
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Edit
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/apartments/${apt.id}`} target="_blank" className="flex items-center">
-                              <ExternalLink className="mr-2 h-4 w-4" />
-                              View
-                            </Link>
-                          </DropdownMenuItem>
-                           <DropdownMenuItem
-                              onClick={() => handleDeleteClick(apt.id)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {menus.map((menu, idx) => (
+          <Link
+            key={idx}
+            href={menu.href}
+            className={`group ${
+              !menu.active
+                ? "opacity-60 cursor-not-allowed pointer-events-none"
+                : ""
+            }`}
+          >
+            <Card className="border-none shadow-md hover:shadow-xl transition-all duration-300 h-full overflow-hidden bg-white">
+              <div className={`h-1.5 w-full ${menu.color}`} />
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div
+                    className={`p-3 rounded-2xl ${menu.bg} ${menu.color.replace(
+                      "bg-",
+                      "text-"
+                    )}`}
+                  >
+                    <menu.icon size={28} />
+                  </div>
+                  {menu.active ? (
+                    <div className="h-8 w-8 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-[#cda533] group-hover:text-white transition-colors">
+                      <ArrowRight size={16} />
                     </div>
-                  <p className="text-sm"><span className="font-medium text-muted-foreground">ID:</span> {apt.sourceCode}</p>
-                  <p className="text-sm">Giá: {apt.price} tr</p>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium text-muted-foreground">SĐT Chủ nhà:</span>
-                    <span>{apt.landlordPhoneNumber}</span>
-                    <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      className="h-6 w-6"
-                      onClick={() => handleCopy(apt.landlordPhoneNumber)}
-                    >
-                      <ClipboardCopy className="h-4 w-4" />
-                      <span className="sr-only">Sao chép</span>
-                    </Button>
-                  </div>
-                   <div className="flex items-baseline justify-between text-sm">
-                    <p><span className="font-medium text-muted-foreground">Ngày cập nhật:</span> {formatDate(apt.updatedAt && apt.updatedAt.seconds > 0 ? apt.updatedAt : apt.createdAt)}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-        </CardContent>
-      </Card>
+                  ) : (
+                    <span className="text-[10px] font-bold uppercase bg-gray-100 text-gray-400 px-2 py-1 rounded">
+                      Sắp ra mắt
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  {menu.title}
+                </h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  {menu.desc}
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
     </div>
-    <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the
-                apartment and remove its data from our servers.
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-                onClick={handleDeleteConfirm}
-                disabled={isPending}
-                className="bg-destructive hover:bg-destructive/90"
-            >
-                {isPending ? "Deleting..." : "Continue"}
-            </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-    </>
   );
 }

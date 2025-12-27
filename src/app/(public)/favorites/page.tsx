@@ -27,18 +27,31 @@ export default function FavoritesPage() {
       }
 
       try {
-        const favoriteIds = userData.favorites.slice(0, 30);
+        // BƯỚC 1: Đảo ngược mảng ID để lấy những cái mới nhất lên đầu
+        // Tạo bản sao [...favorites] để tránh mutation, sau đó reverse
+        const reversedFavoriteIds = [...userData.favorites].reverse();
+
+        // Chỉ lấy 30 căn mới nhất
+        const idsToFetch = reversedFavoriteIds.slice(0, 30);
+
         const q = query(
           collection(db, "apartments"),
-          where("__name__", "in", favoriteIds)
+          where("__name__", "in", idsToFetch)
         );
 
         const snapshot = await getDocs(q);
-        const docs = snapshot.docs.map((doc) => ({
+        const fetchedDocs = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         })) as Apartment[];
-        setFavorites(docs);
+
+        // BƯỚC 2: Sắp xếp lại kết quả trả về theo đúng thứ tự của idsToFetch
+        // Vì Firestore 'IN' query không bảo đảm thứ tự trả về
+        const orderedDocs = idsToFetch
+          .map((id) => fetchedDocs.find((doc) => doc.id === id))
+          .filter((doc) => doc !== undefined) as Apartment[]; // Lọc bỏ các căn có thể đã bị xóa khỏi DB
+
+        setFavorites(orderedDocs);
       } catch (err) {
         console.error("Lỗi lấy danh sách yêu thích:", err);
       } finally {
@@ -49,7 +62,7 @@ export default function FavoritesPage() {
     fetchFavorites();
   }, [user, userData?.favorites, authLoading]);
 
-  // Loading state đồng bộ với phong cách Hanoi Residences
+  // ... (Phần render UI bên dưới giữ nguyên không đổi) ...
   if (authLoading || loading)
     return (
       <div className="flex min-h-screen flex-col bg-white">
@@ -72,10 +85,9 @@ export default function FavoritesPage() {
       <Header />
 
       <main className="flex-1">
-        {/* SECTION 1: HERO BANNER - Tối ưu cho Mobile */}
+        {/* SECTION 1: HERO BANNER */}
         <section className="relative bg-gray-50 border-b border-gray-100 py-16 lg:py-28">
           <div className="max-w-7xl mx-auto px-6">
-            {/* FIX: Ẩn nút Quay lại trên mobile, chỉ hiện trên Desktop */}
             <Link
               href="/"
               className="hidden md:inline-flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-primary transition-colors mb-8"
@@ -88,14 +100,13 @@ export default function FavoritesPage() {
               <span className="text-primary italic">Yêu thích</span>
             </h1>
             <p className="mt-6 text-sm lg:text-base text-gray-500 font-medium italic border-l-2 border-primary pl-6 max-w-lg">
-              Tuyển chọn những không gian sống tinh tế nhất bạn đã lưu lại tại
-              thủ đô.
+              Tuyển chọn những không gian sống tinh tế nhất bạn đã lưu lại tại thủ đô.
             </p>
           </div>
         </section>
 
-        {/* SECTION 2: DANH SÁCH - Tăng padding để giao diện thoáng hơn */}
-        <section className="max-w-7xl mx-auto px-6 py-12 lg:py-20">
+        {/* SECTION 2: DANH SÁCH */}
+        <section className="max-w-7xl mx-auto px-6 py-5 lg:py-5">
           {!user ? (
             <div className="max-w-md mx-auto text-center py-20 bg-gray-50 rounded-[3rem] border border-gray-100 shadow-sm px-10">
               <Heart className="h-12 w-12 text-gray-200 mx-auto mb-6" />
@@ -133,7 +144,6 @@ export default function FavoritesPage() {
                 </span>
               </div>
 
-              {/* Grid đồng bộ với trang chủ */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 lg:gap-16 mb-20">
                 {favorites.map((item) => (
                   <ApartmentCard key={item.id} apartment={item} />
@@ -145,7 +155,6 @@ export default function FavoritesPage() {
       </main>
 
       <Footer />
-      {/* MobileNav với logic Active Tab đã sửa sẽ giúp nút Yêu thích sáng rõ */}
       <MobileNav />
     </div>
   );

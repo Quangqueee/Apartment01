@@ -7,11 +7,9 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   Camera,
   Save,
-  Phone,
-  MapPin,
-  User,
-  Loader2,
   ArrowLeft,
+  User as UserIcon,
+  Loader2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -42,6 +40,9 @@ export default function ProfileEditPage() {
       });
     }
   }, [user, userData]);
+
+  // Logic hiển thị ảnh avatar an toàn
+  const displayAvatar = userData?.photoURL || user?.photoURL;
 
   const handleUpdate = async () => {
     if (!user) return;
@@ -85,44 +86,82 @@ export default function ProfileEditPage() {
               những căn hộ tinh túy nhất dành riêng cho bạn.
             </p>
 
-            {/* Đổi Avatar ngay trang Edit */}
+            {/* AVATAR UPLOAD SECTION */}
             <div className="mt-12 flex flex-col items-center lg:items-start">
               <div className="relative">
-                <div className="h-40 w-40 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-gray-50">
-                  <img
-                    src={
-                      userData?.photoURL ||
-                      user?.photoURL ||
-                      "/default-avatar.png"
-                    }
-                    className="h-full w-full object-cover"
-                    alt="Avatar"
-                  />
+                <div className="h-40 w-40 rounded-full overflow-hidden border-4 border-white shadow-2xl bg-gray-50 flex items-center justify-center">
+                  {displayAvatar ? (
+                    <img
+                      src={displayAvatar}
+                      className="h-full w-full object-cover"
+                      alt="Avatar"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <UserIcon className="h-20 w-20 text-gray-300" />
+                  )}
+
+                  {/* Loading overlay khi đang upload */}
+                  {isUpdating && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                      <Loader2 className="h-8 w-8 text-white animate-spin" />
+                    </div>
+                  )}
                 </div>
+
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-2 right-2 p-3 bg-primary text-white rounded-full shadow-xl border-4 border-white active:scale-90 transition-all"
+                  disabled={isUpdating}
+                  className="absolute bottom-2 right-2 p-3 bg-primary text-white rounded-full shadow-xl border-4 border-white active:scale-90 transition-all hover:bg-[#b8932b]"
                 >
                   <Camera size={20} />
                 </button>
+
                 <input
                   type="file"
                   ref={fileInputRef}
                   className="hidden"
+                  accept="image/*"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file || !user) return;
+
+                    // Validate ảnh < 5MB
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast({
+                        variant: "destructive",
+                        title: "Ảnh quá lớn (>5MB)",
+                      });
+                      return;
+                    }
+
                     setIsUpdating(true);
-                    const storageRef = ref(storage, `avatars/${user.uid}`);
-                    await uploadBytes(storageRef, file);
-                    const url = await getDownloadURL(storageRef);
-                    await updateDoc(doc(db, "users", user.uid), {
-                      photoURL: url,
-                    });
-                    setIsUpdating(false);
-                    toast({ title: "Đã cập nhật ảnh" });
+                    try {
+                      // Tạo tên file unique bằng Date.now() để tránh browser cache ảnh cũ
+                      const storageRef = ref(
+                        storage,
+                        `avatars/${user.uid}/${Date.now()}`
+                      );
+                      await uploadBytes(storageRef, file);
+                      const url = await getDownloadURL(storageRef);
+
+                      // Cập nhật URL vào Firestore
+                      await updateDoc(doc(db, "users", user.uid), {
+                        photoURL: url,
+                      });
+
+                      toast({ title: "Đã cập nhật ảnh đại diện" });
+                      // Refresh lại trang để thấy ảnh mới
+                      window.location.reload();
+                    } catch (err) {
+                      console.error(err);
+                      toast({ variant: "destructive", title: "Lỗi tải ảnh" });
+                    } finally {
+                      setIsUpdating(false);
+                    }
                   }}
-                  accept="image/*"
                 />
               </div>
             </div>
@@ -176,7 +215,7 @@ export default function ProfileEditPage() {
             <Button
               onClick={handleUpdate}
               disabled={isUpdating}
-              className="w-full h-18 rounded-3xl bg-primary text-white font-black uppercase tracking-widest shadow-2xl mt-6"
+              className="w-full h-18 rounded-3xl bg-primary text-white font-black uppercase tracking-widest shadow-2xl mt-6 hover:bg-[#b8932b]"
             >
               {isUpdating ? (
                 <Loader2 className="animate-spin" />

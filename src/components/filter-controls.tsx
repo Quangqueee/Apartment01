@@ -119,7 +119,7 @@ export default function FilterControls() {
       <div className="mb-10 text-center">
         {/* Đã bỏ uppercase, dùng font serif/italic nhẹ nhàng sang trọng */}
         <h2 className="font-headline text-3xl md:text-3xl text-gray-900 tracking-tight italic font-medium">
-          Tìm kiếm căn hộ mơ ước
+          Tìm căn hộ theo nhu cầu
         </h2>
         <div className="h-1 w-12 bg-[#cda533] mt-6 mx-auto rounded-full" />
       </div>
@@ -132,7 +132,7 @@ export default function FilterControls() {
           </div>
           <input
             type="text"
-            placeholder="Nhập tên căn hộ, địa chỉ hoặc mã ID..."
+            placeholder="Nhập địa chỉ hoặc mã ID..."
             value={filters.query}
             onChange={(e) => setFilters({ ...filters, query: e.target.value })}
             onKeyDown={(e) => e.key === "Enter" && handleApply()} // Cho phép nhấn Enter để tìm

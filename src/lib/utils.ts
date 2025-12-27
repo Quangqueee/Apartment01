@@ -12,7 +12,7 @@ export function formatPrice(price: number) {
     currency: "VND",
   })
     .format(price * 1000000)
-    .replace(" ₫", " /tháng");
+    .replace(" ₫", "  VND/tháng");
 }
 
 export function formatDate(timestamp: { seconds: number; nanoseconds: number }): string {

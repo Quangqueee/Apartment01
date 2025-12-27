@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Heart, Search, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/firebase/provider";
+import { ADMIN_PATH } from "@/lib/constants"; // Import path admin
 
 const navItems = [
   { href: "/", label: "Khám phá", icon: Search },
@@ -16,36 +17,44 @@ export default function MobileNav() {
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
 
-  if (pathname.startsWith("/admin")) return null;
+  // FIX: Nếu đường dẫn bắt đầu bằng "/admin_path_của_bạn", return null luôn
+  if (pathname.startsWith(`/${ADMIN_PATH}`)) return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 md:hidden pb-safe">
       <div className="container mx-auto flex h-16 max-w-md items-center justify-around px-0">
         {navItems.map((item) => {
-          const href =
+          const targetHref =
             user && item.loggedInHref ? item.loggedInHref : item.href;
+
           const label =
             item.label === "Tài khoản" && !user && !isUserLoading
               ? "Đăng nhập"
               : item.label;
 
-          // FIX: Logic Active Tab chính xác để không bị sáng nhầm nút Khám phá
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+          let isActive = false;
+          if (item.href === "/") {
+            isActive = pathname === "/" || pathname.startsWith("/apartments");
+          } else if (item.href === "/favorites") {
+            isActive = pathname === "/favorites";
+          } else if (item.label === "Tài khoản") {
+            isActive = pathname.startsWith("/profile") || pathname === "/login";
+          }
 
           return (
             <Link
               key={item.label}
-              href={href}
+              href={targetHref}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 text-[10px] font-black uppercase tracking-widest w-20 transition-all",
-                isActive ? "text-primary" : "text-gray-400"
+                isActive ? "text-[#cda533]" : "text-gray-400"
               )}
             >
               <item.icon
-                className={cn("h-6 w-6", isActive && "fill-primary/10")}
+                className={cn(
+                  "h-6 w-6 transition-transform",
+                  isActive && "scale-110"
+                )}
                 strokeWidth={isActive ? 2.5 : 2}
               />
               <span>{label}</span>

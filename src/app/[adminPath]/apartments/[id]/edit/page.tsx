@@ -1,41 +1,45 @@
-
-'use client';
+"use client";
 
 import { getApartmentById } from "@/lib/data-client";
 import { notFound } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react"; // 1. Thêm import 'use'
 import { Apartment } from "@/lib/types";
 import dynamic from "next/dynamic";
 import ApartmentFormSkeleton from "@/components/apartment-form-skeleton";
 
-const ApartmentForm = dynamic(() => import('@/components/apartment-form'), {
+const ApartmentForm = dynamic(() => import("@/components/apartment-form"), {
   loading: () => <ApartmentFormSkeleton />,
-  ssr: false // The form handles its own data, no need for SSR here
+  ssr: false,
 });
 
 type EditApartmentPageProps = {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>; // 2. Đổi type params thành Promise
 };
 
 export default function EditApartmentPage({ params }: EditApartmentPageProps) {
-  const [apartment, setApartment] = useState<Apartment | null | undefined>(undefined);
+  // 3. Giải nén params bằng hook use()
+  const { id } = use(params);
+
+  const [apartment, setApartment] = useState<Apartment | null | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     async function fetchApartment() {
-      const data = await getApartmentById(params.id);
+      // 4. Dùng id đã giải nén
+      const data = await getApartmentById(id);
       setApartment(data);
     }
     fetchApartment();
-  }, [params.id]);
+  }, [id]);
 
   if (apartment === null) {
     notFound();
   }
 
   return (
-    <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">
+    // Thêm bg-white để không bị trong suốt
+    <div className="flex-1 space-y-4 p-4 pt-6 md:p-8 bg-white min-h-screen">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="font-headline text-3xl font-bold tracking-tight">
           Edit Apartment

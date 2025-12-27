@@ -12,6 +12,7 @@ import {
   Sparkles,
   Bell,
   BadgeCheck,
+  User as UserIcon,
 } from "lucide-react";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
@@ -31,12 +32,19 @@ export default function ProfilePage() {
       </div>
     );
 
+  // Lấy URL ảnh
+  const rawAvatar = userData?.photoURL || user.photoURL;
+  // FIX: Thêm timestamp để ép trình duyệt tải ảnh mới nhất thay vì dùng cache
+  const displayAvatar = rawAvatar
+    ? `${rawAvatar}?t=${new Date().getTime()}`
+    : null;
+
   return (
     <div className="flex min-h-screen flex-col bg-white font-body">
       <Header />
 
       <main className="flex-1 container mx-auto px-6 py-12 lg:py-24">
-        {/* TIÊU ĐỀ TRANG: Chỉ hiện rõ trên Desktop */}
+        {/* Header Desktop */}
         <div className="hidden lg:flex items-center justify-between mb-16">
           <h1 className="font-headline text-5xl font-black tracking-tighter italic">
             Hồ sơ cá nhân
@@ -46,24 +54,25 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* BỐ CỤC GRID: 1 cột trên Mobile, 12 cột trên Desktop */}
         <div className="lg:grid lg:grid-cols-12 lg:gap-20">
-          {/* CỘT TRÁI (4/12): THẺ ĐỊNH DANH AIRBNB STYLE */}
+          {/* CỘT TRÁI: INFO CARD */}
           <div className="lg:col-span-4 mb-12 lg:mb-0">
             <div className="bg-white rounded-[3rem] p-10 shadow-[0_30px_100px_rgba(0,0,0,0.08)] border border-gray-50 flex flex-col items-center text-center sticky top-32">
-              <div className="h-32 w-32 lg:h-40 lg:w-40 rounded-full overflow-hidden shadow-2xl border-4 border-white mb-8 bg-gray-50">
-                {/* FIX: Hiển thị ảnh từ userData để cập nhật tức thì */}
-                <img
-                  src={
-                    userData?.photoURL || user.photoURL || "/default-avatar.png"
-                  }
-                  className="h-full w-full object-cover transition-opacity duration-500"
-                  alt="Avatar"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/default-avatar.png";
-                  }}
-                />
+              <div className="h-32 w-32 lg:h-40 lg:w-40 rounded-full overflow-hidden shadow-2xl border-4 border-white mb-8 bg-gray-50 flex items-center justify-center">
+                {displayAvatar ? (
+                  <img
+                    src={displayAvatar}
+                    className="h-full w-full object-cover"
+                    alt="Avatar"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <UserIcon className="h-16 w-16 text-gray-300" />
+                )}
               </div>
+
               <h2 className="text-3xl font-black tracking-tight text-gray-900 flex items-center gap-2">
                 {userData?.displayName || user.displayName || "Người dùng"}
                 <BadgeCheck className="h-6 w-6 text-blue-500 fill-blue-50" />
@@ -75,16 +84,16 @@ export default function ProfilePage() {
               <div className="mt-10 pt-8 border-t border-gray-50 w-full text-left space-y-4">
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">
-                    Email xác thực
+                    Email
                   </span>
-                  <span className="text-sm font-bold text-gray-700">
+                  <span className="text-sm font-bold text-gray-700 truncate">
                     {user.email}
                   </span>
                 </div>
                 {userData?.phoneNumber && (
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">
-                      Số điện thoại
+                      SĐT
                     </span>
                     <span className="text-sm font-bold text-gray-700">
                       {userData.phoneNumber}
@@ -95,9 +104,8 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* CỘT PHẢI (8/12): MENU VÀ HÀNH ĐỘNG */}
+          {/* CỘT PHẢI: MENU */}
           <div className="lg:col-span-8">
-            {/* NÚT THU HÚT: Giữ nguyên phong cách đen sang trọng */}
             <Link href="/profile/edit" className="block mb-12 group">
               <div className="relative overflow-hidden rounded-[2.5rem] bg-gray-900 p-10 md:p-14 shadow-2xl transition-all hover:shadow-primary/10 active:scale-[0.98]">
                 <div className="relative z-10 flex items-center justify-between text-white">
@@ -116,28 +124,30 @@ export default function ProfilePage() {
               </div>
             </Link>
 
-            {/* DANH SÁCH MENU: Giao diện thoáng cho Desktop */}
             <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
               {[
                 {
                   icon: Settings,
                   label: "Cài đặt tài khoản",
-                  sub: "Quản lý mật khẩu và bảo mật",
+                  sub: "Đổi mật khẩu & thông tin cá nhân",
+                  href: "/profile/settings", // Link tới trang Settings mới
                 },
                 {
                   icon: ShieldCheck,
                   label: "Quyền riêng tư",
                   sub: "Kiểm soát dữ liệu chia sẻ",
+                  href: "#",
                 },
                 {
                   icon: HelpCircle,
                   label: "Hỗ trợ khách hàng",
                   sub: "Chat trực tiếp với tư vấn viên",
+                  href: "https://zalo.me/0355885851",
                 },
               ].map((item, idx) => (
                 <Link
                   key={idx}
-                  href="#"
+                  href={item.href}
                   className="flex items-center justify-between p-8 rounded-[2rem] border border-gray-50 bg-white hover:bg-gray-50/50 hover:shadow-lg transition-all group"
                 >
                   <div className="flex items-center gap-6">
@@ -163,10 +173,9 @@ export default function ProfilePage() {
                 </Link>
               ))}
 
-              {/* NÚT ĐĂNG XUẤT CHO DESKTOP */}
               <button
                 onClick={() => signOut(auth).then(() => router.push("/"))}
-                className="flex items-center justify-between p-8 rounded-[2rem] border border-red-50 bg-red-50/30 hover:bg-red-50 transition-all group"
+                className="flex items-center justify-between p-8 rounded-[2rem] border border-red-50 bg-red-50/30 hover:bg-red-50 transition-all group w-full"
               >
                 <div className="flex items-center gap-6">
                   <div className="p-4 bg-white rounded-2xl">
@@ -181,7 +190,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
-
       <Footer />
       <MobileNav />
     </div>

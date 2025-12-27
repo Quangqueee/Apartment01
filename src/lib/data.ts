@@ -6,27 +6,23 @@ import {
   getDocs,
   updateDoc,
   deleteDoc,
-  setDoc, // <--- Đã thêm import setDoc
+  setDoc,
   query,
   where,
-  orderBy,
-  limit,
-  startAfter,
+  orderBy, // Nhớ import cái này
+  limit,   // Nhớ import cái này
   Query,
   DocumentData,
   Timestamp,
-  getCountFromServer,
-  collectionGroup,
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
 import { Apartment, Favorite, UserProfile } from "./types";
 import { removeVietnameseTones } from "./utils";
 
-
 const apartmentsCollection = collection(firestore, "apartments");
 const usersCollection = collection(firestore, "users");
 
-
+// --- Helper Functions ---
 export const toApartment = (docSnap: DocumentData): Apartment => {
   const data = docSnap.data();
   const createdAt = data.createdAt?.toDate ? {
@@ -38,31 +34,15 @@ export const toApartment = (docSnap: DocumentData): Apartment => {
     nanoseconds: data.updatedAt.nanoseconds,
   } : { seconds: 0, nanoseconds: 0 };
 
-  return {
-    id: docSnap.id,
-    ...data,
-    createdAt,
-    updatedAt,
-  } as Apartment;
+  return { id: docSnap.id, ...data, createdAt, updatedAt } as Apartment;
 };
 
 export const toFavorite = (docSnap: DocumentData): Favorite => {
   const data = docSnap.data();
-  return {
-    id: docSnap.id,
-    addedAt: data.addedAt
-  }
+  return { id: docSnap.id, addedAt: data.addedAt }
 }
 
-// Helper function to get the last document of the previous page
-async function getLastDocOfPreviousPage(q: Query, page: number, pageSize: number) {
-  if (page <= 1) return null;
-  const endAt = (page - 1) * pageSize;
-  const prevPageQuery = query(q, limit(endAt));
-  const snapshot = await getDocs(prevPageQuery);
-  return snapshot.docs[snapshot.docs.length - 1];
-}
-
+// --- Main Function: Get Apartments ---
 export async function getApartments(
   options: {
     query?: string;
@@ -83,17 +63,16 @@ export async function getApartments(
     page = 1,
     limit: pageSize = 9,
     sortBy = "newest",
-    searchBy = "titleOrSourceCode",
   } = options;
 
   let baseQuery: Query = apartmentsCollection;
   let whereClauses = [];
 
-  // --- Build Where Clauses (excluding price) ---
-  if (district) {
+  // 1. Lọc Firestore (District & RoomType)
+  if (district && district !== "all") {
     whereClauses.push(where("district", "==", district));
   }
-  if (roomType) {
+  if (roomType && roomType !== "all") {
     whereClauses.push(where("roomType", "==", roomType));
   }
 
@@ -101,15 +80,14 @@ export async function getApartments(
     baseQuery = query(baseQuery, ...whereClauses);
   }
 
-  // Initial fetch from Firestore - we only order by one field to avoid complex indexes
   const querySnapshot = await getDocs(baseQuery);
   let allMatchingApartments = querySnapshot.docs.map(toApartment);
 
-  // --- Server-side Price Filtering with rounding logic ---
-  if (priceRange) {
+  // 2. Lọc Giá (Client-side)
+  if (priceRange && priceRange !== "all") {
     const [min, max] = priceRange.split("-");
     const minPrice = min ? parseInt(min, 10) : 0;
-    const maxPrice = max ? parseInt(max, 10) : Infinity;
+    const maxPrice = max && max !== "Infinity" ? parseInt(max, 10) : Infinity;
 
     allMatchingApartments = allMatchingApartments.filter(apt => {
       const roundedPrice = Math.floor(apt.price);
@@ -119,39 +97,40 @@ export async function getApartments(
     });
   }
 
+  // 3. FIX LỖI TÌM KIẾM TEXT (QUAN TRỌNG)
+  if (searchQuery && searchQuery.trim() !== "") {
+    const normalizedQuery = removeVietnameseTones(searchQuery.trim());
 
-  // --- Post-Query Text Search (if needed) ---
-  if (searchQuery) {
-    const normalizedQuery = removeVietnameseTones(searchQuery);
     allMatchingApartments = allMatchingApartments.filter((apt) => {
-      if (searchBy === 'sourceCodeOrAddress') {
-        const normalizedCode = removeVietnameseTones(apt.sourceCode);
-        const normalizedAddress = removeVietnameseTones(apt.address);
-        return normalizedCode.includes(normalizedQuery) || normalizedAddress.includes(normalizedQuery);
-      }
-      // Default to titleOrSourceCode
-      const normalizedTitle = removeVietnameseTones(apt.title);
-      const normalizedCode = removeVietnameseTones(apt.sourceCode);
-      return normalizedTitle.includes(normalizedQuery) || normalizedCode.includes(normalizedQuery);
+      // BẢO VỆ: Thêm || "" để tránh lỗi undefined gây crash
+      const normalizedTitle = removeVietnameseTones(apt.title || "");
+      const normalizedCode = removeVietnameseTones(apt.sourceCode || "");
+      const normalizedAddress = removeVietnameseTones(apt.address || "");
+
+      // Tìm quét trong cả: Tên, Mã căn (SourceCode), Địa chỉ
+      return (
+        normalizedTitle.includes(normalizedQuery) ||
+        normalizedCode.includes(normalizedQuery) ||
+        normalizedAddress.includes(normalizedQuery)
+      );
     });
   }
 
-  // --- Server-Side Sorting ---
-  // Now we sort the array of results in memory
+  // 4. Sắp xếp
   if (sortBy === 'price-asc') {
     allMatchingApartments.sort((a, b) => a.price - b.price);
   } else if (sortBy === 'price-desc') {
-    allMatchingApartments.sort((a, b) => b.price - b.price);
-  } else { // 'newest' or default
-    // Sort by updatedAt descending, if equal, then by createdAt descending
+    allMatchingApartments.sort((a, b) => b.price - a.price);
+  } else {
+    // Mặc định: Mới nhất
     allMatchingApartments.sort((a, b) => {
-      const dateA = a.updatedAt.seconds > 0 ? a.updatedAt : a.createdAt;
-      const dateB = b.updatedAt.seconds > 0 ? b.updatedAt : b.createdAt;
-      return dateB.seconds - dateA.seconds;
+      const dateA = a.updatedAt?.seconds ? a.updatedAt : a.createdAt;
+      const dateB = b.updatedAt?.seconds ? b.updatedAt : b.createdAt;
+      return (dateB?.seconds || 0) - (dateA?.seconds || 0);
     });
   }
 
-  // --- Server-Side Pagination ---
+  // 5. Phân trang
   const totalResults = allMatchingApartments.length;
   const startIndex = (page - 1) * pageSize;
   const endIndex = startIndex + pageSize;
@@ -163,37 +142,26 @@ export async function getApartments(
   };
 }
 
+// --- Các hàm khác giữ nguyên (getApartmentById, CRUD...) ---
 export async function getApartmentById(id: string): Promise<Apartment | null> {
-  // Kiểm tra nếu id không tồn tại hoặc không phải chuỗi
-  if (!id || typeof id !== 'string') {
-    console.warn("getApartmentById: Invalid or missing ID provided.");
-    return null;
-  }
-
+  if (!id || typeof id !== 'string') return null;
   try {
     const docRef = doc(firestore, "apartments", id);
     const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return toApartment(docSnap);
-    }
+    if (docSnap.exists()) return toApartment(docSnap);
   } catch (error) {
     console.error("Error fetching apartment by ID:", error);
   }
   return null;
 }
 
-export async function createApartment(
-  data: Omit<Apartment, "id">
-): Promise<Apartment> {
+export async function createApartment(data: Omit<Apartment, "id">): Promise<Apartment> {
   const docRef = await addDoc(apartmentsCollection, data);
   const newDoc = await getDoc(docRef);
   return toApartment(newDoc);
 }
 
-export async function updateApartment(
-  id: string,
-  data: Partial<Omit<Apartment, "id">>
-): Promise<Apartment> {
+export async function updateApartment(id: string, data: Partial<Omit<Apartment, "id">>): Promise<Apartment> {
   const docRef = doc(firestore, "apartments", id);
   await updateDoc(docRef, data);
   const updatedDoc = await getDoc(docRef);
@@ -205,15 +173,9 @@ export async function deleteApartment(id: string): Promise<void> {
   await deleteDoc(docRef);
 }
 
-
-// --- Favorites Functions ---
-
 export async function addFavorite(userId: string, apartmentId: string) {
   const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
-  // FIX QUAN TRỌNG: Đổi từ updateDoc sang setDoc để tạo mới document nếu chưa có
-  return await setDoc(favoriteRef, {
-    addedAt: Timestamp.now()
-  });
+  return await setDoc(favoriteRef, { addedAt: Timestamp.now() });
 }
 
 export async function removeFavorite(userId: string, apartmentId: string) {
@@ -237,17 +199,13 @@ export async function getFavoriteApartments(userId: string): Promise<Favorite[]>
 
 export async function getFullFavoriteApartments(userId: string): Promise<Apartment[]> {
   if (!userId) return [];
-
   const favoriteIds = await getFavoriteApartments(userId);
   if (favoriteIds.length === 0) return [];
-
   const apartmentPromises = favoriteIds.map(fav => getApartmentById(fav.id));
   const apartments = await Promise.all(apartmentPromises);
-
   return apartments.filter((apt): apt is Apartment => apt !== null);
 }
 
-// --- User Profile Functions ---
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   if (!userId) return null;
   const userRef = doc(firestore, "users", userId);
@@ -266,10 +224,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   return null;
 }
 
-export async function updateUserProfile(
-  userId: string,
-  data: Partial<Omit<UserProfile, "id" | "email" | "createdAt">>
-) {
+export async function updateUserProfile(userId: string, data: Partial<Omit<UserProfile, "id" | "email" | "createdAt">>) {
   const userRef = doc(firestore, "users", userId);
   return await updateDoc(userRef, data);
 }
