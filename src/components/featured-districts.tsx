@@ -14,7 +14,7 @@ const DISTRICT_IMAGES: Record<string, string> = {
   "Đống Đa":
     "https://hoidisanvanhoa.vn/wp-content/uploads/2025/02/van-mieu-quoc-tu-giam-9.webp",
   "Cầu Giấy":
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Discovery_C%E1%BA%A7u_Gi%E1%BA%A5y.jpg/2560px-Discovery_C%E1%BA%A7u_Gi%E1%BA%A5y.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/Discovery_C%E1%BA%A7u_Gi%E1%BA%A5y.jpg/1920px-Discovery_C%E1%BA%A7u_Gi%E1%BA%A5y.jpg",
 };
 
 export default function FeaturedDistricts({
