@@ -8,7 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { HANOI_DISTRICTS, ROOM_TYPES } from "@/lib/constants";
+// Giả định các constant này bạn đã có
+import { HANOI_DISTRICTS, PRICE_RANGES, ROOM_TYPES } from "@/lib/constants";
 import { Button } from "./ui/button";
 import {
   MapPin,
@@ -31,8 +32,7 @@ export default function FilterControls() {
   const [filters, setFilters] = useState({
     query: "",
     district: "",
-    minPrice: "",
-    maxPrice: "",
+    price: "",
     roomType: "",
   });
 
@@ -41,8 +41,7 @@ export default function FilterControls() {
     setFilters({
       query: searchParams.get("query") || "",
       district: searchParams.get("district") || "",
-      minPrice: searchParams.get("minPrice") || "",
-      maxPrice: searchParams.get("maxPrice") || "",
+      price: searchParams.get("price") || "",
       roomType: searchParams.get("roomType") || "",
     });
     setMounted(true);
@@ -53,6 +52,7 @@ export default function FilterControls() {
     if (!isPending && shouldScroll) {
       const element = document.getElementById("apartments-list");
       if (element) {
+        // Scroll vào giữa màn hình để người dùng dễ nhìn thấy kết quả
         element.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       setShouldScroll(false);
@@ -62,29 +62,30 @@ export default function FilterControls() {
   const handleApply = () => {
     const params = new URLSearchParams(searchParams.toString());
 
-    // Xóa param giá cũ (nếu có) và set các param mới
-    params.delete("price");
+    // Xử lý các params
     Object.entries(filters).forEach(([key, val]) => {
       if (val) params.set(key, val);
       else params.delete(key);
     });
-    params.set("page", "1");
+    params.set("page", "1"); // Reset về trang 1 khi tìm kiếm mới
 
     startTransition(() => {
-      setShouldScroll(true);
+      setShouldScroll(true); // Kích hoạt cờ để scroll
       router.push(`${pathname}?${params.toString()}`, { scroll: false });
     });
   };
 
   const handleReset = () => {
-    setFilters({ query: "", district: "", minPrice: "", maxPrice: "", roomType: "" });
+    setFilters({ query: "", district: "", price: "", roomType: "" });
+    // Nếu muốn reset là tìm lại ngay thì mở comment dòng dưới, còn không thì chỉ clear form
+    // handleApply();
   };
 
   if (!mounted) return null;
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== "");
 
-  // Cấu hình Select cho Khu vực và Thiết kế
+  // Danh sách cấu hình cho 3 ô Select
   const selectFields = [
     {
       id: "district",
@@ -92,6 +93,13 @@ export default function FilterControls() {
       icon: MapPin,
       placeholder: "Tất cả quận",
       items: HANOI_DISTRICTS.map((d) => ({ label: d, value: d })),
+    },
+    {
+      id: "price",
+      label: "Ngân sách",
+      icon: Banknote,
+      placeholder: "Mức giá",
+      items: PRICE_RANGES,
     },
     {
       id: "roomType",
@@ -103,9 +111,13 @@ export default function FilterControls() {
   ];
 
   return (
+    /* 1. select-none: Chống bôi đen text khi click nhiều lần 
+      2. backdrop-blur-xl: Tăng độ mờ kính cho đẹp hơn
+    */
     <div className="bg-white/95 backdrop-blur-xl rounded-[3rem] p-8 md:p-12 shadow-[0_30px_100px_rgba(0,0,0,0.1)] border border-white/60 w-full max-w-[900px] mx-auto select-none relative z-10">
       {/* HEADER */}
       <div className="mb-10 text-center">
+        {/* Đã bỏ uppercase, dùng font serif/italic nhẹ nhàng sang trọng */}
         <h2 className="font-headline text-3xl md:text-3xl text-gray-900 tracking-tight italic font-medium">
           Tìm căn hộ theo nhu cầu
         </h2>
@@ -113,7 +125,7 @@ export default function FilterControls() {
       </div>
 
       <div className="flex flex-col gap-6">
-        {/* HÀNG 1: Ô TÌM KIẾM */}
+        {/* HÀNG 1: Ô TÌM KIẾM (NAME / ID / ADDRESS) */}
         <div className="relative group w-full">
           <div className="absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none">
             <Search className="h-5 w-5 text-gray-400 group-focus-within:text-[#cda533] transition-colors" />
@@ -123,40 +135,12 @@ export default function FilterControls() {
             placeholder="Nhập địa chỉ hoặc mã ID..."
             value={filters.query}
             onChange={(e) => setFilters({ ...filters, query: e.target.value })}
-            onKeyDown={(e) => e.key === "Enter" && handleApply()}
+            onKeyDown={(e) => e.key === "Enter" && handleApply()} // Cho phép nhấn Enter để tìm
             className="h-16 w-full rounded-2xl border border-gray-100 bg-gray-50/50 text-base font-semibold pl-14 pr-6 shadow-inner transition-all font-body text-gray-900 focus:ring-2 focus:ring-[#cda533]/30 focus:border-[#cda533] focus:bg-white placeholder:text-gray-400 outline-none"
           />
         </div>
 
-        {/* HÀNG 2: BỘ LỌC NGÂN SÁCH (Min/Max) */}
-        <div className="w-full space-y-2">
-          <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 font-body ml-2 cursor-default">
-            <Banknote className="h-3.5 w-3.5 text-[#cda533]" /> Ngân sách (triệu/tháng)
-          </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              placeholder="Từ (triệu)"
-              min={0}
-              value={filters.minPrice}
-              onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
-              onKeyDown={(e) => e.key === "Enter" && handleApply()}
-              className="h-14 w-full rounded-2xl border border-gray-200 bg-white text-sm font-bold px-5 hover:border-[#cda533]/50 hover:bg-gray-50 transition-all font-body text-gray-800 focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm outline-none placeholder:text-gray-400 placeholder:font-normal"
-            />
-            <span className="text-gray-400 font-bold shrink-0">—</span>
-            <input
-              type="number"
-              placeholder="Đến (triệu)"
-              min={0}
-              value={filters.maxPrice}
-              onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
-              onKeyDown={(e) => e.key === "Enter" && handleApply()}
-              className="h-14 w-full rounded-2xl border border-gray-200 bg-white text-sm font-bold px-5 hover:border-[#cda533]/50 hover:bg-gray-50 transition-all font-body text-gray-800 focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm outline-none placeholder:text-gray-400 placeholder:font-normal"
-            />
-          </div>
-        </div>
-
-        {/* HÀNG 3: GRID 2 CỘT (2 Select + 1 Button) */}
+        {/* HÀNG 2: GRID 2 CỘT (3 Select + 1 Button) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
           {selectFields.map((f) => (
             <div key={f.id} className="w-full space-y-2">
@@ -175,6 +159,7 @@ export default function FilterControls() {
                     <SelectItem
                       key={item.value}
                       value={item.value}
+                      // SỬA Ở ĐÂY: Thay 'px-4' thành 'pl-10 pr-4' để chừa chỗ cho dấu tích bên trái
                       className="py-3 pl-10 pr-4 text-sm font-medium cursor-pointer font-body rounded-lg focus:bg-[#cda533]/10 focus:text-[#cda533] transition-colors data-[state=checked]:bg-[#cda533]/5 data-[state=checked]:text-[#cda533]"
                     >
                       {item.label}
@@ -185,8 +170,9 @@ export default function FilterControls() {
             </div>
           ))}
 
-          {/* NÚT TÌM KIẾM */}
+          {/* NÚT TÌM KIẾM (Chiếm vị trí cuối cùng trong Grid 2 cột) */}
           <div className="flex flex-col justify-end">
+            {/* Label giả để căn dòng cho bằng với các ô select bên cạnh */}
             <div className="h-[22px] mb-2 hidden md:block" />
             <Button
               onClick={handleApply}
@@ -204,7 +190,7 @@ export default function FilterControls() {
           </div>
         </div>
 
-        {/* NÚT LÀM MỚI */}
+        {/* NÚT LÀM MỚI (Luôn hiển thị, mờ đi nếu không có filter) */}
         <div className="mt-2 flex justify-center">
           <button
             onClick={handleReset}
@@ -230,4 +216,3 @@ export default function FilterControls() {
     </div>
   );
 }
-
