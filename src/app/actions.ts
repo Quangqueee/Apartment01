@@ -197,8 +197,6 @@ export async function fetchApartmentsAction(options: {
   query?: string;
   district?: string;
   priceRange?: string;
-  minPrice?: number;
-  maxPrice?: number;
   roomType?: string;
   page?: number;
   limit?: number;
@@ -334,37 +332,3 @@ export async function updateUserProfileAction(
     return { error: "An error occurred while updating the profile." };
   }
 }
-
-// --- LUỒNG CTV: Gửi yêu cầu trở thành cộng tác viên ---
-export async function requestCollaboratorAction(userId: string) {
-  if (!userId) return { error: "Chưa đăng nhập." };
-  try {
-    const userRef = doc(firestore, "users", userId);
-    await setDoc(userRef, { collaboratorStatus: "pending" }, { merge: true });
-    revalidatePath("/profile");
-    return { success: true };
-  } catch (error) {
-    console.error("Lỗi gửi yêu cầu CTV:", error);
-    return { error: "Có lỗi xảy ra, vui lòng thử lại." };
-  }
-}
-
-// --- LUỒNG CTV: Admin duyệt CTV ---
-export async function approveCollaboratorAction(targetUserId: string) {
-  if (!targetUserId) return { error: "Thiếu userId." };
-  try {
-    const userRef = doc(firestore, "users", targetUserId);
-    await setDoc(
-      userRef,
-      { role: "collaborator", collaboratorStatus: "approved" },
-      { merge: true }
-    );
-    revalidatePath(`/${ADMIN_PATH}/users`);
-    revalidatePath("/profile");
-    return { success: true };
-  } catch (error) {
-    console.error("Lỗi duyệt CTV:", error);
-    return { error: "Có lỗi xảy ra khi duyệt." };
-  }
-}
-

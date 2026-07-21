@@ -15,9 +15,7 @@ type ApartmentListProps = {
   searchParams: {
     q?: string;
     district?: string;
-    minPrice?: string;
-    maxPrice?: string;
-    price?: string; // Giữ backward compat
+    price?: string;
     roomType?: string;
     sort?: string;
   };
@@ -52,13 +50,7 @@ export default function ApartmentList({
   useEffect(() => {
     const fetchWithFavorites = async () => {
       const result = await fetchApartmentsAction({
-        query: searchParams.q,
-        district: searchParams.district,
-        minPrice: searchParams.minPrice ? Number(searchParams.minPrice) : undefined,
-        maxPrice: searchParams.maxPrice ? Number(searchParams.maxPrice) : undefined,
-        priceRange: searchParams.price, // Backward compat
-        roomType: searchParams.roomType,
-        sortBy: searchParams.sort,
+        ...searchParams,
         userId: user?.uid,
         page: 1,
         limit: apartments.length > PAGE_SIZE ? apartments.length : PAGE_SIZE,
@@ -90,9 +82,7 @@ export default function ApartmentList({
     const result = await fetchApartmentsAction({
       query: searchParams.q,
       district: searchParams.district,
-      minPrice: searchParams.minPrice ? Number(searchParams.minPrice) : undefined,
-      maxPrice: searchParams.maxPrice ? Number(searchParams.maxPrice) : undefined,
-      priceRange: searchParams.price, // Backward compat
+      priceRange: searchParams.price,
       roomType: searchParams.roomType,
       sortBy: searchParams.sort,
       page: nextPage,
