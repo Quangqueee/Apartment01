@@ -164,7 +164,7 @@ export default function ImageLightbox({
           {isMobile ? (
             <div
               ref={mobileScrollerRef}
-              className="h-full w-full flex overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              className="h-full w-full flex overflow-x-auto snap-x snap-mandatory select-none touch-pan-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
               onScroll={(event) => {
                 const width = event.currentTarget.clientWidth;
                 if (!width) return;
@@ -177,7 +177,7 @@ export default function ImageLightbox({
               {images.map((url, index) => (
                 <div
                   key={index}
-                  className="h-full w-full shrink-0 snap-center flex items-center justify-center"
+                  className="h-full w-full shrink-0 snap-center flex items-center justify-center select-none touch-pan-x"
                 >
                   <img
                     src={url}
@@ -192,10 +192,10 @@ export default function ImageLightbox({
           ) : (
             <Carousel
               setApi={setApi}
-              className="w-full h-full"
+              className="w-full h-full select-none touch-pan-y"
               opts={{ startIndex: selectedIndex, loop: true }}
             >
-              <CarouselContent className="h-[100vh] -ml-0">
+              <CarouselContent className="h-[100vh] -ml-0 select-none touch-pan-y">
                 {images.map((url, index) => (
                   <CarouselItem key={index} className="h-full pl-0 relative">
                     <div className="w-full h-[100vh] flex items-center justify-center">
@@ -208,6 +208,7 @@ export default function ImageLightbox({
                           className="object-contain p-0 md:p-12"
                           sizes="100vw"
                           quality={100}
+                          draggable={false}
                         />
                       </div>
                     </div>

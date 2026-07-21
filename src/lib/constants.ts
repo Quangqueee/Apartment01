@@ -32,10 +32,12 @@ export const ROOM_TYPES: { label: string; value: RoomType }[] = [
 ];
 
 export const SORT_OPTIONS = [
-    { label: "Mới nhất", value: "newest" },
-    { label: "Giá: Thấp đến cao", value: "price-asc" },
-    { label: "Giá: Cao đến thấp", value: "price-desc" },
+  { label: "Mới nhất", value: "newest" },
+  { label: "Giá: Thấp đến cao", value: "price-asc" },
+  { label: "Giá: Cao đến thấp", value: "price-desc" },
 ];
+
+export const MAX_APARTMENT_IMAGES = 15;
 
 // This path is now dynamic and controlled by an environment variable.
 // It serves as a default/fallback if the env var is not set.

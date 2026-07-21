@@ -37,6 +37,12 @@ import Footer from "@/components/footer";
 import Image from "next/image";
 import ImageLightbox from "@/components/image-lightbox";
 import {
+  Carousel,
+  CarouselApi,
+  CarouselContent,
+  CarouselItem,
+} from "@/components/ui/carousel";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -358,11 +364,15 @@ export default function ApartmentDetailsPageClient({
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
   const [mobileIndex, setMobileIndex] = useState(0);
+  const [mobileCarouselApi, setMobileCarouselApi] = useState<CarouselApi>();
 
   // Description Read More
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLongContent, setIsLongContent] = useState(false);
   const descriptionRef = useRef<HTMLDivElement>(null);
+  const isMobileSwipeRef = useRef(false);
+  const touchStartXRef = useRef(0);
+  const touchStartYRef = useRef(0);
   const isCollaborator = userData?.role === "collaborator";
 
   const formatCommission = (commissionValue: Apartment["commission"]) => {
@@ -403,6 +413,23 @@ export default function ApartmentDetailsPageClient({
       setIsLongContent(descriptionRef.current.scrollHeight > 250);
     }
   }, [apartment]);
+
+  useEffect(() => {
+    if (!mobileCarouselApi) return;
+
+    const syncMobileIndex = () => {
+      setMobileIndex(mobileCarouselApi.selectedScrollSnap());
+    };
+
+    syncMobileIndex();
+    mobileCarouselApi.on("select", syncMobileIndex);
+    mobileCarouselApi.on("reInit", syncMobileIndex);
+
+    return () => {
+      mobileCarouselApi.off("select", syncMobileIndex);
+      mobileCarouselApi.off("reInit", syncMobileIndex);
+    };
+  }, [mobileCarouselApi]);
 
   const handleFavoriteToggle = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -453,11 +480,29 @@ export default function ApartmentDetailsPageClient({
     setLightboxOpen(true);
   };
 
-  const handleMobileScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const scrollPosition = e.currentTarget.scrollLeft;
-    const width = e.currentTarget.offsetWidth;
-    const index = Math.round(scrollPosition / width);
-    setMobileIndex(index);
+  const handleMobileTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    const firstTouch = event.touches[0];
+    touchStartXRef.current = firstTouch.clientX;
+    touchStartYRef.current = firstTouch.clientY;
+    isMobileSwipeRef.current = false;
+  };
+
+  const handleMobileTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (!event.touches.length) return;
+    const firstTouch = event.touches[0];
+    const deltaX = Math.abs(firstTouch.clientX - touchStartXRef.current);
+    const deltaY = Math.abs(firstTouch.clientY - touchStartYRef.current);
+    if (deltaX > 8 || deltaY > 8) {
+      isMobileSwipeRef.current = true;
+    }
+  };
+
+  const handleMobileImageClick = (index: number) => {
+    if (isMobileSwipeRef.current) {
+      isMobileSwipeRef.current = false;
+      return;
+    }
+    openLightbox(index);
   };
 
   if (isLoading || authLoading) {
@@ -509,25 +554,39 @@ export default function ApartmentDetailsPageClient({
         <div className="pt-0 md:pt-6">
           <div className="container mx-auto px-0 md:px-6">
             <div className="relative group md:rounded-[2rem] overflow-hidden">
-              <div
-                className="md:hidden flex overflow-x-auto snap-x snap-mandatory aspect-[4/3] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                onScroll={handleMobileScroll}
-              >
-                {apartment.imageUrls.map((url, idx) => (
-                  <div
-                    key={idx}
-                    className="snap-center flex-shrink-0 w-full h-full relative"
-                    onClick={() => openLightbox(idx)}
-                  >
-                    <Image
-                      src={url}
-                      alt={`View ${idx}`}
-                      fill
-                      className="object-cover"
-                      priority={idx === 0}
-                    />
-                  </div>
-                ))}
+              <div className="md:hidden">
+                <Carousel
+                  setApi={setMobileCarouselApi}
+                  opts={{
+                    align: "start",
+                    containScroll: "trimSnaps",
+                    loop: apartment.imageUrls.length > 1,
+                  }}
+                  className="w-full aspect-[4/3]"
+                >
+                  <CarouselContent className="-ml-0 select-none [touch-action:pan-y_pinch-zoom]">
+                    {apartment.imageUrls.map((url, idx) => (
+                      <CarouselItem
+                        key={idx}
+                        className="pl-0"
+                        onTouchStart={handleMobileTouchStart}
+                        onTouchMove={handleMobileTouchMove}
+                        onClick={() => handleMobileImageClick(idx)}
+                      >
+                        <div className="relative w-full h-full aspect-[4/3]">
+                          <Image
+                            src={url}
+                            alt={`View ${idx}`}
+                            fill
+                            draggable={false}
+                            className="object-cover pointer-events-none select-none"
+                            priority={idx === 0}
+                          />
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                </Carousel>
                 <div className="absolute bottom-4 right-4 bg-black/60 text-white text-xs px-3 py-1 rounded-full font-medium backdrop-blur-sm pointer-events-none z-10">
                   {mobileIndex + 1} / {apartment.imageUrls.length}
                 </div>

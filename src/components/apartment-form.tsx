@@ -24,7 +24,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ADMIN_PATH, HANOI_DISTRICTS, ROOM_TYPES } from "@/lib/constants";
+import {
+  ADMIN_PATH,
+  HANOI_DISTRICTS,
+  MAX_APARTMENT_IMAGES,
+  ROOM_TYPES,
+} from "@/lib/constants";
 import { Apartment } from "@/lib/types";
 import {
   createOrUpdateApartmentAction,
@@ -70,7 +75,6 @@ const ACCEPTED_IMAGE_TYPES = [
 ];
 const IMAGE_QUALITY = 0.75;
 const MAX_IMAGE_WIDTH = 1920;
-const MAX_IMAGES = 15;
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters."),
@@ -89,7 +93,10 @@ const formSchema = z.object({
   imageUrls: z
     .array(z.string())
     .min(1, "At least one image is required.")
-    .max(MAX_IMAGES, `You can upload a maximum of ${MAX_IMAGES} images.`),
+    .max(
+      MAX_APARTMENT_IMAGES,
+      `You can upload a maximum of ${MAX_APARTMENT_IMAGES} images.`,
+    ),
 });
 
 type SortableImageProps = {
@@ -126,6 +133,7 @@ const SortableImage = React.memo(function SortableImage({
         alt={`Preview ${index + 1}`}
         fill
         className="rounded-md object-cover"
+        draggable={false}
       />
       <Button
         type="button"
@@ -133,7 +141,7 @@ const SortableImage = React.memo(function SortableImage({
         size="icon"
         className="absolute right-1 top-1 z-10 h-6 w-6"
         onClick={(e) => {
-          e.stopPropagation(); // Prevent dnd listeners from firing
+          e.stopPropagation(); // Ngăn sự kiện kéo-thả của danh sách bị kích hoạt
           removeImage(id);
         }}
       >
@@ -152,7 +160,31 @@ type PreviewItem = {
   src: string;
 };
 
-// Helper function to compress and resize an image
+// Chuẩn hóa danh sách ảnh về một mảng chuỗi phẳng trước khi dùng tiếp.
+const flattenImageSources = (value: unknown): string[] => {
+  const flatImageSources: string[] = [];
+
+  const visitValue = (currentValue: unknown) => {
+    if (Array.isArray(currentValue)) {
+      currentValue.forEach(visitValue);
+      return;
+    }
+
+    if (typeof currentValue !== "string") {
+      return;
+    }
+
+    const normalizedValue = currentValue.trim();
+    if (normalizedValue.length > 0) {
+      flatImageSources.push(normalizedValue);
+    }
+  };
+
+  visitValue(value);
+  return flatImageSources;
+};
+
+// Hàm nén và resize ảnh trước khi hiển thị/tải lên.
 const compressImage = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -166,7 +198,7 @@ const compressImage = (file: File): Promise<string> => {
 
         let { width, height } = img;
 
-        // Resize logic
+        // Giảm kích thước ảnh quá rộng để hạ dung lượng payload.
         if (width > MAX_IMAGE_WIDTH) {
           height = (height * MAX_IMAGE_WIDTH) / width;
           width = MAX_IMAGE_WIDTH;
@@ -176,7 +208,7 @@ const compressImage = (file: File): Promise<string> => {
         canvas.height = height;
         ctx?.drawImage(img, 0, 0, width, height);
 
-        // Get the data URL with the specified quality
+        // Chuyển ảnh sang data URL đã nén để giữ payload ở mức nhẹ nhất có thể.
         const dataUrl = canvas.toDataURL(file.type, IMAGE_QUALITY);
         resolve(dataUrl);
       };
@@ -189,11 +221,14 @@ const compressImage = (file: File): Promise<string> => {
 const createPreviewId = () =>
   `img-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
-const createInitialPreviewItems = (imageUrls: string[]) =>
-  imageUrls.map((src, index) => ({
+const createInitialPreviewItems = (imageUrls: unknown) =>
+  flattenImageSources(imageUrls).map((src, index) => ({
     id: `initial-${index}`,
     src,
   }));
+
+const getPreviewSources = (previewItems: PreviewItem[]) =>
+  flattenImageSources(previewItems.map((item) => item.src));
 
 export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const { toast } = useToast();
@@ -242,11 +277,9 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   );
 
   useEffect(() => {
-    form.setValue(
-      "imageUrls",
-      previewItems.map((item) => item.src),
-      { shouldValidate: true },
-    );
+    form.setValue("imageUrls", getPreviewSources(previewItems), {
+      shouldValidate: true,
+    });
   }, [previewItems, form]);
 
   const removeImage = useCallback(
@@ -268,11 +301,11 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       if (files.length === 0) return;
 
       const currentImageCount = previewItems.length;
-      if (currentImageCount + files.length > MAX_IMAGES) {
+      if (currentImageCount + files.length > MAX_APARTMENT_IMAGES) {
         toast({
           variant: "destructive",
-          title: "Too many images",
-          description: `You can upload a maximum of ${MAX_IMAGES} images.`,
+          title: "Quá nhiều ảnh",
+          description: `Bạn chỉ có thể tải lên tối đa ${MAX_APARTMENT_IMAGES} ảnh.`,
         });
         return;
       }
@@ -280,11 +313,11 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       const filePromises = files.map((file) => {
         return new Promise<string>((resolve, reject) => {
           if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-            return reject(`File type not supported: ${file.name}`);
+            return reject(`Định dạng file không được hỗ trợ: ${file.name}`);
           }
           if (file.size > MAX_FILE_SIZE) {
             console.warn(
-              `File too large, attempting to compress: ${file.name}`,
+              `Ảnh quá lớn, hệ thống sẽ tự nén trước khi tải lên: ${file.name}`,
             );
           }
           compressImage(file).then(resolve).catch(reject);
@@ -307,11 +340,11 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         .catch((error) => {
           toast({
             variant: "destructive",
-            title: "Error processing file",
+            title: "Lỗi xử lý ảnh",
             description:
               typeof error === "string"
                 ? error
-                : "An unexpected error occurred.",
+                : "Đã xảy ra lỗi không mong muốn.",
           });
         });
     },
@@ -369,7 +402,41 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    const result = await createOrUpdateApartmentAction(apartment?.id, values);
+
+    const imageUrls = getPreviewSources(previewItems);
+    if (imageUrls.length === 0) {
+      form.setError("imageUrls", {
+        type: "manual",
+        message: "Vui lòng tải lên ít nhất 1 ảnh.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (imageUrls.length > MAX_APARTMENT_IMAGES) {
+      form.setError("imageUrls", {
+        type: "manual",
+        message: `Bạn chỉ có thể tải lên tối đa ${MAX_APARTMENT_IMAGES} ảnh.`,
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const result = await createOrUpdateApartmentAction(apartment?.id, {
+      title: values.title,
+      sourceCode: values.sourceCode,
+      roomType: values.roomType,
+      district: values.district,
+      area: values.area,
+      price: values.price,
+      commission: values.commission,
+      details: values.details,
+      listingSummary: values.listingSummary,
+      address: values.address,
+      landlordPhoneNumber: values.landlordPhoneNumber,
+      imageUrlsJson: JSON.stringify(imageUrls),
+    });
+
     if (result?.error) {
       toast({
         variant: "destructive",
@@ -487,7 +554,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
 
             <Card>
               <CardHeader>
-                <CardTitle>Images</CardTitle>
+                <CardTitle>Hình ảnh</CardTitle>
               </CardHeader>
               <CardContent>
                 <FormField
@@ -525,8 +592,9 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                         </div>
                       </FormControl>
                       <FormDescription>
-                        Tải lên tối đa {MAX_IMAGES} ảnh (JPG, PNG, WebP). Ảnh
-                        được hiển thị theo thứ tự, ảnh đầu tiên làm ảnh bìa.
+                        Tải lên tối đa {MAX_APARTMENT_IMAGES} ảnh (JPG, PNG,
+                        WebP). Ảnh được hiển thị theo thứ tự, ảnh đầu tiên làm
+                        ảnh bìa.
                       </FormDescription>
                       <DndContext
                         sensors={sensors}

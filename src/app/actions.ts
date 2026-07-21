@@ -21,25 +21,81 @@ import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
 import { Apartment } from "@/lib/types";
 import { Timestamp, doc, getDoc, setDoc } from "firebase/firestore";
-import { ADMIN_PATH } from "@/lib/constants";
+import { ADMIN_PATH, MAX_APARTMENT_IMAGES } from "@/lib/constants";
 import { firestore } from "@/firebase/server-init";
 
 // Initialize Firebase Storage
 const storage = getStorage(firebaseApp);
 
-const formSchema = z.object({
+const imageUrlsSchema = z
+  .array(z.string().trim().min(1))
+  .min(1, "At least one image is required.")
+  .max(
+    MAX_APARTMENT_IMAGES,
+    `You can upload a maximum of ${MAX_APARTMENT_IMAGES} images.`,
+  );
+
+const apartmentBaseSchema = z.object({
   title: z.string().min(5),
   sourceCode: z.string().min(1),
   roomType: z.enum(["studio", "1n1k", "2n1k", "other"]),
   district: z.string().min(1),
   area: z.coerce.number().min(1, "Area must be greater than 0."),
   price: z.coerce.number().min(0),
+  commission: z.string().optional(),
   details: z.string().min(20),
   listingSummary: z.string().optional(),
   address: z.string().min(1),
   landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
-  imageUrls: z.array(z.string()).min(1, "At least one image is required."),
 });
+
+const apartmentActionSchema = apartmentBaseSchema.extend({
+  imageUrlsJson: z.string().min(2, "Image payload is required."),
+});
+
+function flattenImageUrls(value: unknown): string[] {
+  const flatImageUrls: string[] = [];
+
+  const visitValue = (currentValue: unknown) => {
+    if (Array.isArray(currentValue)) {
+      currentValue.forEach(visitValue);
+      return;
+    }
+
+    if (typeof currentValue !== "string") {
+      return;
+    }
+
+    const normalizedValue = currentValue.trim();
+    if (normalizedValue.length > 0) {
+      flatImageUrls.push(normalizedValue);
+    }
+  };
+
+  visitValue(value);
+  return flatImageUrls;
+}
+
+function parseImageUrlsJson(
+  imageUrlsJson: string,
+): z.SafeParseReturnType<unknown, string[]> {
+  try {
+    const parsedValue: unknown = JSON.parse(imageUrlsJson);
+    return imageUrlsSchema.safeParse(flattenImageUrls(parsedValue));
+  } catch (error) {
+    console.error("Dữ liệu JSON của ảnh không hợp lệ:", error);
+    return {
+      success: false,
+      error: new z.ZodError([
+        {
+          code: "custom",
+          path: ["imageUrlsJson"],
+          message: "Dữ liệu ảnh không hợp lệ.",
+        },
+      ]),
+    };
+  }
+}
 
 // Helper function to upload or update images
 async function uploadAndCleanupImages(currentImageUrls: string[], existingImageUrls: string[] | undefined): Promise<string[]> {
@@ -85,9 +141,9 @@ async function uploadAndCleanupImages(currentImageUrls: string[], existingImageU
 
 export async function createOrUpdateApartmentAction(
   id: string | undefined,
-  values: z.infer<typeof formSchema>
+  values: z.infer<typeof apartmentActionSchema>
 ) {
-  const validatedFields = formSchema.safeParse(values);
+  const validatedFields = apartmentActionSchema.safeParse(values);
 
   if (!validatedFields.success) {
     const errorIssues = validatedFields.error.issues;
@@ -95,7 +151,15 @@ export async function createOrUpdateApartmentAction(
     return { error: `Invalid fields! ${errorMessage}` };
   }
 
-  const data = validatedFields.data;
+  const parsedImageUrls = parseImageUrlsJson(validatedFields.data.imageUrlsJson);
+  if (!parsedImageUrls.success) {
+    const errorMessage = parsedImageUrls.error.issues
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+      .join("; ");
+    return { error: `Invalid fields! ${errorMessage}` };
+  }
+
+  const { imageUrlsJson: _imageUrlsJson, ...data } = validatedFields.data;
   let apartmentId = id;
 
   try {
@@ -105,7 +169,7 @@ export async function createOrUpdateApartmentAction(
       existingImageUrls = existingApartment?.imageUrls;
     }
 
-    const finalImageUrls = await uploadAndCleanupImages(data.imageUrls, existingImageUrls);
+    const finalImageUrls = await uploadAndCleanupImages(parsedImageUrls.data, existingImageUrls);
 
     const apartmentDataWithTimestamp = {
       ...data,

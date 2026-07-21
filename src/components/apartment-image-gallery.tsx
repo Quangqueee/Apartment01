@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -18,7 +17,10 @@ type ApartmentImageGalleryProps = {
   title: string;
 };
 
-export default function ApartmentImageGallery({ imageUrls, title }: ApartmentImageGalleryProps) {
+export default function ApartmentImageGallery({
+  imageUrls,
+  title,
+}: ApartmentImageGalleryProps) {
   const [mainApi, setMainApi] = useState<CarouselApi>();
   const [thumbApi, setThumbApi] = useState<CarouselApi>();
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -29,7 +31,7 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
       if (!mainApi || !thumbApi) return;
       mainApi.scrollTo(index);
     },
-    [mainApi, thumbApi]
+    [mainApi, thumbApi],
   );
 
   const onSelect = useCallback(() => {
@@ -52,17 +54,21 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
   return (
     <>
       <div className="space-y-2">
-        <div className="group relative">
-          <Carousel 
-            setApi={setMainApi} 
-            className="w-full cursor-grab active:cursor-grabbing"
+        <div className="group relative select-none touch-pan-y">
+          <Carousel
+            setApi={setMainApi}
+            className="w-full cursor-grab active:cursor-grabbing select-none touch-pan-y"
             opts={{
               loop: true,
             }}
           >
-            <CarouselContent className="-ml-4 select-none">
+            <CarouselContent className="-ml-4 select-none touch-pan-y">
               {imageUrls.map((url, index) => (
-                <CarouselItem key={index} onClick={openLightbox} className="pl-4 cursor-pointer">
+                <CarouselItem
+                  key={index}
+                  onClick={openLightbox}
+                  className="pl-4 cursor-pointer"
+                >
                   <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg shadow-lg">
                     <Image
                       src={url}
@@ -71,13 +77,14 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
                       className="object-cover pointer-events-none"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       data-ai-hint="apartment interior"
+                      draggable={false}
                     />
                   </div>
                 </CarouselItem>
               ))}
             </CarouselContent>
-             <div className="absolute bottom-4 right-4 z-10 rounded-full bg-black/50 px-3 py-1.5 text-xs text-white">
-                {selectedIndex + 1} / {imageUrls.length}
+            <div className="absolute bottom-4 right-4 z-10 rounded-full bg-black/50 px-3 py-1.5 text-xs text-white">
+              {selectedIndex + 1} / {imageUrls.length}
             </div>
           </Carousel>
         </div>
@@ -89,11 +96,15 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
               align: "start",
               containScroll: "trimSnaps",
             }}
-            className="w-full cursor-grab active:cursor-grabbing"
+            className="w-full cursor-grab active:cursor-grabbing select-none touch-pan-y"
           >
-            <CarouselContent className="-ml-2 select-none">
+            <CarouselContent className="-ml-2 select-none touch-pan-y">
               {imageUrls.map((url, index) => (
-                <CarouselItem key={index} onClick={() => onThumbClick(index)} className="basis-1/4 pl-2 lg:basis-1/5">
+                <CarouselItem
+                  key={index}
+                  onClick={() => onThumbClick(index)}
+                  className="basis-1/4 pl-2 lg:basis-1/5"
+                >
                   <div className="relative aspect-[4/3] cursor-pointer">
                     <Image
                       src={url}
@@ -104,8 +115,9 @@ export default function ApartmentImageGallery({ imageUrls, title }: ApartmentIma
                         "rounded-md object-cover transition-all pointer-events-none",
                         selectedIndex === index
                           ? "border-2 border-primary"
-                          : "opacity-60 hover:opacity-100"
+                          : "opacity-60 hover:opacity-100",
                       )}
+                      draggable={false}
                     />
                   </div>
                 </CarouselItem>
