@@ -48,6 +48,8 @@ export async function getApartments(
     query?: string;
     district?: string;
     priceRange?: string;
+    minPrice?: number;
+    maxPrice?: number;
     roomType?: string;
     page?: number;
     limit?: number;
@@ -59,6 +61,8 @@ export async function getApartments(
     query: searchQuery,
     district,
     priceRange,
+    minPrice,
+    maxPrice,
     roomType,
     page = 1,
     limit: pageSize = 9,
@@ -83,16 +87,25 @@ export async function getApartments(
   const querySnapshot = await getDocs(baseQuery);
   let allMatchingApartments = querySnapshot.docs.map(toApartment);
 
-  // 2. Lọc Giá (Client-side)
-  if (priceRange && priceRange !== "all") {
-    const [min, max] = priceRange.split("-");
-    const minPrice = min ? parseInt(min, 10) : 0;
-    const maxPrice = max && max !== "Infinity" ? parseInt(max, 10) : Infinity;
+  // 2. Lọc Giá (Client-side) — hỗ trợ cả priceRange (format "5-10") và minPrice/maxPrice riêng lẻ
+  let filterMinPrice = 0;
+  let filterMaxPrice = Infinity;
 
-    allMatchingApartments = allMatchingApartments.filter(apt => {
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    // Ưu tiên dùng min/max trực tiếp
+    filterMinPrice = minPrice ?? 0;
+    filterMaxPrice = maxPrice ?? Infinity;
+  } else if (priceRange && priceRange !== "all") {
+    const [min, max] = priceRange.split("-");
+    filterMinPrice = min ? parseInt(min, 10) : 0;
+    filterMaxPrice = max && max !== "Infinity" ? parseInt(max, 10) : Infinity;
+  }
+
+  if (filterMinPrice > 0 || filterMaxPrice !== Infinity) {
+    allMatchingApartments = allMatchingApartments.filter((apt) => {
       const roundedPrice = Math.floor(apt.price);
-      const meetsMin = minPrice > 0 ? roundedPrice >= minPrice : true;
-      const meetsMax = maxPrice !== Infinity ? roundedPrice <= maxPrice : true;
+      const meetsMin = filterMinPrice > 0 ? roundedPrice >= filterMinPrice : true;
+      const meetsMax = filterMaxPrice !== Infinity ? roundedPrice <= filterMaxPrice : true;
       return meetsMin && meetsMax;
     });
   }

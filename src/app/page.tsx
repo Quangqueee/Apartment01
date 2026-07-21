@@ -20,7 +20,8 @@ export default async function Home({ searchParams }: any) {
   const { apartments, totalResults } = await getApartments({
     query: sParams.query,
     district: sParams.district,
-    priceRange: sParams.price,
+    minPrice: sParams.minPrice ? Number(sParams.minPrice) : undefined,
+    maxPrice: sParams.maxPrice ? Number(sParams.maxPrice) : undefined,
     roomType: sParams.roomType,
     page: 1,
     limit: 12, // <--- ĐÃ TĂNG LÊN 12 CĂN
