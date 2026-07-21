@@ -1,7 +1,11 @@
 "use client";
-import { useUser, useAuth } from "@/firebase/provider";
+import { useAuth as useAppAuth } from "@/context/auth-context";
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { db, auth } from "@/firebase";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 import {
   Loader2,
   ChevronRight,
@@ -20,10 +24,53 @@ import MobileNav from "@/components/mobile-nav";
 import Link from "next/link";
 
 export default function ProfilePage() {
-  const { user, isUserLoading } = useUser() as any;
-  const userData = (useUser() as any).userData;
-  const auth = useAuth();
+  const { user, userData, loading: isUserLoading } = useAppAuth();
+  const { toast } = useToast();
   const router = useRouter();
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const [hasSubmittedRequest, setHasSubmittedRequest] = useState(false);
+
+  const currentRole = userData?.role;
+  const isPrivilegedUser =
+    currentRole === "collaborator" || currentRole === "admin";
+  const isRequestPending =
+    userData?.requestStatus === "pending" || hasSubmittedRequest;
+
+  const handleSubmitCollaboratorRequest = async () => {
+    if (!user || isRequestPending || isSubmittingRequest) {
+      return;
+    }
+
+    setIsSubmittingRequest(true);
+    try {
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          uid: user.uid,
+          email: user.email ?? "",
+          displayName: userData?.displayName || user.displayName || "",
+          role: userData?.role ?? "user",
+          requestStatus: "pending",
+          requestSubmittedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      toast({
+        title: "Đăng ký thành công",
+        description: "Đăng ký thành công, vui lòng chờ duyệt",
+      });
+      setHasSubmittedRequest(true);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Gửi yêu cầu thất bại",
+        description: "Không thể gửi yêu cầu đăng ký CTV. Vui lòng thử lại.",
+      });
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
 
   if (isUserLoading || !user)
     return (
@@ -123,6 +170,37 @@ export default function ProfilePage() {
                 <div className="absolute top-0 right-0 h-full w-1/2 bg-gradient-to-l from-primary/20 to-transparent opacity-50" />
               </div>
             </Link>
+
+            {!isPrivilegedUser && (
+              <div className="mb-12 rounded-[2.5rem] border border-amber-100 bg-amber-50/40 p-8 md:p-10">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-2xl font-black tracking-tight text-gray-900 italic">
+                      Đăng ký CTV
+                    </h3>
+                    <p className="mt-2 text-xs font-bold uppercase tracking-widest text-gray-500">
+                      Mở quyền đăng tin và hỗ trợ khách hàng cùng đội ngũ.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleSubmitCollaboratorRequest}
+                  disabled={isRequestPending || isSubmittingRequest}
+                  className="mt-6 inline-flex items-center justify-center rounded-2xl bg-gray-900 px-6 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-primary disabled:cursor-not-allowed disabled:bg-gray-300"
+                >
+                  {isSubmittingRequest ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Đang gửi yêu cầu
+                    </span>
+                  ) : isRequestPending ? (
+                    "Đã gửi yêu cầu"
+                  ) : (
+                    "Gửi yêu cầu"
+                  )}
+                </button>
+              </div>
+            )}
 
             <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
               {[

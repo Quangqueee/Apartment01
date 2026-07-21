@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { Apartment } from "@/lib/types";
 import { fetchApartmentsAction } from "@/app/actions";
 import ApartmentCard from "./apartment-card";
 import { Button } from "./ui/button";
-import { useUser } from "@/firebase/provider";
+import { useAuth } from "@/context/auth-context";
 // 1. Import Framer Motion
 import { motion } from "framer-motion";
 
@@ -30,11 +30,15 @@ export default function ApartmentList({
   searchParams,
   totalInitialResults,
 }: ApartmentListProps) {
-  const { user } = useUser();
+  const { user, userData } = useAuth();
+  const favoriteIds = useMemo(
+    () => new Set<string>(userData?.favorites ?? []),
+    [userData?.favorites],
+  );
   const [apartments, setApartments] = useState(initialApartments);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(
-    initialApartments.length < totalInitialResults
+    initialApartments.length < totalInitialResults,
   );
   const [isLoading, setIsLoading] = useState(false);
 
@@ -42,29 +46,10 @@ export default function ApartmentList({
   const handleFavoriteToggle = (apartmentId: string, isFavorited: boolean) => {
     setApartments((currentApartments) =>
       currentApartments.map((apt) =>
-        apt.id === apartmentId ? { ...apt, isFavorited } : apt
-      )
+        apt.id === apartmentId ? { ...apt, isFavorited } : apt,
+      ),
     );
   };
-
-  useEffect(() => {
-    const fetchWithFavorites = async () => {
-      const result = await fetchApartmentsAction({
-        ...searchParams,
-        userId: user?.uid,
-        page: 1,
-        limit: apartments.length > PAGE_SIZE ? apartments.length : PAGE_SIZE,
-      });
-      if (result.apartments) {
-        setApartments(result.apartments);
-      }
-    };
-
-    if (user !== undefined) {
-      fetchWithFavorites();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
 
   useEffect(() => {
     setApartments(initialApartments);
@@ -72,6 +57,15 @@ export default function ApartmentList({
     setPage(initialPage > 0 ? initialPage : 1);
     setHasMore(initialApartments.length < totalInitialResults);
   }, [initialApartments, totalInitialResults]);
+
+  useEffect(() => {
+    setApartments((currentApartments) =>
+      currentApartments.map((apt) => ({
+        ...apt,
+        isFavorited: favoriteIds.has(apt.id),
+      })),
+    );
+  }, [favoriteIds]);
 
   const loadMoreApartments = useCallback(async () => {
     if (isLoading || !hasMore) return;
@@ -134,9 +128,7 @@ export default function ApartmentList({
               >
                 <ApartmentCard
                   apartment={apartment}
-                  // Sửa lại logic gọi hàm toggle để khớp với prop bên trong ApartmentCard (nếu cần)
-                  // Tuy nhiên ApartmentCard của bạn đang tự xử lý logic toggle bên trong nó rồi
-                  // nên prop này có thể chỉ để update state cha (optimistic UI)
+                  onFavoriteToggle={handleFavoriteToggle}
                 />
               </motion.div>
             ))}

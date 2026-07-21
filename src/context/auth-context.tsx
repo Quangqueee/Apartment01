@@ -4,45 +4,82 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "@/firebase";
 
-const AuthContext = createContext<any>({});
+export type UserRole = "user" | "collaborator" | "admin";
+
+export type UserData = {
+  uid?: string;
+  email?: string;
+  displayName?: string;
+  photoURL?: string;
+  phoneNumber?: string;
+  preferredDistrict?: string;
+  dob?: string;
+  gender?: string;
+  interests?: string;
+  favorites?: string[];
+  role?: UserRole;
+};
+
+type AuthContextValue = {
+  user: User | null;
+  userData: UserData | null;
+  loading: boolean;
+};
+
+const AuthContext = createContext<AuthContextValue>({
+  user: null,
+  userData: null,
+  loading: true,
+});
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let unsubscribeUserDoc: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
 
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
+        unsubscribeUserDoc = null;
+      }
+
       if (currentUser) {
         const userDocRef = doc(db, "users", currentUser.uid);
-        // Lắng nghe dữ liệu người dùng
-        const unsubDoc = onSnapshot(
+        unsubscribeUserDoc = onSnapshot(
           userDocRef,
           (docSnap) => {
             if (docSnap.exists()) {
-              setUserData(docSnap.data());
+              setUserData(docSnap.data() as UserData);
+            } else {
+              setUserData(null);
             }
             setLoading(false); // Dừng loading ngay khi có dữ liệu
           },
           (error) => {
             console.error("Auth Snapshot Error:", error);
             setLoading(false); // Dừng loading kể cả khi có lỗi
-          }
+          },
         );
-        return () => unsubDoc();
       } else {
         setUserData(null);
         setLoading(false); // Dừng loading nếu không có user
       }
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribe();
+      if (unsubscribeUserDoc) unsubscribeUserDoc();
+    };
   }, []);
 
   const value = useMemo(
     () => ({ user, userData, loading }),
-    [user, userData, loading]
+    [user, userData, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

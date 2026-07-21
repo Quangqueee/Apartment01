@@ -4,11 +4,8 @@ import { useState, useEffect } from "react";
 import { useUser } from "@/firebase/provider";
 import { db, auth } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
-import {
-  updatePassword,
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-} from "firebase/auth";
+import { changePassword } from "@/lib/auth-service";
+import { kiemTraMatKhau, kiemTraXacNhanMatKhau } from "@/lib/kiem-tra-mat-khau";
 import {
   ArrowLeft,
   Save,
@@ -45,7 +42,8 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const isSocialLogin = user?.providerData.some(
-    (p: any) => p.providerId === "google.com" || p.providerId === "facebook.com"
+    (p: any) =>
+      p.providerId === "google.com" || p.providerId === "facebook.com",
   );
 
   // Thêm phoneNumber vào state
@@ -62,6 +60,7 @@ export default function SettingsPage() {
     newPassword: "",
     confirmPassword: "",
   });
+  const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
 
   useEffect(() => {
     if (userData || user) {
@@ -78,7 +77,7 @@ export default function SettingsPage() {
   const showToast = (
     title: string,
     description: string,
-    isError: boolean = false
+    isError: boolean = false,
   ) => {
     toast({
       title: title,
@@ -113,37 +112,45 @@ export default function SettingsPage() {
   const handleChangePassword = async () => {
     if (!user) return;
 
+    const passwordValidation = kiemTraMatKhau(passForm.newPassword);
+    const confirmValidation = kiemTraXacNhanMatKhau(
+      passForm.newPassword,
+      passForm.confirmPassword,
+    );
+
+    const nextErrors = [...passwordValidation.cacLoiNhap];
+    if (!confirmValidation.hopLe) {
+      nextErrors.push(
+        confirmValidation.loiNhap || "Mật khẩu xác nhận không khớp",
+      );
+    }
+
+    setPasswordErrors(nextErrors);
+
     if (!passForm.currentPassword) {
       showToast("Thiếu thông tin", "Vui lòng nhập mật khẩu hiện tại.", true);
       return;
     }
-    if (passForm.newPassword.length < 6) {
-      showToast("Mật khẩu yếu", "Mật khẩu mới phải có ít nhất 6 ký tự.", true);
-      return;
-    }
-    if (passForm.newPassword !== passForm.confirmPassword) {
-      showToast("Không khớp", "Mật khẩu xác nhận không đúng.", true);
+
+    if (!passwordValidation.hopLe || !confirmValidation.hopLe) {
+      showToast(
+        "Mật khẩu chưa đủ mạnh",
+        "Vui lòng sửa các lỗi bên dưới.",
+        true,
+      );
       return;
     }
 
     setIsLoading(true);
     try {
-      const currentUser = auth.currentUser;
-      if (currentUser && currentUser.email) {
-        const credential = EmailAuthProvider.credential(
-          currentUser.email,
-          passForm.currentPassword
-        );
-        await reauthenticateWithCredential(currentUser, credential);
-        await updatePassword(currentUser, passForm.newPassword);
-
-        showToast("Thành công", "Mật khẩu đã được thay đổi.");
-        setPassForm({
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-        });
-      }
+      await changePassword(passForm.newPassword, passForm.currentPassword);
+      showToast("Thành công", "Mật khẩu đã được thay đổi.");
+      setPassForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setPasswordErrors([]);
     } catch (error: any) {
       console.error("Change Pass Error:", error.code);
       if (
@@ -155,19 +162,19 @@ export default function SettingsPage() {
         showToast(
           "Yêu cầu đăng nhập lại",
           "Vui lòng đăng xuất và đăng nhập lại để bảo mật.",
-          true
+          true,
         );
       } else if (error.code === "auth/too-many-requests") {
         showToast(
           "Bị chặn tạm thời",
           "Bạn nhập sai quá nhiều lần. Vui lòng thử lại sau.",
-          true
+          true,
         );
       } else {
         showToast(
           "Lỗi hệ thống",
           "Không thể đổi mật khẩu. Vui lòng thử lại.",
-          true
+          true,
         );
       }
     } finally {
@@ -368,7 +375,7 @@ export default function SettingsPage() {
                         })
                       }
                       className="h-14 rounded-xl bg-white border-gray-200"
-                      placeholder="Tối thiểu 6 ký tự"
+                      placeholder="Tối thiểu 8 ký tự"
                     />
                   </div>
 
@@ -390,6 +397,17 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
+
+                {passwordErrors.length > 0 && (
+                  <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+                    <p className="font-bold">Mật khẩu chưa đáp ứng yêu cầu:</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      {passwordErrors.map((error) => (
+                        <li key={error}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <Button
                   onClick={handleChangePassword}

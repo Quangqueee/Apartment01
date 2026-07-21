@@ -4,6 +4,7 @@ import { useUser } from "@/firebase/provider";
 import { db, storage } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { kiemTraSoDienThoai } from "@/lib/kiem-tra-mat-khau";
 import {
   Camera,
   Save,
@@ -46,6 +47,20 @@ export default function ProfileEditPage() {
 
   const handleUpdate = async () => {
     if (!user) return;
+
+    // Validate số điện thoại nếu có nhập
+    if (formData.phoneNumber.trim()) {
+      const ketQua = kiemTraSoDienThoai(formData.phoneNumber);
+      if (!ketQua.hopLe) {
+        toast({
+          variant: "destructive",
+          title: "Lỗi",
+          description: ketQua.loiNhap,
+        });
+        return;
+      }
+    }
+
     setIsUpdating(true);
     try {
       await updateDoc(doc(db, "users", user.uid), { ...formData });
@@ -142,7 +157,7 @@ export default function ProfileEditPage() {
                       // Tạo tên file unique bằng Date.now() để tránh browser cache ảnh cũ
                       const storageRef = ref(
                         storage,
-                        `avatars/${user.uid}/${Date.now()}`
+                        `avatars/${user.uid}/${Date.now()}`,
                       );
                       await uploadBytes(storageRef, file);
                       const url = await getDownloadURL(storageRef);

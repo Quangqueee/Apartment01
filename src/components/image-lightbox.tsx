@@ -10,10 +10,11 @@ import {
   CarouselApi,
 } from "@/components/ui/carousel";
 import Image from "next/image";
-import { Download, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Download, Loader2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type ImageLightboxProps = {
   images: string[];
@@ -29,11 +30,14 @@ export default function ImageLightbox({
   isOpen,
 }: ImageLightboxProps) {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [api, setApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(selectedIndex);
   const [isDownloading, setIsDownloading] = useState(false);
+  const mobileScrollerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (isMobile) return;
     if (!api) return;
     setCurrentSlide(api.selectedScrollSnap());
     const onSelect = () => setCurrentSlide(api.selectedScrollSnap());
@@ -41,13 +45,22 @@ export default function ImageLightbox({
     return () => {
       api.off("select", onSelect);
     };
-  }, [api]);
+  }, [api, isMobile]);
 
   useEffect(() => {
-    if (api && isOpen) {
+    if (!isMobile && api && isOpen) {
       api.scrollTo(selectedIndex, true);
     }
-  }, [api, isOpen, selectedIndex]);
+  }, [api, isMobile, isOpen, selectedIndex]);
+
+  useEffect(() => {
+    if (!isMobile || !isOpen || !mobileScrollerRef.current) return;
+    mobileScrollerRef.current.scrollTo({
+      left: selectedIndex * mobileScrollerRef.current.clientWidth,
+      behavior: "auto",
+    });
+    setCurrentSlide(selectedIndex);
+  }, [isMobile, isOpen, selectedIndex]);
 
   const handleDownload = async () => {
     if (!images || images.length === 0) return;
@@ -59,16 +72,17 @@ export default function ImageLightbox({
     });
 
     try {
-      // Loop through all images and trigger download for each
       for (let i = 0; i < images.length; i++) {
         const imageUrl = images[i];
         const proxyUrl = `/api/download-image?url=${encodeURIComponent(imageUrl)}`;
-        
+
         try {
           const response = await fetch(proxyUrl);
           if (!response.ok) {
-            console.warn(`Could not download image ${i + 1}: ${response.statusText}`);
-            continue; // Skip to the next image if one fails
+            console.warn(
+              `Could not download image ${i + 1}: ${response.statusText}`,
+            );
+            continue;
           }
 
           const blob = await response.blob();
@@ -81,22 +95,19 @@ export default function ImageLightbox({
           document.body.appendChild(link);
           link.click();
 
-          // Cleanup
           document.body.removeChild(link);
           window.URL.revokeObjectURL(blobUrl);
-
+          await new Promise((resolve) => setTimeout(resolve, 220));
         } catch (fetchError) {
-           console.error(`Error fetching image ${i + 1}:`, fetchError);
-           // Continue to the next image
+          console.error(`Error fetching image ${i + 1}:`, fetchError);
         }
       }
 
       toast({
         title: "Hoàn tất!",
-        description: "Tất cả ảnh đã được yêu cầu tải xuống.",
+        description: "Hệ thống đã tự động kích hoạt tải toàn bộ ảnh.",
         duration: 3000,
       });
-
     } catch (error) {
       console.error("Download process failed:", error);
       toast({
@@ -108,7 +119,6 @@ export default function ImageLightbox({
       setIsDownloading(false);
     }
   };
-
 
   if (!isOpen) return null;
 
@@ -151,34 +161,64 @@ export default function ImageLightbox({
 
         {/* --- CAROUSEL --- */}
         <div className="w-full h-full">
-          <Carousel
-            setApi={setApi}
-            className="w-full h-full"
-            opts={{ startIndex: selectedIndex, loop: true }}
-          >
-            <CarouselContent className="h-[100vh] -ml-0">
+          {isMobile ? (
+            <div
+              ref={mobileScrollerRef}
+              className="h-full w-full flex overflow-x-auto snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              onScroll={(event) => {
+                const width = event.currentTarget.clientWidth;
+                if (!width) return;
+                const nextIndex = Math.round(
+                  event.currentTarget.scrollLeft / width,
+                );
+                setCurrentSlide(nextIndex);
+              }}
+            >
               {images.map((url, index) => (
-                <CarouselItem key={index} className="h-full pl-0 relative">
-                  <div className="w-full h-[100vh] flex items-center justify-center">
-                    <div className="relative w-full h-full">
-                      <Image
-                        src={url}
-                        alt={`Image ${index + 1}`}
-                        fill
-                        priority={index === selectedIndex}
-                        className="object-contain p-0 md:p-12"
-                        sizes="100vw"
-                        quality={100}
-                      />
-                    </div>
-                  </div>
-                </CarouselItem>
+                <div
+                  key={index}
+                  className="h-full w-full shrink-0 snap-center flex items-center justify-center"
+                >
+                  <img
+                    src={url}
+                    alt={`Ảnh ${index + 1}`}
+                    draggable={false}
+                    className="max-h-full max-w-full object-contain"
+                    style={{ WebkitTouchCallout: "default" }}
+                  />
+                </div>
               ))}
-            </CarouselContent>
-            
-            <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full border border-white/20 bg-black/50 text-white transition-all hidden md:flex items-center justify-center z-50 hover:bg-black/80" />
-            <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full border border-white/20 bg-black/50 text-white transition-all hidden md:flex items-center justify-center z-50 hover:bg-black/80" />
-          </Carousel>
+            </div>
+          ) : (
+            <Carousel
+              setApi={setApi}
+              className="w-full h-full"
+              opts={{ startIndex: selectedIndex, loop: true }}
+            >
+              <CarouselContent className="h-[100vh] -ml-0">
+                {images.map((url, index) => (
+                  <CarouselItem key={index} className="h-full pl-0 relative">
+                    <div className="w-full h-[100vh] flex items-center justify-center">
+                      <div className="relative w-full h-full">
+                        <Image
+                          src={url}
+                          alt={`Image ${index + 1}`}
+                          fill
+                          priority={index === selectedIndex}
+                          className="object-contain p-0 md:p-12"
+                          sizes="100vw"
+                          quality={100}
+                        />
+                      </div>
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+
+              <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full border border-white/20 bg-black/50 text-white transition-all hidden md:flex items-center justify-center z-50 hover:bg-black/80" />
+              <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full border border-white/20 bg-black/50 text-white transition-all hidden md:flex items-center justify-center z-50 hover:bg-black/80" />
+            </Carousel>
+          )}
         </div>
       </DialogContent>
     </Dialog>

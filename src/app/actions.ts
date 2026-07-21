@@ -14,14 +14,13 @@ import {
   getApartments,
   addFavorite,
   removeFavorite,
-  getFavoriteApartments,
   isApartmentFavorited,
   updateUserProfile as updateUserProfileInDb,
 } from "@/lib/data";
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
 import { Apartment } from "@/lib/types";
-import { Timestamp, doc, setDoc } from "firebase/firestore";
+import { Timestamp, doc, getDoc, setDoc } from "firebase/firestore";
 import { ADMIN_PATH } from "@/lib/constants";
 import { firestore } from "@/firebase/server-init";
 
@@ -207,8 +206,13 @@ export async function fetchApartmentsAction(options: {
 
   // If a user is logged in, check which apartments are favorited
   if (options.userId) {
-    const favoriteIds = await getFavoriteApartments(options.userId);
-    const favoriteIdSet = new Set(favoriteIds.map(fav => fav.id));
+    const userRef = doc(firestore, "users", options.userId);
+    const userSnapshot = await getDoc(userRef);
+    const rawFavoriteIds = userSnapshot.exists()
+      ? userSnapshot.data().favorites
+      : [];
+    const favoriteIds = Array.isArray(rawFavoriteIds) ? rawFavoriteIds : [];
+    const favoriteIdSet = new Set<string>(favoriteIds);
     const apartmentsWithFavorites = apartments.map(apt => ({
       ...apt,
       isFavorited: favoriteIdSet.has(apt.id)

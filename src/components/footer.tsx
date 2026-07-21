@@ -8,7 +8,7 @@ export default function Footer() {
           <div className="md:order-2 md:col-span-1">
             <div className="text-center md:text-right">
               <h2 className="font-headline text-xl font-semibold">
-                Quang Apartment
+                Hanoi Residence
               </h2>
               <p className="mt-2 text-muted-foreground">
                 Your trusted partner in finding the perfect high-end apartment
@@ -38,7 +38,7 @@ export default function Footer() {
         </div>
         <div className="mt-8 border-t pt-4 text-center text-sm text-muted-foreground">
           <p>
-            &copy; {new Date().getFullYear()} Quang Apartment. All rights
+            &copy; {new Date().getFullYear()} Hanoi Residence. All rights
             reserved.
           </p>
         </div>
