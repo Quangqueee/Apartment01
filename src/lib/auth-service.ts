@@ -6,7 +6,10 @@ import {
     sendPasswordResetEmail,
     signOut,
     GoogleAuthProvider,
-    signInWithPopup
+    signInWithPopup,
+    EmailAuthProvider,
+    reauthenticateWithCredential,
+    updatePassword
 } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
@@ -35,6 +38,26 @@ export const loginWithGoogle = async () => {
 
 export const resetPassword = async (email: string) => {
     return await sendPasswordResetEmail(auth, email);
+};
+
+export const changePassword = async (newPassword: string, currentPassword: string) => {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+        const error = new Error("No authenticated user.");
+        (error as Error & { code?: string }).code = "auth/no-current-user";
+        throw error;
+    }
+
+    if (!currentUser.email) {
+        const error = new Error("Current user has no email.");
+        (error as Error & { code?: string }).code = "auth/missing-email";
+        throw error;
+    }
+
+    const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+    await reauthenticateWithCredential(currentUser, credential);
+    await updatePassword(currentUser, newPassword);
 };
 
 export const logout = () => signOut(auth);
