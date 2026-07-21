@@ -18,6 +18,7 @@ import {
 import { firestore } from "@/firebase/server-init";
 import { Apartment, Favorite, UserProfile } from "./types";
 import { removeVietnameseTones } from "./utils";
+import { isPriceInRange, parsePriceRange } from "./price-range";
 
 const apartmentsCollection = collection(firestore, "apartments");
 const usersCollection = collection(firestore, "users");
@@ -85,16 +86,10 @@ export async function getApartments(
 
   // 2. Lọc Giá (Client-side)
   if (priceRange && priceRange !== "all") {
-    const [min, max] = priceRange.split("-");
-    const minPrice = min ? parseInt(min, 10) : 0;
-    const maxPrice = max && max !== "Infinity" ? parseInt(max, 10) : Infinity;
-
-    allMatchingApartments = allMatchingApartments.filter(apt => {
-      const roundedPrice = Math.floor(apt.price);
-      const meetsMin = minPrice > 0 ? roundedPrice >= minPrice : true;
-      const meetsMax = maxPrice !== Infinity ? roundedPrice <= maxPrice : true;
-      return meetsMin && meetsMax;
-    });
+    const parsedRange = parsePriceRange(priceRange);
+    allMatchingApartments = allMatchingApartments.filter((apt) =>
+      isPriceInRange(apt.price, parsedRange)
+    );
   }
 
   // 3. FIX LỖI TÌM KIẾM TEXT (QUAN TRỌNG)

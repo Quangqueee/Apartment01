@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useUser } from "@/firebase/provider";
+import { useAuth as useAuthContext } from "@/context/auth-context";
 import UserNav from "./user-nav";
 import {
   Menu,
@@ -16,9 +17,16 @@ import {
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
+const COLLABORATOR_GUIDE_URL =
+  "https://docs.google.com/document/d/1Ocs5Op9CLUgGwd93enVRe_34iVJU64O3PTzjRjeHnAE/edit?tab=t.0";
+
 export default function Header() {
   const { user } = useUser();
+  const { userData } = useAuthContext();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const userRole = (userData?.role || "user").toLowerCase();
+  const canSeeCollaboratorGuide =
+    userRole === "collaborator" || userRole === "admin";
 
   // Tắt scroll body khi menu mở
   useEffect(() => {
@@ -89,7 +97,6 @@ export default function Header() {
         <nav className="hidden md:flex items-center gap-8">
           <NavLink href="/" label="Trang chủ" />
           <NavLink href="/#apartments-list" label="Căn hộ" />
-          {/* SỬA: Đường dẫn trỏ về ID #about */}
           <NavLink href="/#about" label="Giới thiệu" />
 
           {user && (
@@ -98,6 +105,17 @@ export default function Header() {
               className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-red-500 transition-colors"
             >
               <Heart className="h-4 w-4" /> Yêu thích
+            </Link>
+          )}
+
+          {user && canSeeCollaboratorGuide && (
+            <Link
+              href={COLLABORATOR_GUIDE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-[#cda533] transition-colors"
+            >
+              Hướng dẫn CTV
             </Link>
           )}
 
@@ -135,7 +153,7 @@ export default function Header() {
           "md:hidden absolute top-full left-0 w-full bg-white border-b border-gray-100 shadow-xl overflow-hidden transition-all duration-300 ease-in-out z-[90]",
           isMobileMenuOpen
             ? "max-h-[calc(100vh-80px)] opacity-100"
-            : "max-h-0 opacity-0"
+            : "max-h-0 opacity-0",
         )}
       >
         <div className="flex flex-col p-4 gap-2">
@@ -151,13 +169,21 @@ export default function Header() {
             label="Danh sách Căn hộ"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          {/* SỬA: Đường dẫn mobile cũng trỏ về #about */}
           <MobileNavLink
             href="/#about"
             icon={Info}
             label="Về chúng tôi"
             onClick={() => setIsMobileMenuOpen(false)}
           />
+
+          {user && canSeeCollaboratorGuide && (
+            <MobileNavLink
+              href={COLLABORATOR_GUIDE_URL}
+              icon={Info}
+              label="Hướng dẫn CTV"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+          )}
 
           <div className="h-px bg-gray-100 my-2" />
 
@@ -210,7 +236,7 @@ const NavLink = ({
     href={href}
     className={cn(
       "text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-[#cda533] transition-colors",
-      className
+      className,
     )}
   >
     {label}

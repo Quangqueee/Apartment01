@@ -12,6 +12,8 @@ export interface Apartment {
   listingSummary: string; // AI-generated
   address: string; // For admin use
   landlordPhoneNumber: string; // For admin use
+  commission?: number | string;
+  isFavorited?: boolean;
   imageUrls: string[];
   createdAt: {
     seconds: number;
@@ -43,9 +45,9 @@ export type UploadedImage = {
 
 // Represents a document in the /users/{userId}/favorites subcollection
 export interface Favorite {
-    id: string; // This will be the apartmentId
-    addedAt: {
-        seconds: number;
-        nanoseconds: number;
-    };
+  id: string; // This will be the apartmentId
+  addedAt: {
+    seconds: number;
+    nanoseconds: number;
+  };
 }

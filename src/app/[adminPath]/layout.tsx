@@ -28,14 +28,15 @@ import {
   BedDouble,
 } from "lucide-react";
 import Link from "next/link";
-import { useUser, useAuth } from "@/firebase/provider";
-import { useRouter, usePathname, notFound } from "next/navigation";
-import { useEffect, use } from "react";
+import { useAuth as useFirebaseAuth } from "@/firebase/provider";
+import { useAuth as useAuthContext } from "@/context/auth-context";
+import { useRouter, usePathname, useParams } from "next/navigation";
+import { useEffect } from "react";
 import { signOut } from "firebase/auth";
 import { ADMIN_PATH } from "@/lib/constants";
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
-  const auth = useAuth();
+  const auth = useFirebaseAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -240,22 +241,32 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
 export default function AdminLayout({
   children,
-  params,
 }: {
   children: React.ReactNode;
-  params: Promise<{ adminPath: string }>;
 }) {
-  const { user, isUserLoading } = useUser();
+  const { user, userData, loading } = useAuthContext();
   const router = useRouter();
-  const { adminPath } = use(params);
-
-  if (adminPath !== ADMIN_PATH) notFound();
+  const params = useParams<{ adminPath: string }>();
+  const adminPath = params?.adminPath || "";
+  const userRole = (userData?.role || "").toLowerCase();
 
   useEffect(() => {
-    if (!isUserLoading && !user) router.push("/login");
-  }, [user, isUserLoading, router]);
+    if (!loading && !user) {
+      router.replace("/login");
+      return;
+    }
 
-  if (isUserLoading || !user)
+    if (!loading && user && adminPath && adminPath !== ADMIN_PATH) {
+      router.replace(`/${ADMIN_PATH}`);
+      return;
+    }
+
+    if (!loading && user && userRole && userRole !== "admin") {
+      router.replace("/");
+    }
+  }, [loading, user, adminPath, userRole, router]);
+
+  if (loading || !user || (userData && userRole !== "admin"))
     return (
       <div className="flex h-screen w-full items-center justify-center bg-white">
         <Loader2 className="h-8 w-8 animate-spin" />

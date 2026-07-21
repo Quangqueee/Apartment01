@@ -1,5 +1,5 @@
-
 "use client";
+import React from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -31,7 +31,14 @@ import {
   generateSummaryAction,
 } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useRef, DragEvent, useCallback } from "react";
+import {
+  useState,
+  useRef,
+  DragEvent,
+  useCallback,
+  useMemo,
+  useEffect,
+} from "react";
 import { Loader2, Sparkles, Trash2, Upload } from "lucide-react";
 import Image from "next/image";
 import {
@@ -65,7 +72,6 @@ const IMAGE_QUALITY = 0.75;
 const MAX_IMAGE_WIDTH = 1920;
 const MAX_IMAGES = 15;
 
-
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters."),
   sourceCode: z.string().min(1, "Internal code is required."),
@@ -73,24 +79,34 @@ const formSchema = z.object({
   district: z.string().min(1, "District is required."),
   area: z.coerce.number().min(1, "Area must be greater than 0."),
   price: z.coerce.number().min(0, "Price must be a positive number."),
+  commission: z.string().optional(),
   details: z
     .string()
     .min(20, "Detailed information must be at least 20 characters."),
   listingSummary: z.string().optional(),
   address: z.string().min(1, "Exact address is required."),
   landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
-  imageUrls: z.array(z.string()).min(1, "At least one image is required.").max(MAX_IMAGES, `You can upload a maximum of ${MAX_IMAGES} images.`),
+  imageUrls: z
+    .array(z.string())
+    .min(1, "At least one image is required.")
+    .max(MAX_IMAGES, `You can upload a maximum of ${MAX_IMAGES} images.`),
 });
 
 type SortableImageProps = {
+  id: string;
   src: string;
   index: number;
-  removeImage: (index: number) => void;
+  removeImage: (id: string) => void;
 };
 
-const SortableImage = ({ src, index, removeImage }: SortableImageProps) => {
+const SortableImage = React.memo(function SortableImage({
+  id,
+  src,
+  index,
+  removeImage,
+}: SortableImageProps) {
   const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: src });
+    useSortable({ id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -118,61 +134,74 @@ const SortableImage = ({ src, index, removeImage }: SortableImageProps) => {
         className="absolute right-1 top-1 z-10 h-6 w-6"
         onClick={(e) => {
           e.stopPropagation(); // Prevent dnd listeners from firing
-          removeImage(index);
+          removeImage(id);
         }}
       >
         <Trash2 className="h-4 w-4" />
       </Button>
     </div>
   );
-};
+});
 
 type ApartmentFormProps = {
   apartment?: Apartment;
 };
 
-// Helper function to compress and resize an image
-const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = document.createElement('img');
-            img.src = event.target?.result as string;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-
-                let { width, height } = img;
-
-                // Resize logic
-                if (width > MAX_IMAGE_WIDTH) {
-                    height = (height * MAX_IMAGE_WIDTH) / width;
-                    width = MAX_IMAGE_WIDTH;
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                ctx?.drawImage(img, 0, 0, width, height);
-
-                // Get the data URL with the specified quality
-                const dataUrl = canvas.toDataURL(file.type, IMAGE_QUALITY);
-                resolve(dataUrl);
-            };
-            img.onerror = reject;
-        };
-        reader.onerror = reject;
-    });
+type PreviewItem = {
+  id: string;
+  src: string;
 };
 
+// Helper function to compress and resize an image
+const compressImage = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = document.createElement("img");
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        let { width, height } = img;
+
+        // Resize logic
+        if (width > MAX_IMAGE_WIDTH) {
+          height = (height * MAX_IMAGE_WIDTH) / width;
+          width = MAX_IMAGE_WIDTH;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        // Get the data URL with the specified quality
+        const dataUrl = canvas.toDataURL(file.type, IMAGE_QUALITY);
+        resolve(dataUrl);
+      };
+      img.onerror = reject;
+    };
+    reader.onerror = reject;
+  });
+};
+
+const createPreviewId = () =>
+  `img-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+const createInitialPreviewItems = (imageUrls: string[]) =>
+  imageUrls.map((src, index) => ({
+    id: `initial-${index}`,
+    src,
+  }));
 
 export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [previews, setPreviews] = useState<string[]>(
-    apartment?.imageUrls || []
+  const [previewItems, setPreviewItems] = useState<PreviewItem[]>(
+    createInitialPreviewItems(apartment?.imageUrls || []),
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -180,7 +209,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -192,6 +221,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       district: apartment?.district || "",
       area: apartment?.area || 0,
       price: apartment?.price || 0,
+      commission: apartment?.commission || "",
       details: apartment?.details || "",
       listingSummary: apartment?.listingSummary || "",
       address: apartment?.address || "",
@@ -200,93 +230,142 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     },
   });
 
-  const removeImage = useCallback((indexToRemove: number) => {
-    setPreviews(currentPreviews => {
-      const updatedPreviews = currentPreviews.filter((_, i) => i !== indexToRemove);
-      form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
-      return updatedPreviews;
-    });
-  }, [form]);
+  const updatePreviewItems = useCallback(
+    (
+      updater:
+        | PreviewItem[]
+        | ((currentPreviewItems: PreviewItem[]) => PreviewItem[]),
+    ) => {
+      setPreviewItems(updater);
+    },
+    [],
+  );
 
+  useEffect(() => {
+    form.setValue(
+      "imageUrls",
+      previewItems.map((item) => item.src),
+      { shouldValidate: true },
+    );
+  }, [previewItems, form]);
 
-  const handleFiles = (files: File[]) => {
-    if (files.length === 0) return;
+  const removeImage = useCallback(
+    (idToRemove: string) => {
+      updatePreviewItems((currentPreviewItems) =>
+        currentPreviewItems.filter((item) => item.id !== idToRemove),
+      );
+    },
+    [updatePreviewItems],
+  );
 
-    const currentImageCount = previews.length;
-    if (currentImageCount + files.length > MAX_IMAGES) {
-      toast({
-        variant: "destructive",
-        title: "Too many images",
-        description: `You can upload a maximum of ${MAX_IMAGES} images.`,
-      });
-      return;
-    }
+  const sortableIds = useMemo(
+    () => previewItems.map((item) => item.id),
+    [previewItems],
+  );
 
-    const filePromises = files.map((file) => {
-      return new Promise<string>((resolve, reject) => {
-        if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-          return reject(`File type not supported: ${file.name}`);
-        }
-        if (file.size > MAX_FILE_SIZE) {
-          // We can still try to compress it if it's too large
-           console.warn(`File too large, attempting to compress: ${file.name}`);
-        }
-        compressImage(file).then(resolve).catch(reject);
-      });
-    });
+  const handleFiles = useCallback(
+    (files: File[]) => {
+      if (files.length === 0) return;
 
-    Promise.all(filePromises)
-      .then((newPreviews) => {
-        const updatedPreviews = [...previews, ...newPreviews];
-        setPreviews(updatedPreviews);
-        form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
-      })
-      .catch((error) => {
+      const currentImageCount = previewItems.length;
+      if (currentImageCount + files.length > MAX_IMAGES) {
         toast({
           variant: "destructive",
-          title: "Error processing file",
-          description:
-            typeof error === "string" ? error : "An unexpected error occurred.",
+          title: "Too many images",
+          description: `You can upload a maximum of ${MAX_IMAGES} images.`,
+        });
+        return;
+      }
+
+      const filePromises = files.map((file) => {
+        return new Promise<string>((resolve, reject) => {
+          if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+            return reject(`File type not supported: ${file.name}`);
+          }
+          if (file.size > MAX_FILE_SIZE) {
+            console.warn(
+              `File too large, attempting to compress: ${file.name}`,
+            );
+          }
+          compressImage(file).then(resolve).catch(reject);
         });
       });
-  };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    handleFiles(Array.from(event.target.files || []));
-  };
-  
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+      Promise.all(filePromises)
+        .then((newPreviewSources) => {
+          updatePreviewItems((currentPreviewItems) => {
+            const nextItems = [
+              ...currentPreviewItems,
+              ...newPreviewSources.map((src) => ({
+                id: createPreviewId(),
+                src,
+              })),
+            ];
+            return nextItems;
+          });
+        })
+        .catch((error) => {
+          toast({
+            variant: "destructive",
+            title: "Error processing file",
+            description:
+              typeof error === "string"
+                ? error
+                : "An unexpected error occurred.",
+          });
+        });
+    },
+    [previewItems.length, toast, updatePreviewItems],
+  );
+
+  const handleFileChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      handleFiles(Array.from(event.target.files || []));
+      event.target.value = "";
+    },
+    [handleFiles],
+  );
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
-  };
-  
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-  };
+  }, []);
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    handleFiles(Array.from(e.dataTransfer.files));
-  };
+  const handleDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      handleFiles(Array.from(e.dataTransfer.files));
+    },
+    [handleFiles],
+  );
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = previews.findIndex((p) => p === active.id);
-      const newIndex = previews.findIndex((p) => p === over.id);
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
 
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const updatedPreviews = arrayMove(previews, oldIndex, newIndex);
-        setPreviews(updatedPreviews);
-        form.setValue("imageUrls", updatedPreviews, { shouldValidate: true });
-      }
-    }
-  };
+      updatePreviewItems((currentPreviewItems) => {
+        const oldIndex = currentPreviewItems.findIndex(
+          (item) => item.id === String(active.id),
+        );
+        const newIndex = currentPreviewItems.findIndex(
+          (item) => item.id === String(over.id),
+        );
+        if (oldIndex === -1 || newIndex === -1) return currentPreviewItems;
+        return arrayMove(currentPreviewItems, oldIndex, newIndex);
+      });
+    },
+    [updatePreviewItems],
+  );
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
@@ -420,7 +499,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                         <div
                           className={cn(
                             "relative flex min-h-[200px] w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-input p-4 text-center transition-colors",
-                            isDragging && "border-primary bg-accent"
+                            isDragging && "border-primary bg-accent",
                           )}
                           onClick={() => fileInputRef.current?.click()}
                           onDragOver={handleDragOver}
@@ -446,8 +525,8 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                         </div>
                       </FormControl>
                       <FormDescription>
-                        Tải lên tối đa {MAX_IMAGES} ảnh (JPG, PNG, WebP).  Ảnh được hiển thị theo thứ tự, ảnh đầu tiên làm ảnh bìa.
-                       
+                        Tải lên tối đa {MAX_IMAGES} ảnh (JPG, PNG, WebP). Ảnh
+                        được hiển thị theo thứ tự, ảnh đầu tiên làm ảnh bìa.
                       </FormDescription>
                       <DndContext
                         sensors={sensors}
@@ -455,14 +534,15 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                         onDragEnd={handleDragEnd}
                       >
                         <SortableContext
-                          items={previews}
+                          items={sortableIds}
                           strategy={rectSortingStrategy}
                         >
                           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                            {previews.map((src, index) => (
+                            {previewItems.map((item, index) => (
                               <SortableImage
-                                key={src}
-                                src={src}
+                                key={item.id}
+                                id={item.id}
+                                src={item.src}
                                 index={index}
                                 removeImage={removeImage}
                               />
@@ -505,7 +585,25 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormLabel>Diện tích (m²)</FormLabel>
                       <FormControl>
                         <Input type="number" placeholder="45" {...field} />
-                      </FormControl>                      <FormMessage />
+                      </FormControl>{" "}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="commission"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hoa hồng</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="text"
+                          placeholder="Nhập hoa hồng, vd: 50%/12 tháng"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -590,10 +688,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                     <FormItem>
                       <FormLabel>Địa chỉ</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder=""
-                          {...field}
-                        />
+                        <Textarea placeholder="" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -618,9 +713,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         </div>
         <div className="flex items-center gap-4">
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            )}
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {apartment ? "Update" : "Create"} Apartment
           </Button>
           <Button variant="outline" asChild>

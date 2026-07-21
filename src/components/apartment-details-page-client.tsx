@@ -25,11 +25,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Apartment } from "@/lib/types";
 import ClientFormattedDate from "@/components/client-formatted-date";
-import { useUser } from "@/firebase/provider";
-import { useState, useEffect, useTransition, useRef } from "react";
+import { useAuth } from "@/context/auth-context";
+import { useState, useEffect, useRef } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
-import { checkFavoriteStatusAction, toggleFavoriteAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -45,7 +44,17 @@ import {
 } from "@/components/ui/dialog";
 // Import Firestore để tìm căn hộ gợi ý
 import { db } from "@/firebase";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  limit,
+  arrayUnion,
+  arrayRemove,
+  setDoc,
+  doc,
+} from "firebase/firestore";
 // IMPORT QUAN TRỌNG: Component Card có sẵn của bạn
 import ApartmentCard from "@/components/apartment-card";
 
@@ -83,7 +92,7 @@ function ShareModal({
       const url = encodeURIComponent(window.location.href);
       window.open(
         `https://www.facebook.com/sharer/sharer.php?u=${url}`,
-        "_blank"
+        "_blank",
       );
     }
   };
@@ -112,7 +121,7 @@ function ShareModal({
             <div
               className={cn(
                 "p-2 rounded-full text-white transition-colors",
-                copied ? "bg-green-500" : "bg-gray-400 group-hover:bg-gray-600"
+                copied ? "bg-green-500" : "bg-gray-400 group-hover:bg-gray-600",
               )}
             >
               {copied ? (
@@ -222,7 +231,7 @@ function RelatedApartments({
         const q = query(
           collection(db, "apartments"),
           where("district", "==", currentApartment.district),
-          limit(20)
+          limit(20),
         );
 
         const snapshot = await getDocs(q);
@@ -337,14 +346,14 @@ export default function ApartmentDetailsPageClient({
 }: {
   apartmentId: string;
 }) {
-  const { user, isUserLoading } = useUser();
+  const { user, userData, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
   const [apartment, setApartment] = useState<Apartment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
-  const [isFavLoading, startFavTransition] = useTransition();
+  const [isFavLoading, setIsFavLoading] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
@@ -354,23 +363,40 @@ export default function ApartmentDetailsPageClient({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLongContent, setIsLongContent] = useState(false);
   const descriptionRef = useRef<HTMLDivElement>(null);
+  const isCollaborator = userData?.role === "collaborator";
+
+  const formatCommission = (commissionValue: Apartment["commission"]) => {
+    if (
+      commissionValue === undefined ||
+      commissionValue === null ||
+      commissionValue === ""
+    ) {
+      return "--";
+    }
+    if (typeof commissionValue === "number") {
+      return commissionValue.toLocaleString("vi-VN");
+    }
+    return commissionValue;
+  };
 
   useEffect(() => {
     const fetchApartmentData = async () => {
       setIsLoading(true);
       const fetchedApartment = await getApartmentById(apartmentId);
       setApartment(fetchedApartment);
-      if (fetchedApartment && user) {
-        const { isFavorited } = await checkFavoriteStatusAction(
-          user.uid,
-          apartmentId
-        );
-        setIsFavorited(isFavorited);
-      }
       setIsLoading(false);
     };
     fetchApartmentData();
-  }, [apartmentId, user]);
+  }, [apartmentId]);
+
+  useEffect(() => {
+    if (!user) {
+      setIsFavorited(false);
+      return;
+    }
+    const currentFavorites = userData?.favorites ?? [];
+    setIsFavorited(currentFavorites.includes(apartmentId));
+  }, [user, userData?.favorites, apartmentId]);
 
   useEffect(() => {
     if (descriptionRef.current && apartment) {
@@ -388,22 +414,38 @@ export default function ApartmentDetailsPageClient({
       router.push("/login");
       return;
     }
-    startFavTransition(async () => {
-      const result = await toggleFavoriteAction({
-        userId: user.uid,
-        apartmentId,
-        isFavorited,
-      });
-      if (result.success) {
-        setIsFavorited(result.isFavorited);
+
+    setIsFavLoading(true);
+    const nextIsFavorited = !isFavorited;
+    setDoc(
+      doc(db, "users", user.uid),
+      {
+        favorites: nextIsFavorited
+          ? arrayUnion(apartmentId)
+          : arrayRemove(apartmentId),
+      },
+      { merge: true },
+    )
+      .then(() => {
+        setIsFavorited(nextIsFavorited);
         toast({
-          title: result.isFavorited
+          title: nextIsFavorited
             ? "Đã lưu vào danh sách yêu thích"
             : "Đã bỏ lưu",
           className: "bg-green-50 text-green-900 border-green-200",
         });
-      }
-    });
+      })
+      .catch((error) => {
+        console.error("Lỗi cập nhật yêu thích:", error);
+        toast({
+          variant: "destructive",
+          title: "Không thể lưu yêu thích",
+          description: "Vui lòng thử lại sau.",
+        });
+      })
+      .finally(() => {
+        setIsFavLoading(false);
+      });
   };
 
   const openLightbox = (index: number) => {
@@ -418,7 +460,7 @@ export default function ApartmentDetailsPageClient({
     setMobileIndex(index);
   };
 
-  if (isLoading || isUserLoading) {
+  if (isLoading || authLoading) {
     return (
       <>
         <Header />
@@ -499,7 +541,7 @@ export default function ApartmentDetailsPageClient({
                       "relative cursor-pointer hover:brightness-90 transition-all duration-500",
                       idx === 0
                         ? "col-span-2 row-span-2"
-                        : "col-span-1 row-span-1"
+                        : "col-span-1 row-span-1",
                     )}
                     onClick={() => openLightbox(idx)}
                   >
@@ -520,12 +562,13 @@ export default function ApartmentDetailsPageClient({
 
               <button
                 onClick={handleFavoriteToggle}
+                disabled={isFavLoading}
                 className="md:hidden absolute top-4 right-4 z-10 p-3 bg-white/90 backdrop-blur-md rounded-full shadow-sm active:scale-95 transition-all"
               >
                 <Heart
                   className={cn(
                     "h-5 w-5",
-                    isFavorited ? "fill-red-500 text-red-500" : "text-gray-700"
+                    isFavorited ? "fill-red-500 text-red-500" : "text-gray-700",
                   )}
                 />
               </button>
@@ -586,8 +629,12 @@ export default function ApartmentDetailsPageClient({
                   />
                   <InfoBox
                     icon={MapPin}
-                    label="Khu vực"
-                    value={apartment.district}
+                    label={isCollaborator ? "Hoa hồng" : "Khu vực"}
+                    value={
+                      isCollaborator
+                        ? formatCommission(apartment.commission)
+                        : apartment.district
+                    }
                   />
                   <InfoBox
                     icon={Hash}
@@ -608,7 +655,7 @@ export default function ApartmentDetailsPageClient({
                       "prose prose-lg prose-gray max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap font-body transition-all duration-500 overflow-hidden",
                       !isExpanded && isLongContent
                         ? "max-h-[250px]"
-                        : "max-h-none"
+                        : "max-h-none",
                     )}
                   >
                     {apartment.details}
@@ -688,17 +735,18 @@ export default function ApartmentDetailsPageClient({
                       </a>
                       <button
                         onClick={handleFavoriteToggle}
+                        disabled={isFavLoading}
                         className={cn(
                           "hidden lg:flex items-center justify-center w-full py-4 rounded-2xl border-2 font-bold uppercase tracking-widest transition-all group gap-2 text-xs",
                           isFavorited
                             ? "border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300"
-                            : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-primary hover:text-primary"
+                            : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-primary hover:text-primary",
                         )}
                       >
                         <Heart
                           className={cn(
                             "h-5 w-5 transition-transform group-hover:scale-110",
-                            isFavorited && "fill-current"
+                            isFavorited && "fill-current",
                           )}
                         />
                         {isFavorited ? "Đã lưu tin" : "Lưu tin này"}

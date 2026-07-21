@@ -2,7 +2,7 @@
 
 import { getApartmentById } from "@/lib/data-client";
 import { notFound } from "next/navigation";
-import { useEffect, useState, use } from "react"; // 1. Thêm import 'use'
+import { useEffect, useState, use } from "react";
 import { Apartment } from "@/lib/types";
 import dynamic from "next/dynamic";
 import ApartmentFormSkeleton from "@/components/apartment-form-skeleton";
@@ -13,20 +13,18 @@ const ApartmentForm = dynamic(() => import("@/components/apartment-form"), {
 });
 
 type EditApartmentPageProps = {
-  params: Promise<{ id: string }>; // 2. Đổi type params thành Promise
+  params: Promise<{ id: string }>;
 };
 
 export default function EditApartmentPage({ params }: EditApartmentPageProps) {
-  // 3. Giải nén params bằng hook use()
   const { id } = use(params);
 
   const [apartment, setApartment] = useState<Apartment | null | undefined>(
-    undefined
+    undefined,
   );
 
   useEffect(() => {
     async function fetchApartment() {
-      // 4. Dùng id đã giải nén
       const data = await getApartmentById(id);
       setApartment(data);
     }

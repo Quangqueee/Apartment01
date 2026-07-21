@@ -19,6 +19,7 @@ import { initializeFirebase } from "@/firebase";
 import { Apartment, UserProfile } from "./types";
 import { toApartment } from "./data"; // Assuming toApartment can be used on client
 import { removeVietnameseTones } from "./utils";
+import { isPriceInRange, parsePriceRange } from "./price-range";
 
 
 // Initialize Firebase on the client
@@ -58,7 +59,7 @@ export async function getApartments(
   } = {}
 ) {
   const {
-    query: searchQuery, 
+    query: searchQuery,
     district,
     priceRange,
     roomType,
@@ -78,9 +79,9 @@ export async function getApartments(
   if (roomType) {
     whereClauses.push(where("roomType", "==", roomType));
   }
-  
+
   if (whereClauses.length > 0) {
-      baseQuery = query(baseQuery, ...whereClauses);
+    baseQuery = query(baseQuery, ...whereClauses);
   }
 
   // Initial fetch from Firestore
@@ -89,16 +90,10 @@ export async function getApartments(
 
   // --- Client-side Price Filtering with rounding logic ---
   if (priceRange) {
-    const [min, max] = priceRange.split("-");
-    const minPrice = min ? parseInt(min, 10) : 0;
-    const maxPrice = max ? parseInt(max, 10) : Infinity;
-
-    allMatchingApartments = allMatchingApartments.filter(apt => {
-        const roundedPrice = Math.floor(apt.price);
-        const meetsMin = minPrice > 0 ? roundedPrice >= minPrice : true;
-        const meetsMax = maxPrice !== Infinity ? roundedPrice <= maxPrice : true;
-        return meetsMin && meetsMax;
-    });
+    const parsedRange = parsePriceRange(priceRange);
+    allMatchingApartments = allMatchingApartments.filter((apt) =>
+      isPriceInRange(apt.price, parsedRange)
+    );
   }
 
   // --- Client-side Text Search ---
@@ -123,10 +118,10 @@ export async function getApartments(
   } else if (sortBy === 'price-desc') {
     allMatchingApartments.sort((a, b) => b.price - a.price);
   } else { // 'newest' or default
-     allMatchingApartments.sort((a, b) => {
-        const dateA = a.updatedAt.seconds > 0 ? a.updatedAt : a.createdAt;
-        const dateB = b.updatedAt.seconds > 0 ? b.updatedAt : b.createdAt;
-        return dateB.seconds - dateA.seconds;
+    allMatchingApartments.sort((a, b) => {
+      const dateA = a.updatedAt.seconds > 0 ? a.updatedAt : a.createdAt;
+      const dateB = b.updatedAt.seconds > 0 ? b.updatedAt : b.createdAt;
+      return dateB.seconds - dateA.seconds;
     });
   }
 
@@ -136,9 +131,9 @@ export async function getApartments(
   const endIndex = startIndex + pageSize;
   const paginatedApartments = allMatchingApartments.slice(startIndex, endIndex);
 
-  return { 
-      apartments: paginatedApartments, 
-      totalResults,
+  return {
+    apartments: paginatedApartments,
+    totalResults,
   };
 }
 
@@ -172,7 +167,7 @@ export async function getFullFavoriteApartments(userId: string): Promise<Apartme
   const q = query(favoritesCol, orderBy("addedAt", "desc"));
   const snapshot = await getDocs(q);
   const favoriteIds = snapshot.docs.map(doc => doc.id);
-  
+
   if (favoriteIds.length === 0) return [];
 
   const apartmentPromises = favoriteIds.map(id => getApartmentById(id));
