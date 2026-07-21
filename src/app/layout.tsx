@@ -6,9 +6,41 @@ import MobileNav from "@/components/mobile-nav";
 import MultiContact from "@/components/multi-contact";
 
 export const metadata: Metadata = {
-  title: "Hanoi Residences | Premium Apartments",
-  description: "Premium apartments for rent in Hanoi",
+  title: "Hanoi Residences | Căn hộ cho thuê cao cấp tại Hà Nội",
+  description:
+    "Tìm thuê căn hộ dịch vụ cao cấp tại Hà Nội: Studio, 1-2 phòng ngủ tại Tây Hồ, Ba Đình, Cầu Giấy, Đống Đa. Nội thất đầy đủ, giá từ 5 triệu/tháng. Hỗ trợ 24/7.",
+  keywords:
+    "cho thuê căn hộ Hà Nội, căn hộ dịch vụ Hà Nội, căn hộ studio cho thuê, thuê nhà Tây Hồ, thuê nhà Ba Đình, thuê nhà Cầu Giấy, căn hộ 1 phòng ngủ Hà Nội, căn hộ full nội thất Hà Nội, chung cư cho thuê Hà Nội",
   icons: { icon: "/favicon.ico" },
+  openGraph: {
+    title: "Hanoi Residences | Căn hộ cho thuê cao cấp tại Hà Nội",
+    description:
+      "Khám phá hàng trăm căn hộ dịch vụ cao cấp tại Hà Nội. Nội thất đầy đủ, an ninh 24/7, sẵn sàng chuyển vào ngay.",
+    url: "https://hanoiresidences.com",
+    siteName: "Hanoi Residences",
+    locale: "vi_VN",
+    type: "website",
+    images: [
+      {
+        url: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80",
+        width: 1200,
+        height: 630,
+        alt: "Hanoi Residences — Căn hộ cho thuê cao cấp Hà Nội",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hanoi Residences | Căn hộ cho thuê cao cấp tại Hà Nội",
+    description:
+      "Tìm thuê căn hộ cao cấp tại Hà Nội — Nội thất đầy đủ, giá tốt, hỗ trợ 24/7.",
+    images: [
+      "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80",
+    ],
+  },
+  alternates: {
+    canonical: "https://hanoiresidences.com",
+  },
 };
 
 export default function RootLayout({

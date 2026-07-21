@@ -1,5 +1,6 @@
 "use client";
 import { useUser, useAuth } from "@/firebase/provider";
+import { useAuth as useAuthContext } from "@/context/auth-context";
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import {
@@ -18,10 +19,11 @@ import Header from "@/components/header";
 import Footer from "@/components/footer";
 import MobileNav from "@/components/mobile-nav";
 import Link from "next/link";
+import CollaboratorSection from "@/components/collaborator-section";
 
 export default function ProfilePage() {
   const { user, isUserLoading } = useUser() as any;
-  const userData = (useUser() as any).userData;
+  const { userData } = useAuthContext();
   const auth = useAuth();
   const router = useRouter();
 
@@ -189,6 +191,9 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* KHỐI ĐĂNG KÝ CTV — ẩn khi đã là collaborator/admin */}
+        <CollaboratorSection />
       </main>
       <Footer />
       <MobileNav />

@@ -52,53 +52,70 @@ export default function ImageLightbox({
   const handleDownload = async () => {
     if (!images || images.length === 0) return;
 
+    // Phát hiện thiết bị mobile (touch screen hoặc màn nhỏ)
+    const isMobile =
+      typeof window !== "undefined" &&
+      (window.innerWidth < 768 || navigator.maxTouchPoints > 1);
+
     setIsDownloading(true);
-    toast({
-      title: "Bắt đầu tải xuống...",
-      description: `Chuẩn bị tải ${images.length} ảnh.`,
-    });
+
+    // Hàm tải một ảnh duy nhất
+    const downloadSingleImage = async (imageUrl: string, idx: number) => {
+      try {
+        const proxyUrl = `/api/download-image?url=${encodeURIComponent(imageUrl)}`;
+        const response = await fetch(proxyUrl);
+        if (!response.ok) return;
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        const fileName =
+          imageUrl.split("/").pop()?.split("?")[0] || `image-${idx + 1}.jpg`;
+        link.setAttribute("download", fileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        // Trì hoãn ngắn để trình duyệt xử lý xong trước khi revoke
+        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+      } catch (err) {
+        console.error(`Lỗi tải ảnh ${idx + 1}:`, err);
+      }
+    };
 
     try {
-      // Loop through all images and trigger download for each
-      for (let i = 0; i < images.length; i++) {
-        const imageUrl = images[i];
-        const proxyUrl = `/api/download-image?url=${encodeURIComponent(imageUrl)}`;
-        
-        try {
-          const response = await fetch(proxyUrl);
-          if (!response.ok) {
-            console.warn(`Could not download image ${i + 1}: ${response.statusText}`);
-            continue; // Skip to the next image if one fails
+      if (isMobile) {
+        // Mobile: Chỉ tải ảnh đang xem (trình duyệt mobile chặn tải đồng loạt)
+        toast({
+          title: "Đang tải ảnh...",
+          description: `Tải ảnh ${currentSlide + 1} / ${images.length}`,
+        });
+        await downloadSingleImage(images[currentSlide], currentSlide);
+        toast({
+          title: "Hoàn tất!",
+          description: "Ảnh đã được tải xuống.",
+          duration: 2000,
+        });
+      } else {
+        // Desktop: Tải tất cả ảnh tuần tự với delay nhỏ
+        toast({
+          title: "Bắt đầu tải xuống...",
+          description: `Chuẩn bị tải ${images.length} ảnh.`,
+        });
+        for (let i = 0; i < images.length; i++) {
+          await downloadSingleImage(images[i], i);
+          // Delay 300ms giữa các lần tải để trình duyệt không bị chặn
+          if (i < images.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
           }
-
-          const blob = await response.blob();
-          const blobUrl = window.URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = blobUrl;
-          const fileName =
-            imageUrl.split("/").pop()?.split("?")[0] || `image-${i + 1}.jpg`;
-          link.setAttribute("download", fileName);
-          document.body.appendChild(link);
-          link.click();
-
-          // Cleanup
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(blobUrl);
-
-        } catch (fetchError) {
-           console.error(`Error fetching image ${i + 1}:`, fetchError);
-           // Continue to the next image
         }
+        toast({
+          title: "Hoàn tất!",
+          description: "Tất cả ảnh đã được tải xuống.",
+          duration: 3000,
+        });
       }
-
-      toast({
-        title: "Hoàn tất!",
-        description: "Tất cả ảnh đã được yêu cầu tải xuống.",
-        duration: 3000,
-      });
-
     } catch (error) {
-      console.error("Download process failed:", error);
+      console.error("Lỗi tải ảnh:", error);
       toast({
         variant: "destructive",
         title: "Lỗi",
