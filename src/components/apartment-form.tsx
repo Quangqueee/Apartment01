@@ -139,7 +139,8 @@ const SortableImage = React.memo(function SortableImage({
         type="button"
         variant="destructive"
         size="icon"
-        className="absolute right-1 top-1 z-10 h-6 w-6"
+        className="absolute right-1 top-1 z-10 h-6 w-6 color-red-500 p-0 text-red-500 hover:bg-red-500/10"
+        onPointerDown={(e) => e.stopPropagation()} // Fix: Ngăn sự kiện kéo-thả của danh sách bị kích hoạt khi nhấn nút xóa
         onClick={(e) => {
           e.stopPropagation(); // Ngăn sự kiện kéo-thả của danh sách bị kích hoạt
           removeImage(id);
@@ -241,7 +242,9 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 1 }, // 👈 phải kéo tối thiểu 8px mới tính là drag
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
