@@ -31,7 +31,9 @@ export async function generateMetadata({
 
   const title = `${apartment.title} - ${apartment.district} | Hanoi Residences`;
   const description = (
-    apartment.listingSummary || apartment.details || ""
+    apartment.listingSummary ||
+    apartment.details ||
+    ""
   ).slice(0, 155);
   const primaryImage = apartment.imageUrls?.[0] || "/default-og-image.png";
 
@@ -67,6 +69,8 @@ export async function generateMetadata({
       "căn hộ cho người nước ngoài",
       "căn hộ cho người nước ngoài tại hà nội",
       "căn hộ cho thuê giá rẻ",
+      "cho thuê căn hộ cao cấp",
+      "cho thuê căn hộ trung tâm hà nội",
       "căn hộ cho thuê cao cấp",
       "căn hộ cho thuê trung tâm hà nội",
       "căn hộ cho thuê gần trung tâm hà nội",

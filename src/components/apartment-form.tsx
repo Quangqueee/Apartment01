@@ -50,7 +50,9 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  // Dùng MouseSensor và TouchSensor thay cho PointerSensor để hỗ trợ kéo-thả trên mobile
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -99,6 +101,10 @@ const formSchema = z.object({
     ),
 });
 
+// Khai báo type alias để tái sử dụng và truyền đủ 3 generic cho useForm,
+// tránh lỗi TypeScript với react-hook-form v7.54+ (TTransformedValues)
+type FormSchema = z.infer<typeof formSchema>;
+
 type SortableImageProps = {
   id: string;
   src: string;
@@ -116,23 +122,26 @@ const SortableImage = React.memo(function SortableImage({
     useSortable({ id });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    // Dùng Translate thay vì Transform để tránh scale gây giật khi kéo trên desktop
+    transform: CSS.Translate.toString(transform),
     transition,
+    // Gợi ý browser dùng GPU composite layer khi đang kéo, tránh repaint gây giật
+    willChange: transform ? "transform" : undefined,
   };
 
   return (
+    // touch-none: ngăn trình duyệt mobile chiếm quyền xử lý sự kiện chạm, giúp kéo-thả hoạt động đúng
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
-      className="relative aspect-video"
+      className="relative aspect-video touch-none"
     >
-      <Image
+      <img
         src={src}
         alt={`Preview ${index + 1}`}
-        fill
-        className="rounded-md object-cover"
+        className="h-full w-full rounded-md object-cover pointer-events-none [-webkit-touch-callout:none]"
         draggable={false}
       />
       <Button
@@ -242,15 +251,23 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 1 }, // 👈 phải kéo tối thiểu 8px mới tính là drag
+    // MouseSensor: kéo-thả trên desktop, kích hoạt khi di chuyển chuột ít nhất 5px
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    // TouchSensor: kéo-thả trên mobile, yêu cầu nhấn giữ 250ms trước khi kéo
+    // giúp người dùng vẫn cuộn trang bình thường mà không vô tình kéo ảnh
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  // Truyền đủ 3 generic <FormSchema, unknown, FormSchema> để TypeScript giải được
+  // TTransformedValues — fix toàn bộ lỗi "Control<..., TFieldValues>" trên các FormField
+  const form = useForm<FormSchema, unknown, FormSchema>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: apartment?.title || "",
@@ -259,7 +276,9 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       district: apartment?.district || "",
       area: apartment?.area || 0,
       price: apartment?.price || 0,
-      commission: apartment?.commission || "",
+      // Ép kiểu về string vì Apartment.commission có thể là number | string | undefined
+      commission:
+        apartment?.commission !== undefined ? String(apartment.commission) : "",
       details: apartment?.details || "",
       listingSummary: apartment?.listingSummary || "",
       address: apartment?.address || "",
@@ -608,7 +627,8 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                           items={sortableIds}
                           strategy={rectSortingStrategy}
                         >
-                          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                          {/* Thêm touch-none và select-none vào tầng container cha để iOS không nuốt sự kiện cuộn */}
+                          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 touch-none select-none">
                             {previewItems.map((item, index) => (
                               <SortableImage
                                 key={item.id}
@@ -670,7 +690,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormControl>
                         <Input
                           type="text"
-                          placeholder="Nhập hoa hồng, vd: 50%/12 tháng"
+                          placeholder="VD. 50%/12th"
                           {...field}
                         />
                       </FormControl>

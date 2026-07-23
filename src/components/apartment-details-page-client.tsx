@@ -541,6 +541,7 @@ export default function ApartmentDetailsPageClient({
         selectedIndex={lightboxIndex}
         isOpen={lightboxOpen}
         onClose={() => setLightboxOpen(false)}
+        apartmentCode={apartment.sourceCode}
       />
 
       <ShareModal
