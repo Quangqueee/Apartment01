@@ -1,4 +1,4 @@
-/* Import font chữ gốc của bạn để đảm bảo không bị lỗi hiển thị */
+/* Import font chữ gốc */
 @import url('https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap');
 
 @tailwind base;
@@ -11,7 +11,6 @@ html {
 
 @layer base {
   :root {
-    /* Giữ nguyên hệ màu kem/khaki sang trọng của bạn */
     --background: 40 50% 98%;
     --foreground: 20 14% 4%;
 
@@ -19,7 +18,6 @@ html {
     --card-foreground: 20 14% 4%;
 
     --primary: 47 31% 63%;
-    /* Màu vàng đồng thương hiệu */
     --primary-foreground: 20 14% 4%;
 
     --secondary: 60 56% 92%;
@@ -29,7 +27,6 @@ html {
     --border: 60 20% 88%;
     --input: 60 20% 90%;
 
-    /* SỬA: Giảm bo góc từ 2.5rem xuống 0.75rem để nhìn hiện đại hơn */
     --radius: 0.75rem;
   }
 
@@ -39,11 +36,9 @@ html {
 
   body {
     font-family: 'PT Sans', sans-serif;
-    /* Font chữ cũ của bạn */
     @apply bg-background text-foreground antialiased;
   }
 
-  /* Định nghĩa font Headline cho các tiêu đề lớn */
   h1,
   h2,
   h3,
@@ -53,7 +48,6 @@ html {
   }
 }
 
-/* Hiệu ứng chuyển cảnh mượt mà cho các card và nút */
 .transition-luxury {
   @apply transition-all duration-300 ease-in-out;
 }

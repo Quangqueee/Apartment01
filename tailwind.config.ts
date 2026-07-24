@@ -10,17 +10,15 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        // ĐÃ SỬA: Bổ sung thêm hệ thống font dự phòng không chân (Inter, system-ui, Segoe UI, Roboto)
-        // để hỗ trợ hiển thị tiếng Việt cực kỳ sắc nét, chống lỗi dấu và mượt mà trên mọi thiết bị.
         body: [
-          "PT Sans",
+          "Be Vietnam Pro",
           "Inter",
           "system-ui",
           "-apple-system",
           "BlinkMacSystemFont",
           '"Segoe UI"',
           "Roboto",
-          "sans-serif"
+          "sans-serif",
         ],
         headline: ["Playfair Display", "serif"],
       },
