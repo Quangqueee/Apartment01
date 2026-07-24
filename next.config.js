@@ -7,7 +7,7 @@ const nextConfig = {
   experimental: {
     // FIX: Thêm đoạn này vào để tăng giới hạn upload
     serverActions: {
-      bodySizeLimit: '100mb', // Tăng lên 50MB (hoặc '100mb' nếu cần nhiều hơn)
+      bodySizeLimit: '150mb', // bodySize giới hạn upload
     },
     // turbopack: {
     //   // This helps Turbopack locate the project root...

@@ -67,8 +67,9 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useRouter } from "next/navigation"; // Fix upload xong trở về trang trước đó, thay vì luôn chuyển về /admin
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 7 * 1024 * 1024; // 7MB
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/jpg",
@@ -219,7 +220,8 @@ const compressImage = (file: File): Promise<string> => {
         ctx?.drawImage(img, 0, 0, width, height);
 
         // Chuyển ảnh sang data URL đã nén để giữ payload ở mức nhẹ nhất có thể.
-        const dataUrl = canvas.toDataURL(file.type, IMAGE_QUALITY);
+        // const dataUrl = canvas.toDataURL(file.type, IMAGE_QUALITY);
+        const dataUrl = canvas.toDataURL("image/webp", IMAGE_QUALITY);
         resolve(dataUrl);
       };
       img.onerror = reject;
@@ -242,6 +244,7 @@ const getPreviewSources = (previewItems: PreviewItem[]) =>
 
 export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const { toast } = useToast();
+  const router = useRouter(); // Fix upload xong trở về trang trước đó, thay vì luôn chuyển về /admin
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -465,8 +468,16 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         title: "Error",
         description: result.error,
       });
+      setIsSubmitting(false); //
+      return;
     }
-    setIsSubmitting(false);
+    // Nếu thành công, hiển thị thông báo và điều hướng về trang danh sách căn hộ
+    toast({
+      title: "Thành công",
+      description: apartment ? "Đã cập nhật căn hộ." : "Đã thêm căn hộ mới.",
+      duration: 1000, // Hiển thị trong 1 giây)
+    });
+    router.push(`/${ADMIN_PATH}/apartments`);
   }
 
   const handleGenerateSummary = async () => {

@@ -199,7 +199,8 @@ export async function createOrUpdateApartmentAction(
   if (apartmentId) {
     revalidatePath(`/apartments/${apartmentId}`);
   }
-  redirect(`/${ADMIN_PATH}`);
+  // redirect(`/${ADMIN_PATH}`);
+  return { success: true };
 }
 
 export async function deleteApartmentAction(id: string) {

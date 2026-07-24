@@ -13,6 +13,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 // Thêm icon mới: BarChart3 (Doanh thu), ShieldCheck (Phân quyền), BedDouble (Phòng)
 import {
@@ -231,6 +232,15 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
       {/* QUAN TRỌNG: Nền trắng đặc cho nội dung chính */}
       <SidebarInset className="bg-gray-50 min-h-screen">
+        {/* THÊM ĐOẠN HEADER NÀY */}
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-gray-200 bg-white px-4 shadow-sm md:hidden">
+          <SidebarTrigger className="h-10 w-10 rounded-md border border-gray-200 bg-gray-50 text-gray-700 transition-all hover:bg-gray-100 active:scale-95" />
+          <span className="font-headline text-lg font-bold text-[#cda533]">
+            Hanoi Residences
+          </span>
+        </header>
+        {/* KẾT THÚC THÊM */}
+
         <div className="p-4 md:p-8 w-full max-w-[1600px] mx-auto">
           {children}
         </div>

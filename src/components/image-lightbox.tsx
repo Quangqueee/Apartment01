@@ -77,47 +77,66 @@ export default function ImageLightbox({
 
     setIsDownloading(true);
 
-    // 1. Toast khởi tạo (Đã ép chiều rộng tối thiểu min-w để thanh progress không bị cụt)
-    const { id, update } = toast({
+    const { id, update, dismiss } = toast({
       title: "Đang chuẩn bị tải xuống...",
-      description: (
-        <div className="mt-3 w-full min-w-[280px] sm:min-w-[340px] flex flex-col gap-2">
-          <p className="text-sm font-medium text-gray-600">
-            Đang nén {images.length} ảnh. Vui lòng chờ trong giây lát.
-          </p>
-          <Progress value={0} className="h-2 w-full bg-gray-100" />
-        </div>
-      ),
       duration: 100000,
       className:
-        "bg-white text-gray-800 border border-[#cda533]/30 shadow-[0_20px_50px_rgba(205,165,51,0.15)] rounded-[1.5rem] px-6 py-4 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-90 data-[state=open]:duration-500",
+        "w-full [&>div]:flex-1 bg-white text-gray-800 border border-[#cda533]/30 shadow-[0_20px_50px_rgba(205,165,51,0.15)] rounded-[1.5rem] px-6 py-4 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-90 data-[state=open]:duration-500",
+      description: (
+        <div className="mt-3 w-full flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between items-center text-xs font-medium text-gray-500">
+              <span>Đang lấy dữ liệu (0/{images.length})</span>
+              <span>0%</span>
+            </div>
+            <Progress value={0} className="h-1.5 w-full bg-gray-100" />
+          </div>
+          <div className="flex flex-col gap-1.5 opacity-50">
+            <div className="flex justify-between items-center text-xs font-medium text-gray-400">
+              <span>Đang chờ nén tệp...</span>
+              <span>0%</span>
+            </div>
+            <Progress value={0} className="h-1.5 w-full bg-gray-100" />
+          </div>
+        </div>
+      ),
     });
 
     try {
       const zip = new JSZip();
       let hasError = false;
 
-      // 2. Vòng lặp tải ảnh ngầm (0% -> 50%)
       for (let i = 0; i < images.length; i++) {
         const imageUrl = images[i];
         const proxyUrl = `/api/download-image?url=${encodeURIComponent(imageUrl)}`;
 
-        const fetchProgress = Math.round(((i + 1) / images.length) * 50);
+        const downloadPercent = Math.round(((i + 1) / images.length) * 100);
 
         update({
           id,
+          title: "Đang tải ảnh xuống...",
+          className: "w-full [&>div]:flex-1",
           description: (
-            <div className="mt-3 w-full min-w-[280px] sm:min-w-[340px] flex flex-col gap-2">
-              <div className="flex justify-between items-center text-sm font-medium text-gray-600">
-                <span>
-                  Đang tải tệp {i + 1}/{images.length}
-                </span>
-                <span className="text-[#cda533]">{fetchProgress}%</span>
+            <div className="mt-3 w-full flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs font-medium text-gray-600">
+                  <span>
+                    Tải ảnh ({i + 1}/{images.length})
+                  </span>
+                  <span className="text-[#cda533]">{downloadPercent}%</span>
+                </div>
+                <Progress
+                  value={downloadPercent}
+                  className="h-1.5 w-full bg-gray-100 [&>div]:bg-[#cda533]"
+                />
               </div>
-              <Progress
-                value={fetchProgress}
-                className="h-2 w-full bg-gray-100 [&>div]:bg-[#cda533]"
-              />
+              <div className="flex flex-col gap-1.5 opacity-50">
+                <div className="flex justify-between items-center text-xs font-medium text-gray-400">
+                  <span>Đang chờ nén tệp...</span>
+                  <span>0%</span>
+                </div>
+                <Progress value={0} className="h-1.5 w-full bg-gray-100" />
+              </div>
             </div>
           ),
         });
@@ -131,7 +150,7 @@ export default function ImageLightbox({
 
           const blob = await response.blob();
           const prefix = apartmentCode || "can-ho";
-          const fileName = `${prefix}-${i + 1}.jpg`;
+          const fileName = `${prefix}-${i + 1}.webp`;
 
           zip.file(fileName, blob);
         } catch (fetchError) {
@@ -140,21 +159,35 @@ export default function ImageLightbox({
         }
       }
 
-      // 3. Quá trình nén ZIP (50% -> 100%)
       const zipBlob = await zip.generateAsync({ type: "blob" }, (metadata) => {
-        const totalProgress = 50 + Math.round(metadata.percent / 2);
+        const compressPercent = Math.round(metadata.percent);
+
         update({
           id,
+          title: "Đang xử lý file nén...",
+          className: "w-full [&>div]:flex-1",
           description: (
-            <div className="mt-3 w-full min-w-[280px] sm:min-w-[340px] flex flex-col gap-2">
-              <div className="flex justify-between items-center text-sm font-medium text-gray-600">
-                <span>Đang nén dữ liệu...</span>
-                <span className="text-[#cda533]">{totalProgress}%</span>
+            <div className="mt-3 w-full flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs font-medium text-gray-600">
+                  <span>Tải ảnh (Hoàn tất)</span>
+                  <span className="text-green-600">100%</span>
+                </div>
+                <Progress
+                  value={100}
+                  className="h-1.5 w-full bg-gray-100 [&>div]:bg-green-500"
+                />
               </div>
-              <Progress
-                value={totalProgress}
-                className="h-2 w-full bg-gray-100 [&>div]:bg-[#cda533]"
-              />
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs font-medium text-gray-600">
+                  <span>Đang nén tệp ZIP</span>
+                  <span className="text-[#cda533]">{compressPercent}%</span>
+                </div>
+                <Progress
+                  value={compressPercent}
+                  className="h-1.5 w-full bg-gray-100 [&>div]:bg-[#cda533]"
+                />
+              </div>
             </div>
           ),
         });
@@ -162,7 +195,6 @@ export default function ImageLightbox({
 
       const zipUrl = window.URL.createObjectURL(zipBlob);
 
-      // 4. Kích hoạt tải file xuống máy
       const link = document.createElement("a");
       link.href = zipUrl;
       const dateString = new Date().toISOString().split("T")[0];
@@ -178,35 +210,73 @@ export default function ImageLightbox({
         window.URL.revokeObjectURL(zipUrl);
       }, 150);
 
-      // 5. Toast hoàn tất
-      update({
-        id,
-        title: "Hoàn tất!",
-        description: (
-          <p className="mt-2 text-sm font-medium">
-            {hasError
-              ? "Đã nén xong, nhưng có vài ảnh bị lỗi."
-              : "Toàn bộ ảnh đã được nén và tải về máy."}
-          </p>
-        ),
-        duration: 3000,
-        className:
-          "bg-green-50 text-green-700 border border-green-300 shadow-[0_20px_50px_rgba(34,197,94,0.25)] rounded-[1.5rem] px-6 py-4",
-      });
+      let countdown = 3;
+
+      const renderSuccessToast = (timeLeft: number) => {
+        update({
+          id,
+          title: "Hoàn tất!",
+          description: (
+            <div className="mt-2 flex flex-col gap-1.5">
+              <p className="text-sm font-medium">
+                {hasError
+                  ? "Đã nén xong, nhưng có vài ảnh bị lỗi."
+                  : "Toàn bộ ảnh đã được nén và tải về máy."}
+              </p>
+              <p className="text-xs text-green-700/60 text-right italic animate-pulse">
+                Tự động đóng sau {timeLeft}s...
+              </p>
+            </div>
+          ),
+          className:
+            "w-full [&>div]:flex-1 bg-green-50 text-green-700 border border-green-300 shadow-[0_20px_50px_rgba(34,197,94,0.25)] rounded-[1.5rem] px-6 py-4",
+        });
+      };
+
+      renderSuccessToast(countdown);
+
+      const interval = setInterval(() => {
+        countdown -= 1;
+        if (countdown <= 0) {
+          clearInterval(interval);
+          dismiss();
+        } else {
+          renderSuccessToast(countdown);
+        }
+      }, 1000);
     } catch (error) {
-      console.error("Quá trình tạo file ZIP thất bại:", error);
-      update({
-        id,
-        title: "Lỗi hệ thống",
-        description: (
-          <p className="mt-2 text-sm font-medium">
-            Đã xảy ra lỗi trong quá trình tạo file nén. Vui lòng thử lại.
-          </p>
-        ),
-        duration: 3000,
-        className:
-          "bg-red-50 text-red-600 border border-red-100 rounded-[1.5rem] shadow-[0_20px_50px_rgba(239,68,68,0.1)] px-6 py-4",
-      });
+      let errCountdown = 3;
+
+      const renderErrorToast = (timeLeft: number) => {
+        update({
+          id,
+          title: "Lỗi hệ thống",
+          description: (
+            <div className="mt-2 flex flex-col gap-1.5">
+              <p className="text-sm font-medium">
+                Đã xảy ra lỗi trong quá trình tạo file nén. Vui lòng thử lại.
+              </p>
+              <p className="text-xs text-red-600/60 text-right italic animate-pulse">
+                Tự động đóng sau {timeLeft}s...
+              </p>
+            </div>
+          ),
+          className:
+            "w-full [&>div]:flex-1 bg-red-50 text-red-600 border border-red-100 rounded-[1.5rem] shadow-[0_20px_50px_rgba(239,68,68,0.1)] px-6 py-4",
+        });
+      };
+
+      renderErrorToast(errCountdown);
+
+      const errInterval = setInterval(() => {
+        errCountdown -= 1;
+        if (errCountdown <= 0) {
+          clearInterval(errInterval);
+          dismiss();
+        } else {
+          renderErrorToast(errCountdown);
+        }
+      }, 1000);
     } finally {
       setIsDownloading(false);
     }

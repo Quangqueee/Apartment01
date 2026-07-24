@@ -143,11 +143,11 @@ export default function ProfileEditPage() {
                     const file = e.target.files?.[0];
                     if (!file || !user) return;
 
-                    // Validate ảnh < 5MB
-                    if (file.size > 5 * 1024 * 1024) {
+                    // Validate ảnh < 10MB
+                    if (file.size > 10 * 1024 * 1024) {
                       toast({
                         variant: "destructive",
-                        title: "Ảnh quá lớn (>5MB)",
+                        title: "Ảnh quá lớn (>10MB)",
                       });
                       return;
                     }

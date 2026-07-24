@@ -464,7 +464,7 @@ export default function UsersPage() {
                     ) : (
                       <>
                         <CheckCircle2 className="h-4 w-4 mr-1" />
-                        Duyệt CTV
+                        Phê Duyệt CTV
                       </>
                     )}
                   </Button>
