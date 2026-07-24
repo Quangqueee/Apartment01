@@ -16,8 +16,6 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      // Bỏ w-full và 100vw đi.
-      // Cố định chiều rộng vừa đẹp: 360px trên mobile, 420px trên PC.
       "fixed top-0 left-1/2 z-[100] flex max-h-screen -translate-x-1/2 flex-col-reverse p-4 w-[360px] max-w-[95vw] sm:w-[420px]",
       className,
     )}

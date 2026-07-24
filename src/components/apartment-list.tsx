@@ -138,13 +138,14 @@ export default function ApartmentList({
               <Button
                 onClick={loadMoreApartments}
                 disabled={isLoading}
-                variant="outline"
-                className="min-w-[150px]"
+                className="relative px-10 py-6 rounded-full bg-gradient-to-r from-[#cfb56f] to-[#b88e22] hover:from-[#d6b03f] hover:to-[#d3ac42] text-white font-semibold tracking-wide shadow-[0_10px_30px_rgba(205,165,51,0.3)] hover:shadow-[0_15px_35px_rgba(205,165,51,0.45)] transition-all duration-300 ease-out hover:scale-105 active:scale-85 border-none min-w-[210px] cursor-pointer"
               >
                 {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  "Xem thêm"
+                  <span className="text-sm font-bold tracking-wider antialiased drop-shadow-sm transition-transform duration-300">
+                    Xem thêm căn hộ
+                  </span>
                 )}
               </Button>
             </div>

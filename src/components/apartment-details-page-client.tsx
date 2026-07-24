@@ -705,30 +705,32 @@ export default function ApartmentDetailsPageClient({
               </div>
 
               <div className="pb-12 border-b border-gray-100 mb-8">
-                <h3 className="font-headline text-2xl font-bold text-gray-900 mb-6">
+                <h3 className="font-headline text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <span className="w-1.5 h-6 bg-[#cda533] rounded-full inline-block"></span>
                   Thông tin mô tả
                 </h3>
                 <div className="relative">
                   <div
                     ref={descriptionRef}
                     className={cn(
-                      "prose prose-lg prose-gray max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap font-body transition-all duration-500 overflow-hidden",
+                      // Thêm các lớp antialiased, leading-relaxed hoặc leading-loose để giãn dòng thoáng đãng
+                      "text-gray-600 text-base md:text-lg leading-relaxed antialiased whitespace-pre-wrap font-body transition-all duration-500 overflow-hidden",
                       !isExpanded && isLongContent
-                        ? "max-h-[250px]"
+                        ? "max-h-[220px]"
                         : "max-h-none",
                     )}
                   >
                     {apartment.details}
                   </div>
                   {!isExpanded && isLongContent && (
-                    <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-full h-28 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none" />
                   )}
                 </div>
                 {isLongContent && (
-                  <div className="flex justify-center md:justify-start mt-4">
+                  <div className="flex justify-center md:justify-start mt-6">
                     <button
                       onClick={() => setIsExpanded(!isExpanded)}
-                      className="flex items-center gap-2 text-primary font-bold hover:underline transition-all group"
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gray-100 hover:bg-[#cda533]/10 hover:text-[#cda533] text-gray-700 font-bold text-sm transition-all group"
                     >
                       {isExpanded ? (
                         <>
@@ -736,7 +738,7 @@ export default function ApartmentDetailsPageClient({
                         </>
                       ) : (
                         <>
-                          <ChevronDown className="h-4 w-4" /> Xem thêm mô tả
+                          <ChevronDown className="h-4 w-4" /> Xem thêm
                         </>
                       )}
                     </button>
