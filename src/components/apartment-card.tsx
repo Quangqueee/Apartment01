@@ -112,7 +112,7 @@ export default memo(function ApartmentCard({
 
   return (
     <>
-      <div className="group relative overflow-hidden rounded-[2.5rem] bg-white border border-gray-100/50 transition-all duration-500 hover:-translate-y-2 shadow-[0_20px_50px_rgba(0,0,0,0.08)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.15)] h-full flex flex-col">
+      <div className="group relative overflow-hidden rounded-[2.5rem] bg-white border border-black/[0.04] shadow-[0_2px_12px_rgba(0,0,0,0.03),0_1px_3px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.03)] transition-all duration-300 hover:-translate-y-1.5 h-full flex flex-col">
         <button
           onClick={toggleFavorite}
           disabled={isFavoriteUpdating}

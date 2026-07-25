@@ -223,3 +223,74 @@ export async function updateUserProfile(userId: string, data: Partial<Omit<UserP
   const userRef = doc(firestore, "users", userId);
   return await updateDoc(userRef, data);
 }
+
+export async function getRelatedApartments(currentApartment: Apartment): Promise<Apartment[]> {
+  if (!currentApartment || !currentApartment.district) return [];
+
+  try {
+    // 1. Lấy danh sách căn hộ cùng quận
+    const q = query(
+      apartmentsCollection,
+      where("district", "==", currentApartment.district),
+      limit(30) // Lấy rộng hơn một chút để lọc
+    );
+
+    const snapshot = await getDocs(q);
+    const fetched: Apartment[] = [];
+
+    snapshot.forEach((docSnap) => {
+      if (docSnap.id !== currentApartment.id) {
+        fetched.push(toApartment(docSnap));
+      }
+    });
+
+    const currentPrice = currentApartment.price;
+
+    // 2. LỌC CỨNG (STRICT FILTER): Loại bỏ các căn lệch giá quá xa (ví dụ: lệch quá 30% hoặc lệch quá 3 triệu VNĐ)
+    // Giúp chặn đứng tình trạng căn 7 triệu gợi ý lên tận 11 triệu.
+    const priceLimit = Math.max(currentPrice * 0.3, 3); // Lệch tối đa 30% hoặc tối đa 3 triệu
+
+    let filtered = fetched.filter((apt) => {
+      const priceDiff = Math.abs(apt.price - currentPrice);
+      return priceDiff <= priceLimit;
+    });
+
+    // 3. XỬ LÝ TRƯỜNG HỢP QUÁ ÍT CĂN (Dưới 4 căn): Nới lỏng nhẹ biên độ để vét thêm cho đủ tối thiểu 4 căn
+    if (filtered.length < 4) {
+      const relaxedLimit = priceLimit * 1.5; // Nới rộng thêm 50%
+      filtered = fetched.filter((apt) => {
+        const priceDiff = Math.abs(apt.price - currentPrice);
+        return priceDiff <= relaxedLimit;
+      });
+    }
+
+    // 4. CHẤM ĐIỂM (SCORING SYSTEM) TRÊN TẬP ĐÃ LỌC
+    const scored = filtered.map((apt) => {
+      let score = 0;
+
+      // Ưu tiên cùng loại phòng: +5 điểm (tăng trọng số thiết kế)
+      if (apt.roomType === currentApartment.roomType) score += 5;
+
+      // Ưu tiên giá gần nhau nhất: Càng lệch ít điểm cộng càng cao
+      const priceDiff = Math.abs(apt.price - currentPrice);
+      const priceScore = Math.max(0, 3 - (priceDiff / priceLimit) * 3);
+      score += priceScore;
+
+      return { ...apt, score };
+    });
+
+    // 5. SẮP XẾP & CẮT GỌT (Tối đa 8 căn, KHÔNG CỐ NHÉT NẾU HẾT HÀNG)
+    scored.sort((a, b) => b.score - a.score);
+
+    const result = scored.slice(0, 8).map((apt) => {
+      const { score, ...rest } = apt;
+      return rest as Apartment;
+    });
+
+    return result;
+
+  } catch (error) {
+    console.error("Lỗi khi tìm căn hộ gợi ý:", error);
+    return [];
+  }
+}

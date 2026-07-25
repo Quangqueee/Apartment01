@@ -1,6 +1,5 @@
 "use client";
 
-import { getApartmentById } from "@/lib/data-client";
 import { formatPrice } from "@/lib/utils";
 import { ROOM_TYPES } from "@/lib/constants";
 import {
@@ -21,6 +20,8 @@ import {
   ChevronUp,
   Star,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Apartment } from "@/lib/types";
@@ -48,20 +49,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-// Import Firestore để tìm căn hộ gợi ý
+
+// BƯỚC 1: Chỉ giữ lại các hàm Firebase phục vụ cho tính năng Lưu yêu thích
 import { db } from "@/firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  limit,
-  arrayUnion,
-  arrayRemove,
-  setDoc,
-  doc,
-} from "firebase/firestore";
-// IMPORT QUAN TRỌNG: Component Card có sẵn của bạn
+import { arrayUnion, arrayRemove, setDoc, doc } from "firebase/firestore";
 import ApartmentCard from "@/components/apartment-card";
 
 // --- HELPER FUNCTIONS & COMPONENTS ---
@@ -82,6 +73,7 @@ function ShareModal({
 }) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+
   const handleCopyLink = () => {
     if (typeof window !== "undefined") {
       navigator.clipboard.writeText(window.location.href);
@@ -93,6 +85,7 @@ function ShareModal({
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
   const handleFacebookShare = () => {
     if (typeof window !== "undefined") {
       const url = encodeURIComponent(window.location.href);
@@ -102,6 +95,7 @@ function ShareModal({
       );
     }
   };
+
   const handleZaloShare = () => {
     handleCopyLink();
     window.open(`https://chat.zalo.me/`, "_blank");
@@ -111,6 +105,7 @@ function ShareModal({
       className: "bg-blue-50 text-blue-900 border-blue-100",
     });
   };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-sm bg-white rounded-[2rem] border-none shadow-2xl p-6 z-[100]">
@@ -221,112 +216,117 @@ function FeatureRow({
 }
 
 // === COMPONENT: GỢI Ý CĂN HỘ ===
-function RelatedApartments({
-  currentApartment,
-}: {
-  currentApartment: Apartment;
-}) {
-  const [related, setRelated] = useState<Apartment[]>([]);
-  const [loading, setLoading] = useState(true);
+function RelatedApartments({ related }: { related: Apartment[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(Math.ceil(scrollLeft + clientWidth) < scrollWidth - 2);
+    }
+  };
 
   useEffect(() => {
-    const fetchRelated = async () => {
-      try {
-        setLoading(true);
-        // 1. Lấy các căn hộ cùng QUẬN (Ưu tiên cao nhất)
-        const q = query(
-          collection(db, "apartments"),
-          where("district", "==", currentApartment.district),
-          limit(20),
-        );
+    if (related.length > 0) {
+      checkScroll();
+      window.addEventListener("resize", checkScroll);
+      return () => window.removeEventListener("resize", checkScroll);
+    }
+  }, [related.length]);
 
-        const snapshot = await getDocs(q);
-        const fetched: Apartment[] = [];
-        snapshot.forEach((doc) => {
-          if (doc.id !== currentApartment.id) {
-            // Loại bỏ căn hiện tại
-            fetched.push({ id: doc.id, ...doc.data() } as Apartment);
-          }
-        });
-
-        // 2. Logic tính điểm phù hợp (Scoring System)
-        const scored = fetched.map((apt) => {
-          let score = 0;
-          // Cùng loại phòng: +3 điểm
-          if (apt.roomType === currentApartment.roomType) score += 3;
-          // Giá chênh lệch không quá 20%: +2 điểm
-          const priceDiff = Math.abs(apt.price - currentApartment.price);
-          const priceThreshold = currentApartment.price * 0.2;
-          if (priceDiff <= priceThreshold) score += 2;
-
-          return { ...apt, score };
-        });
-
-        // 3. Sắp xếp theo điểm cao nhất -> Mới nhất
-        scored.sort((a, b) => b.score - a.score);
-
-        // 4. Lấy top 4
-        setRelated(scored.slice(0, 4));
-      } catch (err) {
-        console.error("Failed to fetch related", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (currentApartment) fetchRelated();
-  }, [currentApartment]);
-
-  if (loading)
-    return (
-      <div className="bg-gray-50 py-12 md:py-16 border-t border-gray-100">
-        <div className="container mx-auto px-4 md:px-6">
-          <Skeleton className="h-8 w-48 mb-8 mx-auto md:mx-0" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Skeleton className="h-[350px] w-full rounded-2xl" />
-            <Skeleton className="h-[350px] w-full rounded-2xl" />
-            <Skeleton className="h-[350px] w-full rounded-2xl" />
-            <Skeleton className="h-[350px] w-full rounded-2xl" />
-          </div>
-        </div>
-      </div>
-    );
+  // CƠ CHẾ CLICK NÚT: TRƯỢT HẾT CẢ KHUNG NHÌN (SANG TRANG MỚI)
+  const scroll = (direction: "left" | "right") => {
+    if (scrollRef.current) {
+      const { current } = scrollRef;
+      // Lấy chiều rộng của khung hiển thị hiện tại để dịch chuyển trọn vẹn một trang
+      const scrollAmount =
+        direction === "left" ? -current.clientWidth : current.clientWidth;
+      current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
 
   if (related.length === 0) return null;
 
   return (
-    <div className="bg-gray-50 border-t border-gray-100 py-12 md:py-16">
+    <div className="py-12 md:py-16">
       <div className="container mx-auto px-4 md:px-6">
-        <div className="flex items-center justify-between mb-8">
-          <h3 className="font-headline text-2xl md:text-3xl font-bold text-gray-900">
-            Có thể bạn cũng thích
-          </h3>
-          <Link
-            href="/"
-            className="hidden md:flex items-center gap-2 text-primary font-bold hover:underline"
+        {/* KHỐI CARD LỚN BAO BỌC MỀM MẠI */}
+        <div className="rounded-[2.5rem] bg-gray-50/65 p-6 md:p-10 border border-gray-100/80 shadow-sm relative">
+          {/* PHẦN ĐẦU: TIÊU ĐỀ, CỤM NÚT CHUYỂN TRANG & NÚT XEM TẤT CẢ */}
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="font-headline text-2xl md:text-3xl font-bold text-gray-900">
+              Có thể bạn cũng thích
+            </h3>
+
+            <div className="flex items-center gap-6">
+              {/* Cụm nút chuyển trang nằm ngang, độc lập */}
+              <div className="hidden md:flex items-center gap-2">
+                <button
+                  onClick={() => scroll("left")}
+                  disabled={!canScrollLeft}
+                  className={`h-10 w-10 flex items-center justify-center rounded-full border border-gray-200 bg-white transition-all shadow-sm ${
+                    canScrollLeft
+                      ? "hover:border-primary hover:text-primary hover:shadow active:scale-95 text-gray-700 cursor-pointer"
+                      : "opacity-40 cursor-not-allowed text-gray-300"
+                  }`}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-5 w-5 stroke-[2]" />
+                </button>
+                <button
+                  onClick={() => scroll("right")}
+                  disabled={!canScrollRight}
+                  className={`h-10 w-10 flex items-center justify-center rounded-full border border-gray-200 bg-white transition-all shadow-sm ${
+                    canScrollRight
+                      ? "hover:border-primary hover:text-primary hover:shadow active:scale-95 text-gray-700 cursor-pointer"
+                      : "opacity-40 cursor-not-allowed text-gray-300"
+                  }`}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="h-5 w-5 stroke-[2]" />
+                </button>
+              </div>
+
+              {/* Nút Xem tất cả */}
+              <Link
+                href="/"
+                className="flex items-center gap-2 text-primary font-bold hover:underline text-sm md:text-base"
+              >
+                Xem tất cả <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+
+          {/* HƯỚNG DẪN VUỐT TRÊN MOBILE */}
+          <div className="md:hidden text-center text-xs font-medium text-gray-400 flex items-center justify-center gap-3 mb-6">
+            <span className="opacity-60 text-base">←</span>
+            <span>Vuốt ngang để xem thêm</span>
+            <span className="opacity-60 text-base">→</span>
+          </div>
+
+          {/* DANH SÁCH CĂN HỘ */}
+          <div
+            ref={scrollRef}
+            onScroll={checkScroll}
+            className="flex gap-6 overflow-x-auto snap-x snap-mandatory py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full scroll-smooth"
           >
-            Xem tất cả <ArrowRight className="h-4 w-4" />
-          </Link>
+            {related.map((apt) => (
+              <div
+                key={apt.id}
+                className="w-full sm:w-[calc(50%-0.75rem)] lg:w-[calc(25%-1.125rem)] flex-shrink-0 snap-start"
+              >
+                <ApartmentCard apartment={apt} />
+              </div>
+            ))}
+          </div>
         </div>
-
-        {/* SỬ DỤNG APARTMENT CARD CÓ SẴN CỦA BẠN */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {related.map((apt) => (
-            <ApartmentCard key={apt.id} apartment={apt} />
-          ))}
-        </div>
-
-        <Link
-          href="/"
-          className="md:hidden mt-8 flex items-center justify-center gap-2 w-full py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700"
-        >
-          Xem thêm căn hộ khác
-        </Link>
       </div>
     </div>
   );
 }
-
 function ApartmentDetailsSkeleton() {
   return (
     <div className="container mx-auto px-4 py-8 animate-pulse">
@@ -345,19 +345,22 @@ function ApartmentDetailsSkeleton() {
   );
 }
 
-// --- MAIN CLIENT COMPONENT ---
-
+// BƯỚC 3: MAIN CLIENT COMPONENT NHẬN DATA TỪ SERVER
 export default function ApartmentDetailsPageClient({
-  apartmentId,
+  initialApartment,
+  initialRelated,
 }: {
-  apartmentId: string;
+  initialApartment: Apartment;
+  initialRelated: Apartment[];
 }) {
   const { user, userData, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
-  const [apartment, setApartment] = useState<Apartment | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Gán thẳng data từ Server vào biến apartment để không phải sửa code phía dưới
+  const apartment = initialApartment;
+  const apartmentId = initialApartment.id;
+
   const [isFavorited, setIsFavorited] = useState(false);
   const [isFavLoading, setIsFavLoading] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -366,7 +369,6 @@ export default function ApartmentDetailsPageClient({
   const [mobileIndex, setMobileIndex] = useState(0);
   const [mobileCarouselApi, setMobileCarouselApi] = useState<CarouselApi>();
 
-  // Description Read More
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLongContent, setIsLongContent] = useState(false);
   const descriptionRef = useRef<HTMLDivElement>(null);
@@ -390,16 +392,6 @@ export default function ApartmentDetailsPageClient({
   };
 
   useEffect(() => {
-    const fetchApartmentData = async () => {
-      setIsLoading(true);
-      const fetchedApartment = await getApartmentById(apartmentId);
-      setApartment(fetchedApartment);
-      setIsLoading(false);
-    };
-    fetchApartmentData();
-  }, [apartmentId]);
-
-  useEffect(() => {
     if (!user) {
       setIsFavorited(false);
       return;
@@ -416,15 +408,12 @@ export default function ApartmentDetailsPageClient({
 
   useEffect(() => {
     if (!mobileCarouselApi) return;
-
     const syncMobileIndex = () => {
       setMobileIndex(mobileCarouselApi.selectedScrollSnap());
     };
-
     syncMobileIndex();
     mobileCarouselApi.on("select", syncMobileIndex);
     mobileCarouselApi.on("reInit", syncMobileIndex);
-
     return () => {
       mobileCarouselApi.off("select", syncMobileIndex);
       mobileCarouselApi.off("reInit", syncMobileIndex);
@@ -505,24 +494,11 @@ export default function ApartmentDetailsPageClient({
     openLightbox(index);
   };
 
-  if (isLoading || authLoading) {
+  if (authLoading) {
     return (
       <>
         <Header />
         <ApartmentDetailsSkeleton />
-        <Footer />
-      </>
-    );
-  }
-
-  if (!apartment) {
-    return (
-      <>
-        <Header />
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-          <h1 className="text-2xl font-bold mb-2">Không tìm thấy căn hộ</h1>
-          <Button onClick={() => router.push("/")}>Về trang chủ</Button>
-        </div>
         <Footer />
       </>
     );
@@ -713,7 +689,6 @@ export default function ApartmentDetailsPageClient({
                   <div
                     ref={descriptionRef}
                     className={cn(
-                      // Thêm các lớp antialiased, leading-relaxed hoặc leading-loose để giãn dòng thoáng đãng
                       "text-gray-600 text-base md:text-lg leading-relaxed antialiased whitespace-pre-wrap font-body transition-all duration-500 overflow-hidden",
                       !isExpanded && isLongContent
                         ? "max-h-[220px]"
@@ -814,7 +789,7 @@ export default function ApartmentDetailsPageClient({
                         {isFavorited ? "Đã lưu tin" : "Lưu tin này"}
                       </button>
                     </div>
-                    <p className="text-[10px] text-gray-400 text-center font-medium pt-2 italic">
+                    <p className="text-[12px] text-gray-400 text-center font-medium pt-2 italic">
                       Hanoi Residences - Tận Tâm, An Toàn, Chuyên Nghiệp.
                     </p>
                   </div>
@@ -824,8 +799,8 @@ export default function ApartmentDetailsPageClient({
           </div>
         </div>
 
-        {/* === 3. RELATED APARTMENTS === */}
-        <RelatedApartments currentApartment={apartment} />
+        {/* BƯỚC 4: TRUYỀN DATA VÀO COMPONENT THANH TRƯỢT */}
+        <RelatedApartments related={initialRelated} />
       </main>
 
       {!lightboxOpen && <Footer />}
