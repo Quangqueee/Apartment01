@@ -21,27 +21,28 @@ export default function SortControls() {
   const handleSortChange = (value: string) => {
     const params = new URLSearchParams(searchParams);
     params.set("sort", value);
-    router.push(pathname + "?" + params.toString());
+
+    // Thêm { scroll: false } để ngăn trình duyệt giật lên đầu trang
+    router.push(pathname + "?" + params.toString(), { scroll: false });
   };
 
   return (
     <div className="flex items-center gap-2">
-        <Label htmlFor="sort-by" className="text-sm">Sắp xếp theo:</Label>
-        <Select
-            value={currentSort}
-            onValueChange={handleSortChange}
-        >
-            <SelectTrigger id="sort-by" className="w-[180px]">
-                <SelectValue placeholder="Sắp xếp theo" />
-            </SelectTrigger>
-            <SelectContent className="bg-white">
-            {SORT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-                </SelectItem>
-            ))}
-            </SelectContent>
-        </Select>
+      <Label htmlFor="sort-by" className="text-sm">
+        Sắp xếp theo:
+      </Label>
+      <Select value={currentSort} onValueChange={handleSortChange}>
+        <SelectTrigger id="sort-by" className="w-[180px]">
+          <SelectValue placeholder="Sắp xếp theo" />
+        </SelectTrigger>
+        <SelectContent className="bg-white">
+          {SORT_OPTIONS.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

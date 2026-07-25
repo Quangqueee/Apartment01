@@ -161,14 +161,14 @@ export default memo(function ApartmentCard({
               {/* Tiêu đề: Font to hơn hẳn, khoảng cách mb-2.5 để sát vào Quận/Thời gian */}
               <div className="mb-2.5 flex w-full">
                 <h3
-                  className={`${titleFont.className} text-[1.45rem] leading-[1.3] font-extrabold text-gray-900 line-clamp-2 group-hover:text-primary transition-colors`}
+                  className={`${titleFont.className} text-[1.40rem] leading-[1.3] font-extrabold text-gray-900 line-clamp-2 group-hover:text-primary transition-colors`}
                   title={apartment.title}
                 >
                   {apartment.title}
                 </h3>
               </div>
 
-              <div className="flex justify-between mb-5">
+              <div className="flex justify-between mb-5 mt-1">
                 <div className="flex items-center text-base font-bold text-gray-400 italic">
                   <MapPin className="mr-2 h-4 w-4 text-primary" />
                   {apartment.district}
@@ -180,22 +180,22 @@ export default memo(function ApartmentCard({
                 </div>
               </div>
 
-              {/* Giảm khoảng trống (margin-bottom) phía dưới khối này để khi đẩy giá xuống không bị cách quá xa */}
-              <div className="grid grid-cols-2 gap-4 mb-2">
-                <div className="flex flex-col items-center justify-center text-center gap-1.5 rounded-2xl bg-gray-50/80 py-4 px-2 border border-gray-100/50 group-hover:bg-white transition-colors min-w-0">
-                  <div className="flex items-center justify-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest w-full truncate">
+              {/* Diện tích, Thiết kế */}
+              <div className="grid grid-cols-2 gap-3 mb-2 px-5">
+                <div className="flex flex-col items-center justify-center text-center gap-1.5 rounded-2xl bg-gray-50/80 py-3 px-2 border border-gray-100/50 group-hover:bg-white transition-colors min-w-0">
+                  <div className="flex items-center justify-center gap-2 text-xs font-black text-gray-400 tracking-widest w-full truncate">
                     <Maximize className="h-4 w-4 text-primary shrink-0" />
-                    <span className="truncate">Diện tích</span>
+                    <span className="truncate">Diện Tích</span>
                   </div>
                   <div className="text-[1.15rem] font-black text-gray-800 tracking-tight font-body truncate w-full">
                     {apartment.area} m²
                   </div>
                 </div>
 
-                <div className="flex flex-col items-center justify-center text-center gap-1.5 rounded-2xl bg-gray-50/80 py-4 px-2 border border-gray-100/50 group-hover:bg-white transition-colors min-w-0">
-                  <div className="flex items-center justify-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest w-full truncate">
+                <div className="flex flex-col items-center justify-center text-center gap-1.5 rounded-2xl bg-gray-50/80 py-3 px-2 border border-gray-100/50 group-hover:bg-white transition-colors min-w-0">
+                  <div className="flex items-center justify-center gap-2 text-xs font-black text-gray-400 tracking-widest w-full truncate">
                     <LayoutGrid className="h-4 w-4 text-primary shrink-0" />
-                    <span className="truncate">Thiết kế</span>
+                    <span className="truncate">Thiết Kế</span>
                   </div>
                   <div className="text-[1.15rem] font-black text-gray-800 tracking-tight font-body uppercase truncate w-full">
                     {apartment.roomType}
@@ -204,10 +204,10 @@ export default memo(function ApartmentCard({
               </div>
             </div>
 
-            {/* Giá tiền: Giảm pt-6 xuống pt-4 để sát lên phía trên hơn */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-primary tracking-tighter font-body italic">
+            {/* Giá tiền*/}
+            <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-4">
+              <div className="flex items-baseline gap-3">
+                <span className="inline-block origin-bottom scale-y-[1.15] text-3xl font-black text-primary tracking-tighter font-body italic">
                   {fullPrice.toLocaleString("vi-VN")}
                 </span>
                 <span className="text-[15px] font-black text-gray-400 uppercase tracking-widest">
