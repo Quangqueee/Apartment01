@@ -17,18 +17,18 @@ import {
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-const COLLABORATOR_GUIDE_URL =
-  "https://docs.google.com/document/d/1Ocs5Op9CLUgGwd93enVRe_34iVJU64O3PTzjRjeHnAE/edit?tab=t.0";
+// Thay đổi link trỏ về route nội bộ của dự án
+const COLLABORATOR_GUIDE_URL = "/huong-dan-cong-viec";
 
 export default function Header() {
   const { user } = useUser();
   const { userData } = useAuthContext();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const userRole = (userData?.role || "user").toLowerCase();
+
   const canSeeCollaboratorGuide =
     userRole === "collaborator" || userRole === "admin";
 
-  // Tắt scroll body khi menu mở
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = "hidden";
@@ -111,8 +111,6 @@ export default function Header() {
           {user && canSeeCollaboratorGuide && (
             <Link
               href={COLLABORATOR_GUIDE_URL}
-              target="_blank"
-              rel="noreferrer"
               className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-[#cda533] transition-colors"
             >
               Hướng dẫn CTV
@@ -222,7 +220,6 @@ export default function Header() {
   );
 }
 
-// Helper Components
 const NavLink = ({
   href,
   label,
