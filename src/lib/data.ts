@@ -9,11 +9,12 @@ import {
   setDoc,
   query,
   where,
-  orderBy, // Nhớ import cái này
-  limit,   // Nhớ import cái này
+  orderBy,
+  limit,
   Query,
   DocumentData,
   Timestamp,
+  getCountFromServer,
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
 import { Apartment, Favorite, UserProfile } from "./types";
@@ -23,7 +24,6 @@ import { isPriceInRange, parsePriceRange } from "./price-range";
 const apartmentsCollection = collection(firestore, "apartments");
 const usersCollection = collection(firestore, "users");
 
-// --- Helper Functions ---
 export const toApartment = (docSnap: DocumentData): Apartment => {
   const data = docSnap.data();
   const createdAt = data.createdAt?.toDate ? {
@@ -43,7 +43,6 @@ export const toFavorite = (docSnap: DocumentData): Favorite => {
   return { id: docSnap.id, addedAt: data.addedAt }
 }
 
-// --- Main Function: Get Apartments ---
 export async function getApartments(
   options: {
     query?: string;
@@ -67,69 +66,66 @@ export async function getApartments(
   } = options;
 
   let baseQuery: Query = apartmentsCollection;
-  let whereClauses = [];
+  let whereClauses: any[] = [];
 
-  // 1. Lọc Firestore (District & RoomType)
   if (district && district !== "all") {
     whereClauses.push(where("district", "==", district));
   }
+
   if (roomType && roomType !== "all") {
     whereClauses.push(where("roomType", "==", roomType));
+  }
+
+  if (searchQuery && searchQuery.trim() !== "") {
+    const searchWords = removeVietnameseTones(searchQuery.trim()).toLowerCase().split(/\s+/);
+    if (searchWords.length > 0) {
+      whereClauses.push(where("searchKeywords", "array-contains", searchWords[0]));
+    }
+  }
+
+  let isFilteringPrice = false;
+  if (priceRange && priceRange !== "all") {
+    const parsedRange = parsePriceRange(priceRange);
+    if (parsedRange) {
+      isFilteringPrice = true;
+      if (parsedRange.min > 0) whereClauses.push(where("price", ">=", parsedRange.min));
+      if (parsedRange.max !== null && parsedRange.max < Infinity) {
+        whereClauses.push(where("price", "<=", parsedRange.max));
+      }
+    }
   }
 
   if (whereClauses.length > 0) {
     baseQuery = query(baseQuery, ...whereClauses);
   }
 
-  const querySnapshot = await getDocs(baseQuery);
-  let allMatchingApartments = querySnapshot.docs.map(toApartment);
+  const countSnapshot = await getCountFromServer(baseQuery);
+  const totalResults = countSnapshot.data().count;
 
-  // 2. Lọc Giá (Client-side)
-  if (priceRange && priceRange !== "all") {
-    const parsedRange = parsePriceRange(priceRange);
-    allMatchingApartments = allMatchingApartments.filter((apt) =>
-      isPriceInRange(apt.price, parsedRange)
-    );
+  if (totalResults === 0) {
+    return { apartments: [], totalResults: 0 };
   }
 
-  // 3. FIX LỖI TÌM KIẾM TEXT (QUAN TRỌNG)
-  if (searchQuery && searchQuery.trim() !== "") {
-    const normalizedQuery = removeVietnameseTones(searchQuery.trim());
-
-    allMatchingApartments = allMatchingApartments.filter((apt) => {
-      // BẢO VỆ: Thêm || "" để tránh lỗi undefined gây crash
-      const normalizedTitle = removeVietnameseTones(apt.title || "");
-      const normalizedCode = removeVietnameseTones(apt.sourceCode || "");
-      const normalizedAddress = removeVietnameseTones(apt.address || "");
-
-      // Tìm quét trong cả: Tên, Mã căn (SourceCode), Địa chỉ
-      return (
-        normalizedTitle.includes(normalizedQuery) ||
-        normalizedCode.includes(normalizedQuery) ||
-        normalizedAddress.includes(normalizedQuery)
-      );
-    });
-  }
-
-  // 4. Sắp xếp
-  if (sortBy === 'price-asc') {
-    allMatchingApartments.sort((a, b) => a.price - b.price);
-  } else if (sortBy === 'price-desc') {
-    allMatchingApartments.sort((a, b) => b.price - a.price);
+  if (isFilteringPrice) {
+    baseQuery = query(baseQuery, orderBy("price", sortBy === "price-desc" ? "desc" : "asc"));
   } else {
-    // Mặc định: Mới nhất
-    allMatchingApartments.sort((a, b) => {
-      const dateA = a.updatedAt?.seconds ? a.updatedAt : a.createdAt;
-      const dateB = b.updatedAt?.seconds ? b.updatedAt : b.createdAt;
-      return (dateB?.seconds || 0) - (dateA?.seconds || 0);
-    });
+    if (sortBy === 'price-asc') {
+      baseQuery = query(baseQuery, orderBy("price", "asc"));
+    } else if (sortBy === 'price-desc') {
+      baseQuery = query(baseQuery, orderBy("price", "desc"));
+    } else {
+      baseQuery = query(baseQuery, orderBy("createdAt", "desc"));
+    }
   }
 
-  // 5. Phân trang
-  const totalResults = allMatchingApartments.length;
+  const fetchLimit = page * pageSize;
+  baseQuery = query(baseQuery, limit(fetchLimit));
+
+  const querySnapshot = await getDocs(baseQuery);
+  const allFetchedApartments = querySnapshot.docs.map(toApartment);
+
   const startIndex = (page - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedApartments = allMatchingApartments.slice(startIndex, endIndex);
+  const paginatedApartments = allFetchedApartments.slice(startIndex, startIndex + pageSize);
 
   return {
     apartments: paginatedApartments,
@@ -137,7 +133,6 @@ export async function getApartments(
   };
 }
 
-// --- Các hàm khác giữ nguyên (getApartmentById, CRUD...) ---
 export async function getApartmentById(id: string): Promise<Apartment | null> {
   if (!id || typeof id !== 'string') return null;
   try {
@@ -228,11 +223,10 @@ export async function getRelatedApartments(currentApartment: Apartment): Promise
   if (!currentApartment || !currentApartment.district) return [];
 
   try {
-    // 1. Lấy danh sách căn hộ cùng quận
     const q = query(
       apartmentsCollection,
       where("district", "==", currentApartment.district),
-      limit(30) // Lấy rộng hơn một chút để lọc
+      limit(30)
     );
 
     const snapshot = await getDocs(q);
@@ -245,33 +239,26 @@ export async function getRelatedApartments(currentApartment: Apartment): Promise
     });
 
     const currentPrice = currentApartment.price;
-
-    // 2. LỌC CỨNG (STRICT FILTER): Loại bỏ các căn lệch giá quá xa (ví dụ: lệch quá 30% hoặc lệch quá 3 triệu VNĐ)
-    // Giúp chặn đứng tình trạng căn 7 triệu gợi ý lên tận 11 triệu.
-    const priceLimit = Math.max(currentPrice * 0.3, 3); // Lệch tối đa 30% hoặc tối đa 3 triệu
+    const priceLimit = Math.max(currentPrice * 0.3, 3);
 
     let filtered = fetched.filter((apt) => {
       const priceDiff = Math.abs(apt.price - currentPrice);
       return priceDiff <= priceLimit;
     });
 
-    // 3. XỬ LÝ TRƯỜNG HỢP QUÁ ÍT CĂN (Dưới 4 căn): Nới lỏng nhẹ biên độ để vét thêm cho đủ tối thiểu 4 căn
     if (filtered.length < 4) {
-      const relaxedLimit = priceLimit * 1.5; // Nới rộng thêm 50%
+      const relaxedLimit = priceLimit * 1.5;
       filtered = fetched.filter((apt) => {
         const priceDiff = Math.abs(apt.price - currentPrice);
         return priceDiff <= relaxedLimit;
       });
     }
 
-    // 4. CHẤM ĐIỂM (SCORING SYSTEM) TRÊN TẬP ĐÃ LỌC
     const scored = filtered.map((apt) => {
       let score = 0;
 
-      // Ưu tiên cùng loại phòng: +5 điểm (tăng trọng số thiết kế)
       if (apt.roomType === currentApartment.roomType) score += 5;
 
-      // Ưu tiên giá gần nhau nhất: Càng lệch ít điểm cộng càng cao
       const priceDiff = Math.abs(apt.price - currentPrice);
       const priceScore = Math.max(0, 3 - (priceDiff / priceLimit) * 3);
       score += priceScore;
@@ -279,7 +266,6 @@ export async function getRelatedApartments(currentApartment: Apartment): Promise
       return { ...apt, score };
     });
 
-    // 5. SẮP XẾP & CẮT GỌT (Tối đa 8 căn, KHÔNG CỐ NHÉT NẾU HẾT HÀNG)
     scored.sort((a, b) => b.score - a.score);
 
     const result = scored.slice(0, 8).map((apt) => {

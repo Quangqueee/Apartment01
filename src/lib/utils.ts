@@ -63,3 +63,29 @@ export function formatRelativeTime(timestamp: { seconds: number } | any) {
     return updateDate.toLocaleDateString('vi-VN');
   }
 }
+
+export function generateSearchKeywords(text: string): string[] {
+  if (!text) return [];
+
+  let normalized = text.toLowerCase();
+
+  // Bổ sung thêm dấu ? vào đây để xử lý triệt để dạng /?
+  normalized = normalized.replace(/[\/,\-_?]/g, " ");
+
+  normalized = normalized.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const words = normalized.split(/\s+/).filter(Boolean);
+  const keywords = new Set<string>();
+
+  words.forEach(word => keywords.add(word));
+
+  for (let i = 0; i < words.length; i++) {
+    let combined = "";
+    for (let j = i; j < Math.min(i + 5, words.length); j++) {
+      combined = combined ? `${combined} ${words[j]}` : words[j];
+      keywords.add(combined);
+    }
+  }
+
+  return Array.from(keywords);
+}

@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { getApartmentById as getApartmentByIdServer } from "@/lib/data";
 import { use } from "react";
 import ApartmentDetailsPageClient from "@/components/apartment-details-page-client";
+import { notFound } from "next/navigation";
 
 // Định nghĩa kiểu dữ liệu chuẩn cho Next.js 16
 type PageProps = {
@@ -87,13 +88,25 @@ export async function generateMetadata({
   };
 }
 
-/**
- * Server Component wrapper
- */
-export default function ApartmentPage({ params }: PageProps) {
-  // Giải nén params bằng React.use() cho các Server Component đồng bộ
-  const { id } = use(params);
+export default async function ApartmentPage({ params }: PageProps) {
+  // 1. Chuyển component thành 'async function'
+  // 2. Giải nén params bằng await giống như cách bạn làm trong generateMetadata
+  const { id } = await params;
 
-  // Truyền ID đã giải nén xuống Client Component
-  return <ApartmentDetailsPageClient apartmentId={id} />;
+  // 3. Fetch dữ liệu căn hộ ở Server
+  const apartment = await getApartmentByIdServer(id);
+
+  if (!apartment) {
+    // Trả về trang 404 nếu không tìm thấy dữ liệu
+    notFound();
+  }
+  const relatedApartments: any[] = [];
+
+  // 5. Truyền đúng props mà Client Component yêu cầu
+  return (
+    <ApartmentDetailsPageClient
+      initialApartment={apartment}
+      initialRelated={relatedApartments}
+    />
+  );
 }

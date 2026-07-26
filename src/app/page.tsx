@@ -23,7 +23,7 @@ export default async function Home({ searchParams }: any) {
     priceRange: sParams.price,
     roomType: sParams.roomType,
     page: 1,
-    limit: 12, // <--- ĐÃ TĂNG LÊN 12 CĂN
+    limit: 12, 
     sortBy: sParams.sort,
   });
 

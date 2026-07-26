@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 import { v4 as uuidv4 } from 'uuid';
-
+import { generateSearchKeywords } from "@/lib/utils";
 import {
   createApartment,
   updateApartment,
@@ -20,7 +20,8 @@ import {
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
 import { Apartment } from "@/lib/types";
-import { Timestamp, doc, getDoc, setDoc } from "firebase/firestore";
+// Đã thêm collection, getDocs, updateDoc vào đây
+import { Timestamp, doc, getDoc, setDoc, collection, getDocs, updateDoc } from "firebase/firestore";
 import { ADMIN_PATH, MAX_APARTMENT_IMAGES } from "@/lib/constants";
 import { firestore } from "@/firebase/server-init";
 
@@ -171,10 +172,13 @@ export async function createOrUpdateApartmentAction(
 
     const finalImageUrls = await uploadAndCleanupImages(parsedImageUrls.data, existingImageUrls);
 
+    const textToSearch = `${data.title} ${data.address} ${data.sourceCode}`.trim();
+    const searchKeywords = generateSearchKeywords(textToSearch);
     const apartmentDataWithTimestamp = {
       ...data,
       listingSummary: data.listingSummary || "",
       imageUrls: finalImageUrls,
+      searchKeywords: searchKeywords,
       updatedAt: Timestamp.now(),
     };
 
@@ -288,9 +292,6 @@ export async function fetchApartmentsAction(options: {
   return { apartments, totalResults };
 }
 
-// ---------------------------------------------------------
-// FIX: Hàm toggleFavoriteAction đã được nâng cấp xử lý lỗi
-// ---------------------------------------------------------
 export async function toggleFavoriteAction({
   userId,
   apartmentId,
@@ -308,15 +309,10 @@ export async function toggleFavoriteAction({
   }
 
   try {
-    // BƯỚC 0: Đảm bảo User Document tồn tại (Phòng trường hợp user mới chưa được lưu vào DB)
-    // Nếu user đã có thì hàm này tự merge, không mất dữ liệu cũ.
     await createUserDocument(userId, "");
-
-    // BƯỚC 1: Kiểm tra trạng thái
     const isCurrentlyFavorited = await isApartmentFavorited(userId, apartmentId);
 
     if (isCurrentlyFavorited) {
-      // UNFAVORITE
       try {
         await removeFavorite(userId, apartmentId);
       } catch (removeError: any) {
@@ -327,9 +323,7 @@ export async function toggleFavoriteAction({
         }
       }
     } else {
-      // FAVORITE
       try {
-        // Vì data.ts đã sửa thành setDoc, nên dòng này sẽ chạy mượt
         await addFavorite(userId, apartmentId);
       } catch (addError: any) {
         console.error("Add favorite error:", addError);
@@ -377,7 +371,6 @@ const profileFormSchema = z.object({
   address: z.string().optional(),
 });
 
-
 export async function updateUserProfileAction(
   userId: string,
   values: z.infer<typeof profileFormSchema>
@@ -399,5 +392,48 @@ export async function updateUserProfileAction(
   } catch (error) {
     console.error("Failed to update user profile:", error);
     return { error: "An error occurred while updating the profile." };
+  }
+}
+
+// 1. Lấy danh sách các căn hộ chưa được đồng bộ
+export async function getUnmigratedApartmentsAction() {
+  try {
+    const apartmentsCol = collection(firestore, "apartments");
+    const querySnapshot = await getDocs(apartmentsCol);
+    const unmigrated: { id: string; textToSearch: string }[] = [];
+
+    for (const docSnap of querySnapshot.docs) {
+      const data = docSnap.data();
+
+      // Nếu chưa có searchKeywords thì đưa vào danh sách cần đồng bộ
+      if (!data.searchKeywords || data.searchKeywords.length === 0) {
+        unmigrated.push({
+          id: docSnap.id,
+          textToSearch: `${data.title || ""} ${data.address || ""} ${data.sourceCode || ""}`.trim(),
+        });
+      }
+    }
+    return { success: true, data: unmigrated };
+  } catch (error) {
+    console.error("Lỗi khi kiểm tra dữ liệu:", error);
+    return { error: "Không thể lấy danh sách đồng bộ." };
+  }
+}
+
+// 2. Xử lý đồng bộ theo từng lô nhỏ (Batch)
+export async function migrateApartmentsBatchAction(batch: { id: string; textToSearch: string }[]) {
+  try {
+    const promises = batch.map(async (item) => {
+      const searchKeywords = generateSearchKeywords(item.textToSearch);
+      const docRef = doc(firestore, "apartments", item.id);
+      await updateDoc(docRef, { searchKeywords });
+    });
+
+    // Chạy song song nhiều update 1 lúc cho nhanh
+    await Promise.all(promises);
+    return { success: true };
+  } catch (error) {
+    console.error("Lỗi khi đồng bộ Batch:", error);
+    return { error: "Lỗi đồng bộ lô dữ liệu." };
   }
 }

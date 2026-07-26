@@ -345,8 +345,15 @@ export default function ImageLightbox({
                     src={url}
                     alt={`Ảnh ${index + 1}`}
                     draggable={false}
-                    className="max-h-full max-w-full object-contain"
-                    style={{ WebkitTouchCallout: "default" }}
+                    // Thêm pointer-events-none và select-none
+                    className="max-h-full max-w-full object-contain pointer-events-none select-none"
+                    // Đổi WebkitTouchCallout thành "none"
+                    style={{
+                      WebkitTouchCallout: "none",
+                      WebkitUserSelect: "none",
+                    }}
+                    // Chặn menu chuột phải / nhấn giữ Android
+                    onContextMenu={(e) => e.preventDefault()}
                   />
                 </div>
               ))}
@@ -367,10 +374,17 @@ export default function ImageLightbox({
                           alt={`Image ${index + 1}`}
                           fill
                           priority={index === selectedIndex}
-                          className="object-contain p-0 md:p-12"
+                          // Thêm pointer-events-none và select-none
+                          className="object-contain p-0 md:p-12 pointer-events-none select-none"
                           sizes="100vw"
                           quality={100}
                           draggable={false}
+                          // Chặn menu chuột phải / nhấn giữ
+                          onContextMenu={(e) => e.preventDefault()}
+                          style={{
+                            WebkitTouchCallout: "none",
+                            WebkitUserSelect: "none",
+                          }}
                         />
                       </div>
                     </div>

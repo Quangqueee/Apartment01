@@ -7,10 +7,9 @@ import { doc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import AuthModal from "./auth-modal";
 import Link from "next/link";
 import { Apartment } from "@/lib/types";
-import { Heart, MapPin, Maximize, Clock, LayoutGrid } from "lucide-react";
+import { Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils";
-import { Montserrat } from "next/font/google";
-import { Be_Vietnam_Pro } from "next/font/google";
+import { Montserrat, Be_Vietnam_Pro } from "next/font/google";
 
 const titleFont = Be_Vietnam_Pro({
   subsets: ["vietnamese"],
@@ -27,16 +26,26 @@ const montserrat = Montserrat({
 export default memo(function ApartmentCard({
   apartment,
   onFavoriteToggle,
+  isCompact = false,
 }: {
   apartment: Apartment;
   onFavoriteToggle?: (apartmentId: string, isFavorited: boolean) => void;
+  isCompact?: boolean;
 }) {
   const { user, userData } = useAuth();
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const [isFavoriteUpdating, setIsFavoriteUpdating] = useState(false);
 
-  // Logic RBAC: Admin và Collaborator đều thấy hoa hồng
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isHovering, setIsHovering] = useState(false);
+
+  // --- LOGIC VUỐT (SWIPE) ĐÃ TỐI ƯU CHO DESKTOP ---
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const minSwipeDistance = 30; // Giảm xuống 30 để vuốt nhạy hơn một chút
+
   const canViewCommission =
     userData?.role === "collaborator" || userData?.role === "admin";
 
@@ -71,9 +80,7 @@ export default memo(function ApartmentCard({
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isFavoriteUpdating) {
-      return;
-    }
+    if (isFavoriteUpdating) return;
     if (!user) {
       setShowModal(true);
       return;
@@ -98,9 +105,72 @@ export default memo(function ApartmentCard({
     } catch (err) {
       setIsFavorite(!nextIsFavorite);
       onFavoriteToggle?.(apartment.id, !nextIsFavorite);
-      console.error("Lỗi yêu thích:", err);
     } finally {
       setIsFavoriteUpdating(false);
+    }
+  };
+
+  // --- HÀM CHUYỂN ẢNH ---
+  const handleNextImage = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setCurrentImageIndex((prev) =>
+      prev === apartment.imageUrls.length - 1 ? 0 : prev + 1,
+    );
+  };
+
+  const handlePrevImage = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setCurrentImageIndex((prev) =>
+      prev === 0 ? apartment.imageUrls.length - 1 : prev - 1,
+    );
+  };
+
+  // --- HÀM XỬ LÝ POINTER CHUẨN (CHUỘT + CẢM ỨNG) ---
+  const onPointerDown = (e: React.PointerEvent) => {
+    setIsDragging(false);
+    setTouchStartX(e.clientX);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (touchStartX === null) return;
+    setTouchEndX(e.clientX);
+
+    // Đang kéo chuột/ngón tay
+    if (Math.abs(e.clientX - touchStartX) > 10) {
+      setIsDragging(true);
+    }
+  };
+
+  const onPointerUp = () => {
+    if (touchStartX !== null && touchEndX !== null) {
+      const distance = touchStartX - touchEndX;
+      const isLeftSwipe = distance > minSwipeDistance;
+      const isRightSwipe = distance < -minSwipeDistance;
+
+      if (isLeftSwipe) {
+        handleNextImage();
+      } else if (isRightSwipe) {
+        handlePrevImage();
+      }
+    }
+    setTouchStartX(null);
+    setTouchEndX(null);
+
+    setTimeout(() => {
+      setIsDragging(false);
+    }, 50);
+  };
+
+  const handleLinkClick = (e: React.MouseEvent) => {
+    if (isDragging) {
+      e.preventDefault();
+      e.stopPropagation();
     }
   };
 
@@ -112,112 +182,142 @@ export default memo(function ApartmentCard({
 
   return (
     <>
-      <div className="group relative overflow-hidden rounded-[2.5rem] bg-white border border-black/[0.04] shadow-[0_2px_12px_rgba(0,0,0,0.03),0_1px_3px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.03)] transition-all duration-300 hover:-translate-y-1.5 h-full flex flex-col">
-        <button
-          onClick={toggleFavorite}
-          disabled={isFavoriteUpdating}
-          className="absolute right-6 top-6 z-20 rounded-full bg-white/95 p-3.5 shadow-xl backdrop-blur-md active:scale-90 transition-all hover:bg-white border border-gray-100 group/heart disabled:cursor-not-allowed disabled:opacity-70"
+      <div
+        className="group relative flex flex-col h-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1.5 hover:scale-[1.015]"
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+      >
+        {/* THÊM onDragStart ngăn kéo link, thêm class cursor-grab, select-none */}
+        <div
+          className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100 touch-pan-y cursor-grab active:cursor-grabbing select-none"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={() => {
+            if (touchStartX !== null) onPointerUp();
+          }}
+          onDragStart={(e) => e.preventDefault()} // KHÓA CỨNG HÀNH VI KÉO LINK MẶC ĐỊNH
         >
-          <Heart
-            className={`h-6 w-6 transition-all duration-300 ${
-              isFavorite
-                ? "fill-red-500 text-red-500 scale-110"
-                : "text-gray-400 group-hover/heart:text-red-400"
-            }`}
-          />
-        </button>
+          {canViewCommission && displayCommission && (
+            <div className="absolute top-3 left-3 z-20 bg-[#5cb85c] text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm pointer-events-none">
+              HH: {displayCommission}
+            </div>
+          )}
 
+          <div className="absolute top-3 right-3 z-20 bg-black/60 backdrop-blur-md text-white text-xs font-bold px-2 py-1 rounded shadow-sm pointer-events-none">
+            ID: {apartment.sourceCode}
+          </div>
+
+          <Link
+            href={`/apartments/${apartment.id}`}
+            onClick={handleLinkClick}
+            className="absolute inset-0 z-0"
+            draggable={false} // Khóa thêm ở cấp Link
+          >
+            <div
+              className="flex h-full w-full transition-transform duration-500 ease-out"
+              style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
+            >
+              {apartment.imageUrls.map((url, idx) => (
+                <img
+                  key={idx}
+                  src={url}
+                  alt={`${apartment.title} - ảnh ${idx + 1}`}
+                  loading={idx === 0 ? "eager" : "lazy"}
+                  draggable={false}
+                  className="h-full w-full flex-shrink-0 object-cover pointer-events-none" // pointer-events-none giúp vuốt không bị kẹt vào ảnh
+                />
+              ))}
+            </div>
+          </Link>
+
+          {/* Button Chuyển Ảnh */}
+          {apartment.imageUrls.length > 1 && (
+            <>
+              <div
+                onClick={handlePrevImage}
+                className={`absolute left-2 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/90 text-gray-800 shadow hover:bg-white hover:scale-110 transition-all duration-300 ${
+                  isHovering ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </div>
+              <div
+                onClick={handleNextImage}
+                className={`absolute right-2 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/90 text-gray-800 shadow hover:bg-white hover:scale-110 transition-all duration-300 ${
+                  isHovering ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </div>
+            </>
+          )}
+
+          {/* Dots Indicator */}
+          {apartment.imageUrls.length > 1 && (
+            <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-1.5 drop-shadow-md">
+              {apartment.imageUrls.map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    currentImageIndex === idx
+                      ? "w-4 bg-white"
+                      : "w-1.5 bg-white/70"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* === PHẦN 2: THÔNG TIN (Minimalist) === */}
         <Link
           href={`/apartments/${apartment.id}`}
-          className="flex flex-col h-full"
+          onClick={handleLinkClick}
+          className="flex flex-1 flex-col p-4 sm:p-5"
         >
-          <div className="relative aspect-[4/3] overflow-hidden rounded-t-[2.5rem] bg-gray-50 isolate shrink-0">
-            <img
-              src={apartment.imageUrls[0]}
-              alt={apartment.title}
-              loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-1000 will-change-transform group-hover:scale-110"
-            />
-            {/* Logic RBAC được áp dụng ở đây */}
-            {canViewCommission && displayCommission && (
-              <div
-                className="absolute left-5 top-6 z-10 rounded-full bg-black/50 px-3.5 py-2 text-sm font-black text-white backdrop-blur-md"
-                style={{ textShadow: "0px 0px 4px black" }}
-              >
-                HH: {displayCommission}
-              </div>
-            )}
-            <div
-              className="absolute bottom-4 right-5 z-10 rounded-full bg-black/50 px-3.5 py-2 text-sm font-black text-white backdrop-blur-md"
-              style={{ textShadow: "0px 0px 4px black" }}
+          <div className="relative w-full">
+            <h3
+              className={`${titleFont.className} pr-8 text-[1.1rem] sm:text-lg font-bold text-gray-900 line-clamp-1`}
+              title={apartment.title}
             >
-              ID: {apartment.sourceCode}
+              {apartment.title}
+            </h3>
+
+            <div
+              onClick={toggleFavorite}
+              className="absolute right-0 top-0 cursor-pointer p-1 active:scale-90 transition-transform z-10"
+            >
+              <Heart
+                className={`h-5 w-5 transition-colors duration-300 ${
+                  isFavorite
+                    ? "fill-red-500 text-red-500"
+                    : "text-gray-400 hover:text-red-400"
+                }`}
+              />
             </div>
           </div>
 
-          {/* Tối ưu lại padding tổng thể của thân card để các phần tử bên trong xích lại gần nhau hơn */}
-          <div className="pt-6 pb-6 px-7 flex flex-col flex-1">
-            <div className="flex flex-col flex-1">
-              {/* Tiêu đề: Font to hơn hẳn, khoảng cách mb-2.5 để sát vào Quận/Thời gian */}
-              <div className="mb-2.5 flex w-full">
-                <h3
-                  className={`${titleFont.className} text-[1.40rem] leading-[1.3] font-extrabold text-gray-900 line-clamp-2 group-hover:text-primary transition-colors`}
-                  title={apartment.title}
-                >
-                  {apartment.title}
-                </h3>
-              </div>
+          <p className="mt-1 text-[0.85rem] sm:text-sm text-gray-500 line-clamp-1">
+            {apartment.district}
+          </p>
 
-              <div className="flex justify-between mb-5 mt-1">
-                <div className="flex items-center text-base font-bold text-gray-400 italic">
-                  <MapPin className="mr-2 h-4 w-4 text-primary" />
-                  {apartment.district}
-                </div>
-                <div className="flex items-center italic gap-1 text-[14px] font-bold text-gray-300 tracking-tight font-body">
-                  <Clock className="h-3.5 w-3.5" />
-                  <p>Ngày đăng:</p>
-                  {formatRelativeTime(timeToDisplay)}
-                </div>
-              </div>
+          <p className="mt-1 text-[0.85rem] sm:text-sm text-gray-500 line-clamp-1">
+            {apartment.roomType} • {apartment.area} m²
+            {!isCompact && <> • {formatRelativeTime(timeToDisplay)}</>}
+          </p>
 
-              {/* Diện tích, Thiết kế */}
-              <div className="grid grid-cols-2 gap-3 mb-2 px-5">
-                <div className="flex flex-col items-center justify-center text-center gap-1.5 rounded-2xl bg-gray-50/80 py-3 px-2 border border-gray-100/50 group-hover:bg-white transition-colors min-w-0">
-                  <div className="flex items-center justify-center gap-2 text-xs font-black text-gray-400 tracking-widest w-full truncate">
-                    <Maximize className="h-4 w-4 text-primary shrink-0" />
-                    <span className="truncate">Diện Tích</span>
-                  </div>
-                  <div className="text-[1.15rem] font-black text-gray-800 tracking-tight font-body truncate w-full">
-                    {apartment.area} m²
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-center justify-center text-center gap-1.5 rounded-2xl bg-gray-50/80 py-3 px-2 border border-gray-100/50 group-hover:bg-white transition-colors min-w-0">
-                  <div className="flex items-center justify-center gap-2 text-xs font-black text-gray-400 tracking-widest w-full truncate">
-                    <LayoutGrid className="h-4 w-4 text-primary shrink-0" />
-                    <span className="truncate">Thiết Kế</span>
-                  </div>
-                  <div className="text-[1.15rem] font-black text-gray-800 tracking-tight font-body uppercase truncate w-full">
-                    {apartment.roomType}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Giá tiền*/}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-4">
-              <div className="flex items-baseline gap-3">
-                <span className="inline-block origin-bottom scale-y-[1.15] text-3xl font-black text-primary tracking-tighter font-body italic">
-                  {fullPrice.toLocaleString("vi-VN")}
-                </span>
-                <span className="text-[15px] font-black text-gray-400 uppercase tracking-widest">
-                  VNĐ/Tháng
-                </span>
-              </div>
-            </div>
+          <div className="mt-auto pt-4 flex items-baseline gap-1.5">
+            <span className="inline-block origin-bottom scale-y-[1.15] text-[1.3rem] sm:text-[1.6rem] font-black text-primary tracking-tighter font-body italic">
+              {fullPrice.toLocaleString("vi-VN")}
+            </span>
+            <span className="text-[11px] sm:text-[13px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">
+              VNĐ/Tháng
+            </span>
           </div>
         </Link>
       </div>
+
       <AuthModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}

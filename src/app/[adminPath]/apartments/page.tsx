@@ -33,11 +33,16 @@ import {
   ClipboardCopy,
   Trash2,
   Pencil,
-  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { getApartments } from "@/lib/data-client";
 import Link from "next/link";
-import { deleteApartmentAction } from "../../actions";
+import {
+  deleteApartmentAction,
+  getUnmigratedApartmentsAction,
+  migrateApartmentsBatchAction,
+} from "../../actions";
 import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
@@ -70,24 +75,33 @@ export default function ApartmentsPage() {
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [apartmentToDelete, setApartmentToDelete] = useState<string | null>(
-    null
+    null,
   );
+
+  const currentPage = searchParams.get("page")
+    ? parseInt(searchParams.get("page")!)
+    : 1;
+  const totalPages = Math.ceil(totalApartments / 10);
 
   const fetchApartments = useCallback(() => {
     startTransition(async () => {
-      const page = searchParams.get("page")
-        ? parseInt(searchParams.get("page")!)
-        : 1;
       const result = await getApartments({
         query: searchParams.get("q") || undefined,
-        page,
-        limit: 1000,
+        page: currentPage,
+        limit: 10,
         searchBy: "sourceCodeOrAddress",
       });
       setApartments(result.apartments);
       setTotalApartments(result.totalResults);
     });
-  }, [searchParams]);
+  }, [searchParams, currentPage]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", newPage.toString());
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   useEffect(() => {
     fetchApartments();
@@ -131,6 +145,94 @@ export default function ApartmentsPage() {
     toast({ title: "Đã sao chép!", description: "Đã lưu vào bộ nhớ tạm." });
   };
 
+// Hàm gọi API đồng bộ dữ liệu có Animation %
+  const handleMigrate = async () => {
+    const confirm = window.confirm("Đồng bộ từ khóa cho tất cả căn hộ cũ? Quá trình này sẽ mất vài giây.");
+    if (!confirm) return;
+
+    // SỬA Ở ĐÂY: Lấy id và hàm update từ kết quả trả về của toast()
+    const { id, update } = toast({
+      title: "Đang quét dữ liệu...",
+      description: "Đang kiểm tra các căn hộ cần đồng bộ.",
+      duration: 100000, 
+    });
+
+    // 1. Lấy danh sách cần đồng bộ
+    const res = await getUnmigratedApartmentsAction();
+    
+    if (res?.error || !res.data) {
+      update({ id, variant: "destructive", title: "Lỗi", description: res.error });
+      return;
+    }
+
+    const unmigrated = res.data;
+    const total = unmigrated.length;
+
+    if (total === 0) {
+      update({
+        id,
+        title: "Hoàn tất!",
+        description: "Tất cả căn hộ của bạn đã được chuẩn hóa, không cần đồng bộ thêm.",
+        duration: 3000,
+      });
+      return;
+    }
+
+    // 2. Setup thanh tiến trình
+    const BATCH_SIZE = 20; 
+    let processed = 0;
+
+    const updateProgressToast = (current: number) => {
+      const percentage = Math.round((current / total) * 100);
+      update({
+        id,
+        title: "Đang đồng bộ dữ liệu...",
+        description: (
+          <div className="space-y-2 mt-2 w-full pr-4">
+            <div className="flex justify-between text-xs font-medium text-gray-500">
+              <span>{current} / {total} căn</span>
+              <span>{percentage}%</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+              <div
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${percentage}%` }}
+              ></div>
+            </div>
+          </div>
+        ),
+        duration: 100000,
+      });
+    };
+
+    updateProgressToast(0);
+
+    // 3. Vòng lặp bắn từng lô lên Server
+    for (let i = 0; i < total; i += BATCH_SIZE) {
+      const batch = unmigrated.slice(i, i + BATCH_SIZE);
+      const batchRes = await migrateApartmentsBatchAction(batch);
+      
+      if (batchRes?.error) {
+        update({ id, variant: "destructive", title: "Lỗi", description: "Tiến trình bị gián đoạn." });
+        return;
+      }
+      
+      processed += batch.length;
+      updateProgressToast(processed);
+    }
+
+    // 4. Kết thúc
+    setTimeout(() => {
+      update({
+        id,
+        title: "Đồng bộ hoàn tất! 🎉",
+        description: `Đã đồng bộ ${total} căn hộ. `,
+        duration: 4000,
+      });
+      fetchApartments(); // Refresh lại danh sách
+    }, 500);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -142,11 +244,24 @@ export default function ApartmentsPage() {
             Danh sách tất cả các căn hộ ({totalApartments}).
           </p>
         </div>
-        <Button asChild className="bg-[#1a1a1a] text-white hover:bg-[#cda533]">
-          <Link href={`/${ADMIN_PATH}/apartments/new`}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Thêm mới
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          {/* Nút bấm đồng bộ data cũ */}
+          <Button
+            onClick={handleMigrate}
+            variant="outline"
+            className="text-blue-600 border-blue-600"
+          >
+            Đồng bộ Data Cũ
+          </Button>
+          <Button
+            asChild
+            className="bg-[#1a1a1a] text-white hover:bg-[#cda533]"
+          >
+            <Link href={`/${ADMIN_PATH}/apartments/new`}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Thêm mới
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
@@ -184,151 +299,196 @@ export default function ApartmentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {apartments.map((apt) => (
-                  <TableRow key={apt.id} className="hover:bg-gray-50">
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
-                        className="text-primary hover:underline font-bold"
-                      >
-                        {apt.address}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{apt.sourceCode}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span>{apt.landlordPhoneNumber}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => handleCopy(apt.landlordPhoneNumber)}
-                        >
-                          <ClipboardCopy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-bold text-green-600">
-                      {apt.price} tr
-                    </TableCell>
-                    <TableCell>
-                      {formatDate(
-                        apt.updatedAt && apt.updatedAt.seconds > 0
-                          ? apt.updatedAt
-                          : apt.createdAt
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-center gap-1">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" asChild>
-                              <Link
-                                href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Link>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent className="bg-white z-[100] border shadow-md">
-                            <p>Sửa</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteClick(apt.id)}
-                              className="text-destructive hover:text-destructive hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent className="bg-white z-[100] border shadow-md">
-                            <p>Xóa</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
+                {apartments.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="text-center py-8 text-gray-500"
+                    >
+                      Không tìm thấy căn hộ nào.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  apartments.map((apt) => (
+                    <TableRow key={apt.id} className="hover:bg-gray-50">
+                      <TableCell className="font-medium">
+                        <Link
+                          href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
+                          className="text-primary hover:underline font-bold"
+                        >
+                          {apt.address}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{apt.sourceCode}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span>{apt.landlordPhoneNumber}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => handleCopy(apt.landlordPhoneNumber)}
+                          >
+                            <ClipboardCopy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-bold text-green-600">
+                        {apt.price} tr
+                      </TableCell>
+                      <TableCell>
+                        {formatDate(
+                          apt.updatedAt && apt.updatedAt.seconds > 0
+                            ? apt.updatedAt
+                            : apt.createdAt,
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" asChild>
+                                <Link
+                                  href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Link>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-white z-[100] border shadow-md">
+                              <p>Sửa</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteClick(apt.id)}
+                                className="text-destructive hover:text-destructive hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-white z-[100] border shadow-md">
+                              <p>Xóa</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TooltipProvider>
         </div>
 
         <div className="space-y-4 md:hidden">
-          {apartments.map((apt) => (
-            <Card
-              key={apt.id}
-              className="relative bg-white border border-gray-200"
-            >
-              <CardContent className="space-y-2 p-4">
-                <Link
-                  href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
-                  className="pr-10 font-bold text-primary hover:underline line-clamp-2 text-base"
-                >
-                  {apt.address}
-                </Link>
-                <div className="absolute right-2 top-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="bg-white z-[100] shadow-xl border-gray-200"
-                    >
-                      <DropdownMenuItem asChild>
-                        <Link href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}>
-                          <Pencil className="mr-2 h-4 w-4" /> Sửa
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteClick(apt.id)}
-                        className="text-destructive"
+          {apartments.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 border rounded-lg bg-gray-50">
+              Không tìm thấy căn hộ nào.
+            </div>
+          ) : (
+            apartments.map((apt) => (
+              <Card
+                key={apt.id}
+                className="relative bg-white border border-gray-200"
+              >
+                <CardContent className="space-y-2 p-4">
+                  <Link
+                    href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
+                    className="pr-10 font-bold text-primary hover:underline line-clamp-2 text-base"
+                  >
+                    {apt.address}
+                  </Link>
+                  <div className="absolute right-2 top-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="bg-white z-[100] shadow-xl border-gray-200"
                       >
-                        <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-2 mb-2">
-                  <span>
-                    ID:{" "}
-                    <span className="font-mono font-bold">
-                      {apt.sourceCode}
-                    </span>
-                  </span>
-                  <span className="text-green-600 font-bold text-base">
-                    {apt.price} tr
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-gray-500">Chủ nhà:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-gray-800">
-                      {apt.landlordPhoneNumber}
-                    </span>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7"
-                      onClick={() => handleCopy(apt.landlordPhoneNumber)}
-                    >
-                      <ClipboardCopy className="h-4 w-4 text-blue-500" />
-                    </Button>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" /> Sửa
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteClick(apt.id)}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-2 mb-2">
+                    <span>
+                      ID:{" "}
+                      <span className="font-mono font-bold">
+                        {apt.sourceCode}
+                      </span>
+                    </span>
+                    <span className="text-green-600 font-bold text-base">
+                      {apt.price} tr
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-gray-500">Chủ nhà:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-gray-800">
+                        {apt.landlordPhoneNumber}
+                      </span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => handleCopy(apt.landlordPhoneNumber)}
+                      >
+                        <ClipboardCopy className="h-4 w-4 text-blue-500" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </div>
-
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-6 pb-2 border-t border-gray-100 mt-4">
+          <span className="text-sm text-gray-500">
+            Trang {currentPage} / {totalPages}
+          </span>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1 || isPending}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Trước
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages || isPending}
+            >
+              Sau
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
       <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <AlertDialogContent className="bg-white z-[100] shadow-2xl">
           <AlertDialogHeader>
@@ -342,7 +502,6 @@ export default function ApartmentsPage() {
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               disabled={isPending}
-              // FIX: Thay bg-destructive bằng bg-red-600
               className="bg-red-600 text-white hover:bg-red-700 border-none"
             >
               {isPending ? "Đang xóa..." : "Xóa ngay"}

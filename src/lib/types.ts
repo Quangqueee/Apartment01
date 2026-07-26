@@ -15,6 +15,8 @@ export interface Apartment {
   commission?: number | string;
   isFavorited?: boolean;
   imageUrls: string[];
+  searchKeywords?: string[]; // Dùng để Firebase tìm kiếm
+
   createdAt: {
     seconds: number;
     nanoseconds: number;

@@ -596,7 +596,7 @@ export default function SOPDocsPage() {
                           <span className="text-gray-600 text-base">
                             CTV (Chuyên viên), doanh số tích lũy &gt; 15 Triệu:
                           </span>
-                          <span className="font-bold text-xl text-gray-900 bg-amber-100 text-amber-700 px-3 py-1 rounded-lg border border-amber-200 shadow-sm">
+                          <span className="font-bold text-xl text-gray-900 bg-amber-100 px-3 py-1 rounded-lg border border-amber-200 shadow-sm">
                             40%
                           </span>
                         </li>
