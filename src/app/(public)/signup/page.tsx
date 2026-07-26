@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react"; // Bổ sung import Suspense
 import { signup, loginWithGoogle } from "@/lib/auth-service";
 import {
   kiemTraMatKhau,
@@ -22,7 +22,8 @@ import {
   EyeOff,
 } from "lucide-react";
 
-export default function SignupPage() {
+// BƯỚC 1: Đổi tên Component chính thành Component con (SignupContent) và bỏ chữ export default
+function SignupContent() {
   const [mounted, setMounted] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -172,7 +173,6 @@ export default function SignupPage() {
         </button>
 
         <form onSubmit={handleSignup} className="space-y-4">
-          {/* TẤT CẢ CÁC TRƯỜNG INPUT GIỮ NGUYÊN NHƯ CŨ */}
           <div className="relative">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
@@ -199,7 +199,6 @@ export default function SignupPage() {
             />
           </div>
 
-          {/* TRƯỜNG SỐ ĐIỆN THOẠI */}
           <div className="space-y-1">
             <div className="relative">
               <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -213,7 +212,6 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* Đã tách dòng text này ra khỏi thẻ div relative phía trên */}
             {formData.phoneNumber && (
               <p className="text-xs text-gray-500 px-2">
                 💡 Định dạng: 0901234567 hoặc +84901234567
@@ -344,7 +342,6 @@ export default function SignupPage() {
 
         <p className="mt-8 text-center text-sm text-gray-500">
           Đã có tài khoản?{" "}
-          {/* Giữ nguyên tham số redirect khi chuyển lại trang đăng nhập */}
           <Link
             href={
               redirectUrl !== "/" ? `/login?redirect=${redirectUrl}` : "/login"
@@ -356,5 +353,20 @@ export default function SignupPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// BƯỚC 2: Tạo Component cha bọc Suspense và export mặc định
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[85vh] items-center justify-center bg-slate-50/50">
+          <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        </div>
+      }
+    >
+      <SignupContent />
+    </Suspense>
   );
 }
