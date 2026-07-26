@@ -758,7 +758,7 @@ export default function ApartmentDetailsPageClient({
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
                           Hotline 24/7
                         </span>
-                        <span className="font-headline text-xl font-bold text-gray-900 tracking-wide font-mono">
+                        <span className="font-mono text-xl font-bold text-gray-900 tracking-wide">
                           0355.885.851
                         </span>
                       </div>
