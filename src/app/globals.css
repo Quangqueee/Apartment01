@@ -51,3 +51,30 @@ html {
 .transition-luxury {
   @apply transition-all duration-300 ease-in-out;
 }
+
+/* app/globals.css */
+
+@keyframes light-run {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.toast-success-border {
+  /* Phải có "2px solid" thì viền mới có độ dày để hiển thị gradient */
+  border: 2px solid transparent !important;
+  background:
+    linear-gradient(#ffffff, #ffffff) padding-box,
+    linear-gradient(45deg, #f1f5f9, #f1f5f9, #22c55e, #f1f5f9, #f1f5f9) border-box !important;
+  background-size: 300% 300% !important;
+  animation: light-run 3s linear infinite !important;
+  transition-property: transform, opacity !important;
+}

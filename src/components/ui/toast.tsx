@@ -15,8 +15,9 @@ const ToastViewport = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Viewport
     ref={ref}
+    // Sửa flex-col-reverse thành flex-col vì toast xuất hiện từ top-0
     className={cn(
-      "fixed top-0 left-1/2 z-[100] flex max-h-screen -translate-x-1/2 flex-col-reverse p-4 w-[360px] max-w-[95vw] sm:w-[420px]",
+      "fixed top-0 left-1/2 z-[100] flex max-h-screen -translate-x-1/2 flex-col p-4 w-[360px] max-w-[95vw] sm:w-[420px]",
       className,
     )}
     {...props}
@@ -25,7 +26,8 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName;
 
 const toastVariants = cva(
-  "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full data-[state=open]:sm:slide-in-from-bottom-full",
+  // Sửa hiệu ứng slide để phù hợp với vị trí top-center, loại bỏ xung đột tọa độ X
+  "group pointer-events-auto relative flex w-full items-center justify-between space-x-4 overflow-hidden rounded-xl border p-6 pr-8 shadow-lg transition-transform data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-top-full data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-full",
   {
     variants: {
       variant: {
@@ -54,6 +56,8 @@ const Toast = React.forwardRef<
   );
 });
 Toast.displayName = ToastPrimitives.Root.displayName;
+
+// ... (Giữ nguyên các component ToastAction, ToastClose, ToastTitle, ToastDescription như cũ của bạn)
 
 const ToastAction = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Action>,
@@ -113,7 +117,6 @@ const ToastDescription = React.forwardRef<
 ToastDescription.displayName = ToastPrimitives.Description.displayName;
 
 type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>;
-
 type ToastActionElement = React.ReactElement<typeof ToastAction>;
 
 export {
