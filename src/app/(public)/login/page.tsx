@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { login, loginWithGoogle } from "@/lib/auth-service";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, Loader2, ArrowLeft } from "lucide-react";
 
@@ -10,7 +10,12 @@ export default function LoginPage() {
   const [mounted, setMounted] = useState(false);
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
+
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Bắt link redirect từ URL, nếu không có thì mặc định về trang chủ "/"
+  const redirectUrl = searchParams.get("redirect") || "/";
 
   useEffect(() => setMounted(true), []);
 
@@ -19,7 +24,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(formData.email, formData.password);
-      router.push("/");
+      // Đẩy về link redirect thay vì "/"
+      router.push(redirectUrl);
       router.refresh();
     } catch (err) {
       alert("Thông tin đăng nhập không chính xác!");
@@ -50,7 +56,8 @@ export default function LoginPage() {
         </div>
 
         <button
-          onClick={() => loginWithGoogle().then(() => router.push("/"))}
+          // Cập nhật chuyển hướng Google
+          onClick={() => loginWithGoogle().then(() => router.push(redirectUrl))}
           className="flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-200 py-3.5 font-bold text-gray-700 hover:bg-gray-50 transition-all mb-6 shadow-sm active:scale-95"
         >
           <img
@@ -87,7 +94,6 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* NÚT QUÊN MẬT KHẨU ĐÃ ĐƯỢC THÊM TẠI ĐÂY */}
           <div className="flex justify-end pr-2">
             <Link
               href="/forgot-password"
@@ -108,8 +114,13 @@ export default function LoginPage() {
 
         <p className="mt-8 text-center text-sm text-gray-500 font-medium">
           Chưa có tài khoản?{" "}
+          {/* Giữ nguyên tham số redirect khi người dùng bấm sang trang đăng ký */}
           <Link
-            href="/signup"
+            href={
+              redirectUrl !== "/"
+                ? `/signup?redirect=${redirectUrl}`
+                : "/signup"
+            }
             className="font-bold text-orange-600 hover:underline"
           >
             Đăng ký ngay

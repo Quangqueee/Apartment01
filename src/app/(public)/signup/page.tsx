@@ -8,7 +8,7 @@ import {
   kiemTraSoDienThoai,
   layMauSacDoDamBao,
 } from "@/lib/kiem-tra-mat-khau";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   UserPlus,
@@ -32,27 +32,27 @@ export default function SignupPage() {
     phoneNumber: "",
   });
 
-  // State cho validation
   const [cacLoiNhap, setCacLoiNhap] = useState<string[]>([]);
   const [doDamBao, setDoDamBao] = useState<
     "yeu" | "trung_binh" | "manh" | "rat_manh"
   >("yeu");
 
-  // State cho hiển thị mật khẩu
   const [hienThiMatKhau, setHienThiMatKhau] = useState(false);
   const [hienThiXacNhanMatKhau, setHienThiXacNhanMatKhau] = useState(false);
-
   const [loading, setLoading] = useState(false);
+
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Bắt link redirect từ URL
+  const redirectUrl = searchParams.get("redirect") || "/";
 
   useEffect(() => setMounted(true), []);
 
-  // Xử lý khi người dùng thay đổi mật khẩu
   const xuLyDoiMatKhau = (e: React.ChangeEvent<HTMLInputElement>) => {
     const matKhauMoi = e.target.value;
     setFormData({ ...formData, password: matKhauMoi });
 
-    // Kiểm tra độ mạnh mật khẩu
     if (matKhauMoi.length > 0) {
       const ketQua = kiemTraMatKhau(matKhauMoi);
       setCacLoiNhap(ketQua.cacLoiNhap);
@@ -62,27 +62,22 @@ export default function SignupPage() {
     }
   };
 
-  // Kiểm tra toàn bộ form trước khi gửi
   const kiemTraFormToanBo = (): boolean => {
     const cacLoi: string[] = [];
 
-    // Kiểm tra họ tên
     if (!formData.fullName.trim()) {
       cacLoi.push("Vui lòng nhập họ và tên");
     }
 
-    // Kiểm tra email
     if (!formData.email.trim()) {
       cacLoi.push("Vui lòng nhập email");
     }
 
-    // Kiểm tra mật khẩu
     const ketQuaMK = kiemTraMatKhau(formData.password);
     if (!ketQuaMK.hopLe) {
       cacLoi.push(...ketQuaMK.cacLoiNhap);
     }
 
-    // Kiểm tra xác nhận mật khẩu
     const ketQuaXacNhan = kiemTraXacNhanMatKhau(
       formData.password,
       formData.xacNhanMatKhau,
@@ -91,7 +86,6 @@ export default function SignupPage() {
       cacLoi.push(ketQuaXacNhan.loiNhap || "");
     }
 
-    // Kiểm tra số điện thoại
     if (formData.phoneNumber.trim()) {
       const ketQuaSoDienThoai = kiemTraSoDienThoai(formData.phoneNumber);
       if (!ketQuaSoDienThoai.hopLe) {
@@ -110,7 +104,6 @@ export default function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Kiểm tra form trước khi gửi
     if (!kiemTraFormToanBo()) {
       return;
     }
@@ -123,12 +116,11 @@ export default function SignupPage() {
         formData.fullName,
         formData.phoneNumber,
       );
-      router.push("/");
+      // Đẩy về link redirect
+      router.push(redirectUrl);
       router.refresh();
     } catch (err: any) {
       let thongBaoLoi = "Lỗi đăng ký";
-
-      // Xử lý các lỗi Firebase phổ biến
       if (err.code === "auth/email-already-in-use") {
         thongBaoLoi = "Email này đã được sử dụng";
       } else if (err.code === "auth/weak-password") {
@@ -136,7 +128,6 @@ export default function SignupPage() {
       } else if (err.message) {
         thongBaoLoi = err.message;
       }
-
       alert("❌ " + thongBaoLoi);
     } finally {
       setLoading(false);
@@ -148,7 +139,6 @@ export default function SignupPage() {
   return (
     <div className="flex min-h-[85vh] items-center justify-center bg-slate-50/50 px-4 py-12">
       <div className="relative w-full max-w-md rounded-[2.5rem] bg-white p-10 shadow-2xl border border-gray-100">
-        {/* NÚT VỀ TRANG CHỦ */}
         <Link
           href="/"
           className="absolute left-6 top-6 flex items-center gap-1 text-[11px] font-bold text-gray-400 hover:text-orange-600 transition-colors"
@@ -169,7 +159,8 @@ export default function SignupPage() {
         </div>
 
         <button
-          onClick={() => loginWithGoogle().then(() => router.push("/"))}
+          // Cập nhật chuyển hướng Google
+          onClick={() => loginWithGoogle().then(() => router.push(redirectUrl))}
           className="flex w-full items-center justify-center gap-3 rounded-2xl border border-gray-200 py-3.5 font-bold text-gray-700 hover:bg-gray-50 transition-all mb-6 shadow-sm"
         >
           <img
@@ -181,7 +172,7 @@ export default function SignupPage() {
         </button>
 
         <form onSubmit={handleSignup} className="space-y-4">
-          {/* TRƯỜNG HỌ VÀ TÊN */}
+          {/* TẤT CẢ CÁC TRƯỜNG INPUT GIỮ NGUYÊN NHƯ CŨ */}
           <div className="relative">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
@@ -195,7 +186,6 @@ export default function SignupPage() {
             />
           </div>
 
-          {/* TRƯỜNG EMAIL */}
           <div className="relative">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
@@ -210,24 +200,27 @@ export default function SignupPage() {
           </div>
 
           {/* TRƯỜNG SỐ ĐIỆN THOẠI */}
-          <div className="relative">
-            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="tel"
-              placeholder="Số điện thoại (không bắt buộc)"
-              className="w-full rounded-2xl bg-gray-50 py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-orange-500 transition-all"
-              onChange={(e) =>
-                setFormData({ ...formData, phoneNumber: e.target.value })
-              }
-            />
+          <div className="space-y-1">
+            <div className="relative">
+              <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="tel"
+                placeholder="Số điện thoại (không bắt buộc)"
+                className="w-full rounded-2xl bg-gray-50 py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-orange-500 transition-all"
+                onChange={(e) =>
+                  setFormData({ ...formData, phoneNumber: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Đã tách dòng text này ra khỏi thẻ div relative phía trên */}
             {formData.phoneNumber && (
-              <p className="text-xs text-gray-500 mt-1 px-2">
+              <p className="text-xs text-gray-500 px-2">
                 💡 Định dạng: 0901234567 hoặc +84901234567
               </p>
             )}
           </div>
 
-          {/* TRƯỜNG MẬT KHẨU */}
           <div className="relative">
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <button
@@ -250,7 +243,6 @@ export default function SignupPage() {
             />
           </div>
 
-          {/* THÔNG TIN ĐỘ MẠNH MẬT KHẨU */}
           {formData.password && (
             <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
               <div className="flex items-center justify-between">
@@ -267,7 +259,6 @@ export default function SignupPage() {
                 </span>
               </div>
 
-              {/* DANH SÁCH LỖI */}
               {cacLoiNhap.length > 0 && (
                 <div className="space-y-1">
                   {cacLoiNhap.map((loi, idx) => (
@@ -282,7 +273,6 @@ export default function SignupPage() {
                 </div>
               )}
 
-              {/* HIỂN THỊ TIÊU CHÍ ĐẠT */}
               {cacLoiNhap.length === 0 && formData.password && (
                 <div className="space-y-1">
                   <p className="text-xs text-green-600 flex items-start gap-2">
@@ -300,7 +290,6 @@ export default function SignupPage() {
             </div>
           )}
 
-          {/* TRƯỜNG XÁC NHẬN MẬT KHẨU */}
           <div className="relative">
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <button
@@ -325,7 +314,6 @@ export default function SignupPage() {
             />
           </div>
 
-          {/* KIỂM TRA XÁC NHẬN MẬT KHẨU */}
           {formData.xacNhanMatKhau && (
             <div className="text-xs px-2">
               {kiemTraXacNhanMatKhau(formData.password, formData.xacNhanMatKhau)
@@ -341,7 +329,6 @@ export default function SignupPage() {
             </div>
           )}
 
-          {/* NÚT TẠO TÀI KHOẢN */}
           <button
             type="submit"
             disabled={loading}
@@ -357,8 +344,11 @@ export default function SignupPage() {
 
         <p className="mt-8 text-center text-sm text-gray-500">
           Đã có tài khoản?{" "}
+          {/* Giữ nguyên tham số redirect khi chuyển lại trang đăng nhập */}
           <Link
-            href="/login"
+            href={
+              redirectUrl !== "/" ? `/login?redirect=${redirectUrl}` : "/login"
+            }
             className="font-bold text-orange-600 hover:underline"
           >
             Đăng nhập

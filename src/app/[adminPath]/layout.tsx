@@ -256,32 +256,31 @@ export default function AdminLayout({
 }) {
   const { user, userData, loading } = useAuthContext();
   const router = useRouter();
-  const params = useParams<{ adminPath: string }>();
-  const adminPath = params?.adminPath || "";
   const userRole = (userData?.role || "").toLowerCase();
 
   useEffect(() => {
-    if (!loading && !user) {
+    // 1. Đang tải hoặc chưa có trạng thái thì chờ
+    if (loading) return;
+
+    // 2. Chưa đăng nhập -> về trang login
+    if (!user) {
       router.replace("/login");
       return;
     }
 
-    if (!loading && user && adminPath && adminPath !== ADMIN_PATH) {
-      router.replace(`/${ADMIN_PATH}`);
-      return;
-    }
-
-    if (!loading && user && userRole && userRole !== "admin") {
+    // 3. Đã đăng nhập nhưng không phải admin -> về trang chủ
+    if (user && userRole !== "admin") {
       router.replace("/");
     }
-  }, [loading, user, adminPath, userRole, router]);
+  }, [loading, user, userRole, router]);
 
-  if (loading || !user || (userData && userRole !== "admin"))
+  if (loading || !user || (userData && userRole !== "admin")) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-white">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
 
   return <AdminLayoutContent>{children}</AdminLayoutContent>;
 }
