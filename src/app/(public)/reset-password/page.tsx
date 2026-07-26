@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { confirmResetPassword } from "@/lib/auth-service";
 import Link from "next/link";
@@ -14,15 +14,15 @@ import {
 } from "lucide-react";
 import { kiemTraMatKhau, layMauSacDoDamBao } from "@/lib/kiem-tra-mat-khau";
 
-export default function ResetPasswordPage() {
+// Tách nội dung chính thành Component con
+function ResetPasswordContent() {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const oobCode = searchParams.get("oobCode");
 
-  // Đưa tất cả các state vào bên trong Component
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState(""); // Đã chuyển vào đúng vị trí
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -40,7 +40,7 @@ export default function ResetPasswordPage() {
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVal = e.target.value;
     setPassword(newVal);
-    setErrorMsg(""); // Xóa lỗi khi người dùng gõ lại
+    setErrorMsg("");
 
     if (newVal.length > 0) {
       const ketQua = kiemTraMatKhau(newVal);
@@ -55,7 +55,6 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     if (!oobCode) return;
 
-    // Logic kiểm tra mật khẩu xác nhận
     if (password !== confirmPassword) {
       setErrorMsg("Mật khẩu xác nhận không trùng khớp.");
       return;
@@ -129,7 +128,6 @@ export default function ResetPasswordPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Input Mật khẩu mới */}
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <button
@@ -153,7 +151,6 @@ export default function ResetPasswordPage() {
                 />
               </div>
 
-              {/* Input Xác nhận mật khẩu */}
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <button
@@ -180,7 +177,6 @@ export default function ResetPasswordPage() {
                 />
               </div>
 
-              {/* Box hiển thị độ mạnh mật khẩu */}
               {password && (
                 <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
                   <div className="flex items-center justify-between">
@@ -239,5 +235,20 @@ export default function ResetPasswordPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// Component cha xuất ra mặc định, bọc Suspense
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[85vh] items-center justify-center bg-slate-50/50">
+          <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        </div>
+      }
+    >
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

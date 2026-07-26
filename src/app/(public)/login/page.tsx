@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { login, loginWithGoogle } from "@/lib/auth-service";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, Loader2, ArrowLeft } from "lucide-react";
 
-export default function LoginPage() {
+// Tách nội dung chính thành Component con
+function LoginContent() {
   const [mounted, setMounted] = useState(false);
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
@@ -114,7 +115,6 @@ export default function LoginPage() {
 
         <p className="mt-8 text-center text-sm text-gray-500 font-medium">
           Chưa có tài khoản?{" "}
-          {/* Giữ nguyên tham số redirect khi người dùng bấm sang trang đăng ký */}
           <Link
             href={
               redirectUrl !== "/"
@@ -128,5 +128,20 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// Component cha xuất ra mặc định, bọc Suspense
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[85vh] items-center justify-center bg-slate-50/50">
+          <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }
