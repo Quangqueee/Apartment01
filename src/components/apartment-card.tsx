@@ -322,7 +322,7 @@ export default memo(function ApartmentCard({
           {/* GIÁ TIỀN: Cấu trúc tối giản (₫ + Giá / tháng) với màu gốc */}
           <div className="mt-auto pt-4">
             <span
-              className={`${montserrat.className} text-[1.5rem] sm:text-[1.5rem] font-bold text-primary tracking-tight`}
+              className={`${montserrat.className} text-[1.4rem] sm:text-[1.45rem] font-bold text-primary tracking-tight`}
             >
               ₫{fullPrice.toLocaleString("vi-VN")}
             </span>

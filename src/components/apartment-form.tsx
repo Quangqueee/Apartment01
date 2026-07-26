@@ -50,7 +50,6 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  // Dùng MouseSensor và TouchSensor thay cho PointerSensor để hỗ trợ kéo-thả trên mobile
   MouseSensor,
   TouchSensor,
   useSensor,
@@ -67,7 +66,11 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // Fix upload xong trở về trang trước đó, thay vì luôn chuyển về /admin
+import { useRouter } from "next/navigation";
+
+// --- IMPORT FIREBASE STORAGE ---
+import { storage } from "@/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const MAX_FILE_SIZE = 7 * 1024 * 1024; // 7MB
 const ACCEPTED_IMAGE_TYPES = [
@@ -76,8 +79,8 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/png",
   "image/webp",
 ];
-const IMAGE_QUALITY = 0.75;
-const MAX_IMAGE_WIDTH = 1920;
+const IMAGE_QUALITY = 0.95; // Chất lượng nén ảnh (0.0 - 1.0)
+const MAX_IMAGE_WIDTH = 3840; // Giới hạn chiều rộng ảnh để giảm dung lượng, tránh quá lớn
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters."),
@@ -102,8 +105,6 @@ const formSchema = z.object({
     ),
 });
 
-// Khai báo type alias để tái sử dụng và truyền đủ 3 generic cho useForm,
-// tránh lỗi TypeScript với react-hook-form v7.54+ (TTransformedValues)
 type FormSchema = z.infer<typeof formSchema>;
 
 type SortableImageProps = {
@@ -123,15 +124,12 @@ const SortableImage = React.memo(function SortableImage({
     useSortable({ id });
 
   const style = {
-    // Dùng Translate thay vì Transform để tránh scale gây giật khi kéo trên desktop
     transform: CSS.Translate.toString(transform),
     transition,
-    // Gợi ý browser dùng GPU composite layer khi đang kéo, tránh repaint gây giật
     willChange: transform ? "transform" : undefined,
   };
 
   return (
-    // touch-none: ngăn trình duyệt mobile chiếm quyền xử lý sự kiện chạm, giúp kéo-thả hoạt động đúng
     <div
       ref={setNodeRef}
       style={style}
@@ -150,9 +148,9 @@ const SortableImage = React.memo(function SortableImage({
         variant="destructive"
         size="icon"
         className="absolute right-1 top-1 z-10 h-6 w-6 color-red-500 p-0 text-red-500 hover:bg-red-500/10"
-        onPointerDown={(e) => e.stopPropagation()} // Fix: Ngăn sự kiện kéo-thả của danh sách bị kích hoạt khi nhấn nút xóa
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
-          e.stopPropagation(); // Ngăn sự kiện kéo-thả của danh sách bị kích hoạt
+          e.stopPropagation();
           removeImage(id);
         }}
       >
@@ -166,12 +164,13 @@ type ApartmentFormProps = {
   apartment?: Apartment;
 };
 
+// Cấu trúc lại PreviewItem để chứa cả File (Blob) thật bên cạnh đường link ảo
 type PreviewItem = {
   id: string;
   src: string;
+  blob?: Blob; // Lưu trữ Blob nhị phân nếu là ảnh mới upload
 };
 
-// Chuẩn hóa danh sách ảnh về một mảng chuỗi phẳng trước khi dùng tiếp.
 const flattenImageSources = (value: unknown): string[] => {
   const flatImageSources: string[] = [];
 
@@ -195,8 +194,8 @@ const flattenImageSources = (value: unknown): string[] => {
   return flatImageSources;
 };
 
-// Hàm nén và resize ảnh trước khi hiển thị/tải lên.
-const compressImage = (file: File): Promise<string> => {
+// 🛠️ TỐI ƯU HÓA: Xuất ra Blob thay vì Base64 Data URL
+const compressImage = (file: File): Promise<{ src: string; blob: Blob }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -208,8 +207,6 @@ const compressImage = (file: File): Promise<string> => {
         const ctx = canvas.getContext("2d");
 
         let { width, height } = img;
-
-        // Giảm kích thước ảnh quá rộng để hạ dung lượng payload.
         if (width > MAX_IMAGE_WIDTH) {
           height = (height * MAX_IMAGE_WIDTH) / width;
           width = MAX_IMAGE_WIDTH;
@@ -219,10 +216,20 @@ const compressImage = (file: File): Promise<string> => {
         canvas.height = height;
         ctx?.drawImage(img, 0, 0, width, height);
 
-        // Chuyển ảnh sang data URL đã nén để giữ payload ở mức nhẹ nhất có thể.
-        // const dataUrl = canvas.toDataURL(file.type, IMAGE_QUALITY);
-        const dataUrl = canvas.toDataURL("image/webp", IMAGE_QUALITY);
-        resolve(dataUrl);
+        // Xuất file nhị phân (Blob) để đẩy lên Firebase
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Lỗi xử lý ảnh trên canvas."));
+              return;
+            }
+            // Tạo một URL ảo để hiển thị trên trình duyệt cực mượt, không tốn text
+            const objectUrl = URL.createObjectURL(blob);
+            resolve({ src: objectUrl, blob });
+          },
+          "image/jpeg",
+          IMAGE_QUALITY,
+        );
       };
       img.onerror = reject;
     };
@@ -233,18 +240,18 @@ const compressImage = (file: File): Promise<string> => {
 const createPreviewId = () =>
   `img-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
-const createInitialPreviewItems = (imageUrls: unknown) =>
+const createInitialPreviewItems = (imageUrls: unknown): PreviewItem[] =>
   flattenImageSources(imageUrls).map((src, index) => ({
     id: `initial-${index}`,
     src,
   }));
 
 const getPreviewSources = (previewItems: PreviewItem[]) =>
-  flattenImageSources(previewItems.map((item) => item.src));
+  previewItems.map((item) => item.src);
 
 export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const { toast } = useToast();
-  const router = useRouter(); // Fix upload xong trở về trang trước đó, thay vì luôn chuyển về /admin
+  const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -254,12 +261,9 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
-    // MouseSensor: kéo-thả trên desktop, kích hoạt khi di chuyển chuột ít nhất 5px
     useSensor(MouseSensor, {
       activationConstraint: { distance: 5 },
     }),
-    // TouchSensor: kéo-thả trên mobile, yêu cầu nhấn giữ 250ms trước khi kéo
-    // giúp người dùng vẫn cuộn trang bình thường mà không vô tình kéo ảnh
     useSensor(TouchSensor, {
       activationConstraint: { delay: 250, tolerance: 5 },
     }),
@@ -268,8 +272,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     }),
   );
 
-  // Truyền đủ 3 generic <FormSchema, unknown, FormSchema> để TypeScript giải được
-  // TTransformedValues — fix toàn bộ lỗi "Control<..., TFieldValues>" trên các FormField
   const form = useForm<FormSchema, unknown, FormSchema>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -279,7 +281,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       district: apartment?.district || "",
       area: apartment?.area || 0,
       price: apartment?.price || 0,
-      // Ép kiểu về string vì Apartment.commission có thể là number | string | undefined
       commission:
         apartment?.commission !== undefined ? String(apartment.commission) : "",
       details: apartment?.details || "",
@@ -302,6 +303,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   );
 
   useEffect(() => {
+    // Luôn báo cho react-hook-form biết có ảnh (dù là URL ảo hay URL thật) để vượt qua validation
     form.setValue("imageUrls", getPreviewSources(previewItems), {
       shouldValidate: true,
     });
@@ -309,9 +311,14 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
 
   const removeImage = useCallback(
     (idToRemove: string) => {
-      updatePreviewItems((currentPreviewItems) =>
-        currentPreviewItems.filter((item) => item.id !== idToRemove),
-      );
+      updatePreviewItems((currentPreviewItems) => {
+        const itemToRemove = currentPreviewItems.find(
+          (i) => i.id === idToRemove,
+        );
+        // Thu hồi bộ nhớ nếu là ảnh URL ảo
+        if (itemToRemove?.blob) URL.revokeObjectURL(itemToRemove.src);
+        return currentPreviewItems.filter((item) => item.id !== idToRemove);
+      });
     },
     [updatePreviewItems],
   );
@@ -336,27 +343,23 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       }
 
       const filePromises = files.map((file) => {
-        return new Promise<string>((resolve, reject) => {
+        return new Promise<{ src: string; blob: Blob }>((resolve, reject) => {
           if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
             return reject(`Định dạng file không được hỗ trợ: ${file.name}`);
-          }
-          if (file.size > MAX_FILE_SIZE) {
-            console.warn(
-              `Ảnh quá lớn, hệ thống sẽ tự nén trước khi tải lên: ${file.name}`,
-            );
           }
           compressImage(file).then(resolve).catch(reject);
         });
       });
 
       Promise.all(filePromises)
-        .then((newPreviewSources) => {
+        .then((newImages) => {
           updatePreviewItems((currentPreviewItems) => {
             const nextItems = [
               ...currentPreviewItems,
-              ...newPreviewSources.map((src) => ({
+              ...newImages.map((img) => ({
                 id: createPreviewId(),
-                src,
+                src: img.src,
+                blob: img.blob, // Lưu trữ nguyên file nhị phân
               })),
             ];
             return nextItems;
@@ -385,6 +388,10 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   );
 
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    // Chỉ kích hoạt hiệu ứng kéo/thả nếu thứ đang được kéo là File (ảnh).
+    // Nếu là văn bản (do người dùng kéo chữ từ Textarea), bỏ qua ngay lập tức.
+    if (!e.dataTransfer.types.includes("Files")) return;
+
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
@@ -425,86 +432,81 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     [updatePreviewItems],
   );
 
+  // 🛠️ TỐI ƯU HÓA: Tách luồng upload ảnh lên Firebase Storage ra khỏi Server Action
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsSubmitting(true);
-
-    const imageUrls = getPreviewSources(previewItems);
-    if (imageUrls.length === 0) {
+    if (previewItems.length === 0) {
       form.setError("imageUrls", {
         type: "manual",
         message: "Vui lòng tải lên ít nhất 1 ảnh.",
       });
-      setIsSubmitting(false);
       return;
     }
 
-    if (imageUrls.length > MAX_APARTMENT_IMAGES) {
-      form.setError("imageUrls", {
-        type: "manual",
-        message: `Bạn chỉ có thể tải lên tối đa ${MAX_APARTMENT_IMAGES} ảnh.`,
+    setIsSubmitting(true);
+
+    try {
+      const finalImageUrls: string[] = [];
+
+      // Dùng Promise.all để bắn tất cả ảnh mới lên Storage CÙNG MỘT LÚC
+      const uploadPromises = previewItems.map(async (item) => {
+        if (item.blob) {
+          // Là ảnh mới (chứa file nhị phân)
+          const fileName = `apartments/${Date.now()}-${item.id}.webp`;
+          const storageRef = ref(storage, fileName);
+          await uploadBytes(storageRef, item.blob);
+          const downloadUrl = await getDownloadURL(storageRef);
+          return downloadUrl;
+        } else {
+          // Đã là ảnh cũ (có sẵn URL từ Firebase)
+          return item.src;
+        }
       });
-      setIsSubmitting(false);
-      return;
-    }
 
-    const result = await createOrUpdateApartmentAction(apartment?.id, {
-      title: values.title,
-      sourceCode: values.sourceCode,
-      roomType: values.roomType,
-      district: values.district,
-      area: values.area,
-      price: values.price,
-      commission: values.commission,
-      details: values.details,
-      listingSummary: values.listingSummary,
-      address: values.address,
-      landlordPhoneNumber: values.landlordPhoneNumber,
-      imageUrlsJson: JSON.stringify(imageUrls),
-    });
+      // Đợi quá trình upload hoàn tất để lấy mảng link chuẩn (không còn link ảo blob:// nữa)
+      const uploadedUrls = await Promise.all(uploadPromises);
 
-    if (result?.error) {
+      // Chỉ gửi nội dung Text và các đường link URL cực nhẹ qua Server Action
+      const result = await createOrUpdateApartmentAction(apartment?.id, {
+        title: values.title,
+        sourceCode: values.sourceCode,
+        roomType: values.roomType,
+        district: values.district,
+        area: values.area,
+        price: values.price,
+        commission: values.commission,
+        details: values.details,
+        listingSummary: values.listingSummary,
+        address: values.address,
+        landlordPhoneNumber: values.landlordPhoneNumber,
+        imageUrlsJson: JSON.stringify(uploadedUrls), // Mảng string URL chuẩn, dung lượng tí hon
+      });
+
+      if (result?.error) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.error,
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      toast({
+        title: "Thành công",
+        description: apartment ? "Đã cập nhật căn hộ." : "Đã thêm căn hộ mới.",
+        duration: 1000,
+      });
+      router.push(`/${ADMIN_PATH}/apartments`);
+    } catch (error) {
+      console.error("Lỗi khi upload ảnh:", error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: result.error,
+        title: "Lỗi Upload",
+        description: "Không thể tải ảnh lên máy chủ. Vui lòng kiểm tra mạng.",
       });
-      setIsSubmitting(false); //
-      return;
+      setIsSubmitting(false);
     }
-    // Nếu thành công, hiển thị thông báo và điều hướng về trang danh sách căn hộ
-    toast({
-      title: "Thành công",
-      description: apartment ? "Đã cập nhật căn hộ." : "Đã thêm căn hộ mới.",
-      duration: 1000, // Hiển thị trong 1 giây)
-    });
-    router.push(`/${ADMIN_PATH}/apartments`);
   }
-
-  const handleGenerateSummary = async () => {
-    setIsGenerating(true);
-    const formValues = form.getValues();
-    const result = await generateSummaryAction({
-      title: formValues.title,
-      roomType: formValues.roomType,
-      district: formValues.district,
-      price: formValues.price,
-      detailedInformation: formValues.details,
-    });
-    if (result.summary) {
-      form.setValue("listingSummary", result.summary);
-      toast({
-        title: "Summary Generated",
-        description: "AI-powered summary has been added.",
-      });
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Generation Failed",
-        description: "Could not generate summary. Please try again.",
-      });
-    }
-    setIsGenerating(false);
-  };
 
   return (
     <Form {...form}>
@@ -540,8 +542,10 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormLabel>Mô tả căn hộ</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder=""
-                          className="min-h-[150px]"
+                          placeholder="Nhập thông tin chi tiết về căn hộ..."
+                          /* Đã tăng min-h lên 250px cho mobile và 350px cho desktop. 
+                             Thêm text-base để fix lỗi của iOS */
+                          className="min-h-[250px] md:min-h-[350px] text-base md:text-sm"
                           {...field}
                         />
                       </FormControl>
@@ -549,39 +553,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                     </FormItem>
                   )}
                 />
-                {/* <FormField
-                  control={form.control}
-                  name="listingSummary"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel>AI Generated Summary</FormLabel>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={handleGenerateSummary}
-                          disabled={isGenerating}
-                        >
-                          {isGenerating ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="mr-2 h-4 w-4" />
-                          )}
-                          Generate
-                        </Button>
-                      </div>
-                      <FormControl>
-                        <Textarea
-                          placeholder="AI summary will appear here..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                /> */}
               </CardContent>
             </Card>
 
@@ -620,7 +591,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                             onChange={handleFileChange}
                             onClick={(e) => e.stopPropagation()}
                             accept={ACCEPTED_IMAGE_TYPES.join(",")}
-                            className="absolute inset-0 h-full w-full opacity-0"
+                            className="absolute inset-0 h-full w-full opacity-0 cursor-pointer"
                           />
                         </div>
                       </FormControl>
@@ -638,7 +609,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                           items={sortableIds}
                           strategy={rectSortingStrategy}
                         >
-                          {/* Thêm touch-none và select-none vào tầng container cha để iOS không nuốt sự kiện cuộn */}
                           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 touch-none select-none">
                             {previewItems.map((item, index) => (
                               <SortableImage

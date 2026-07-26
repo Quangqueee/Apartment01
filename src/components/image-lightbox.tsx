@@ -150,7 +150,7 @@ export default function ImageLightbox({
 
           const blob = await response.blob();
           const prefix = apartmentCode || "can-ho";
-          const fileName = `${prefix}-${i + 1}.webp`;
+          const fileName = `${prefix}-${i + 1}.jpeg`;
 
           zip.file(fileName, blob);
         } catch (fetchError) {
