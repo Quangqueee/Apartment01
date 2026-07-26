@@ -9,7 +9,8 @@ import {
     signInWithPopup,
     EmailAuthProvider,
     reauthenticateWithCredential,
-    updatePassword
+    updatePassword,
+    confirmPasswordReset as firebaseConfirmPasswordReset
 } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
@@ -63,3 +64,7 @@ export const changePassword = async (newPassword: string, currentPassword: strin
 };
 
 export const logout = () => signOut(auth);
+
+export const confirmResetPassword = async (oobCode: string, newPassword: string) => {
+    return await firebaseConfirmPasswordReset(auth, oobCode, newPassword);
+};
