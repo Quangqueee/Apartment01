@@ -38,13 +38,13 @@ export default memo(function ApartmentCard({
   const [isFavoriteUpdating, setIsFavoriteUpdating] = useState(false);
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isHovering, setIsHovering] = useState(false);
 
-  // --- LOGIC VUỐT (SWIPE) ĐÃ TỐI ƯU CHO DESKTOP ---
+  // --- LOGIC VUỐT (SWIPE) ĐÃ TỐI ƯU CỰC MƯỢT ---
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const minSwipeDistance = 30; // Giảm xuống 30 để vuốt nhạy hơn một chút
+  const minSwipeDistance = 30;
 
   const canViewCommission =
     userData?.role === "collaborator" || userData?.role === "admin";
@@ -110,7 +110,6 @@ export default memo(function ApartmentCard({
     }
   };
 
-  // --- HÀM CHUYỂN ẢNH ---
   const handleNextImage = (e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
@@ -131,18 +130,32 @@ export default memo(function ApartmentCard({
     );
   };
 
-  // --- HÀM XỬ LÝ POINTER CHUẨN (CHUỘT + CẢM ỨNG) ---
+  // --- HÀM XỬ LÝ POINTER CHUẨN (KHÔNG NHẦM VỚI SCROLL DỌC) ---
   const onPointerDown = (e: React.PointerEvent) => {
     setIsDragging(false);
     setTouchStartX(e.clientX);
+    setTouchStartY(e.clientY); // Lấy thêm tọa độ Y
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (touchStartX === null) return;
-    setTouchEndX(e.clientX);
+    if (touchStartX === null || touchStartY === null) return;
 
-    // Đang kéo chuột/ngón tay
-    if (Math.abs(e.clientX - touchStartX) > 10) {
+    const currentX = e.clientX;
+    const currentY = e.clientY;
+
+    const deltaX = Math.abs(currentX - touchStartX);
+    const deltaY = Math.abs(currentY - touchStartY);
+
+    // NẾU VUỐT DỌC (CUỘN TRANG) LỚN HƠN VUỐT NGANG -> HỦY THAO TÁC CHUYỂN ẢNH
+    if (deltaY > deltaX && deltaY > 10) {
+      setTouchStartX(null);
+      setTouchStartY(null);
+      return;
+    }
+
+    setTouchEndX(currentX);
+
+    if (deltaX > 10) {
       setIsDragging(true);
     }
   };
@@ -160,6 +173,7 @@ export default memo(function ApartmentCard({
       }
     }
     setTouchStartX(null);
+    setTouchStartY(null);
     setTouchEndX(null);
 
     setTimeout(() => {
@@ -182,12 +196,7 @@ export default memo(function ApartmentCard({
 
   return (
     <>
-      <div
-        className="group relative flex flex-col h-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1.5 hover:scale-[1.015]"
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
-      >
-        {/* THÊM onDragStart ngăn kéo link, thêm class cursor-grab, select-none */}
+      <div className="group relative flex flex-col h-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1.5 hover:scale-[1.015]">
         <div
           className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100 touch-pan-y cursor-grab active:cursor-grabbing select-none"
           onPointerDown={onPointerDown}
@@ -196,7 +205,7 @@ export default memo(function ApartmentCard({
           onPointerLeave={() => {
             if (touchStartX !== null) onPointerUp();
           }}
-          onDragStart={(e) => e.preventDefault()} // KHÓA CỨNG HÀNH VI KÉO LINK MẶC ĐỊNH
+          onDragStart={(e) => e.preventDefault()}
         >
           {canViewCommission && displayCommission && (
             <div className="absolute top-3 left-3 z-20 bg-[#5cb85c] text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm pointer-events-none">
@@ -212,7 +221,7 @@ export default memo(function ApartmentCard({
             href={`/apartments/${apartment.id}`}
             onClick={handleLinkClick}
             className="absolute inset-0 z-0"
-            draggable={false} // Khóa thêm ở cấp Link
+            draggable={false}
           >
             <div
               className="flex h-full w-full transition-transform duration-500 ease-out"
@@ -225,19 +234,21 @@ export default memo(function ApartmentCard({
                   alt={`${apartment.title} - ảnh ${idx + 1}`}
                   loading={idx === 0 ? "eager" : "lazy"}
                   draggable={false}
-                  className="h-full w-full flex-shrink-0 object-cover pointer-events-none" // pointer-events-none giúp vuốt không bị kẹt vào ảnh
+                  className="h-full w-full flex-shrink-0 object-cover pointer-events-none"
                 />
               ))}
             </div>
           </Link>
 
-          {/* Button Chuyển Ảnh */}
           {apartment.imageUrls.length > 1 && (
             <>
               <div
                 onClick={handlePrevImage}
+                // 🛠️ Mũi tên: Chỉ hiện khi vuốt (cả đt/máy tính) hoặc khi hover trên máy tính
                 className={`absolute left-2 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/90 text-gray-800 shadow hover:bg-white hover:scale-110 transition-all duration-300 ${
-                  isHovering ? "opacity-100" : "opacity-0"
+                  isDragging
+                    ? "opacity-100"
+                    : "opacity-0 md:group-hover:opacity-100"
                 }`}
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -245,7 +256,9 @@ export default memo(function ApartmentCard({
               <div
                 onClick={handleNextImage}
                 className={`absolute right-2 top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-white/90 text-gray-800 shadow hover:bg-white hover:scale-110 transition-all duration-300 ${
-                  isHovering ? "opacity-100" : "opacity-0"
+                  isDragging
+                    ? "opacity-100"
+                    : "opacity-0 md:group-hover:opacity-100"
                 }`}
               >
                 <ChevronRight className="h-5 w-5" />
@@ -253,7 +266,6 @@ export default memo(function ApartmentCard({
             </>
           )}
 
-          {/* Dots Indicator */}
           {apartment.imageUrls.length > 1 && (
             <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-1.5 drop-shadow-md">
               {apartment.imageUrls.map((_, idx) => (
@@ -270,7 +282,6 @@ export default memo(function ApartmentCard({
           )}
         </div>
 
-        {/* === PHẦN 2: THÔNG TIN (Minimalist) === */}
         <Link
           href={`/apartments/${apartment.id}`}
           onClick={handleLinkClick}
@@ -302,9 +313,10 @@ export default memo(function ApartmentCard({
             {apartment.district}
           </p>
 
+          {/* 🛠️ SỬA LỖI SYNTAX Ở ĐÂY: Dùng <span> thay vì Fragment <> */}
           <p className="mt-1 text-[0.85rem] sm:text-sm text-gray-500 line-clamp-1">
             {apartment.roomType} • {apartment.area} m²
-            {!isCompact && <> • {formatRelativeTime(timeToDisplay)}</>}
+            {!isCompact && <span> • {formatRelativeTime(timeToDisplay)}</span>}
           </p>
 
           <div className="mt-auto pt-4 flex items-baseline gap-1.5">
