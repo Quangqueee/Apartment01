@@ -319,12 +319,15 @@ export default memo(function ApartmentCard({
             {!isCompact && <span> • {formatRelativeTime(timeToDisplay)}</span>}
           </p>
 
-          <div className="mt-auto pt-4 flex items-baseline gap-1.5">
-            <span className="inline-block origin-bottom scale-y-[1.15] text-[1.3rem] sm:text-[1.6rem] font-black text-primary tracking-tighter font-body italic">
-              {fullPrice.toLocaleString("vi-VN")}
+          {/* GIÁ TIỀN: Cấu trúc tối giản (₫ + Giá / tháng) với màu gốc */}
+          <div className="mt-auto pt-4">
+            <span
+              className={`${montserrat.className} text-[1.5rem] sm:text-[1.5rem] font-bold text-primary tracking-tight`}
+            >
+              ₫{fullPrice.toLocaleString("vi-VN")}
             </span>
-            <span className="text-[11px] sm:text-[13px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">
-              VNĐ/Tháng
+            <span className="ml-1 text-[0.85rem] sm:text-sm font-medium text-gray-500">
+              /tháng
             </span>
           </div>
         </Link>
