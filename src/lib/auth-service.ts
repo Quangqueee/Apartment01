@@ -9,7 +9,8 @@ import {
     signInWithPopup,
     EmailAuthProvider,
     reauthenticateWithCredential,
-    updatePassword
+    updatePassword,
+    confirmPasswordReset as firebaseConfirmPasswordReset
 } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
@@ -17,12 +18,14 @@ export const login = async (email: string, pass: string) => {
     return await signInWithEmailAndPassword(auth, email, pass);
 };
 
-export const signup = async (email: string, pass: string, fullName: string) => {
+// ĐÃ THÊM: Bổ sung tham số thứ 4 là phoneNumber (có dấu ? để thành tùy chọn)
+export const signup = async (email: string, pass: string, fullName: string, phoneNumber?: string) => {
     const res = await createUserWithEmailAndPassword(auth, email, pass);
     await setDoc(doc(db, "users", res.user.uid), {
         uid: res.user.uid,
         email: email,
         displayName: fullName,
+        phoneNumber: phoneNumber || "", // Lưu số điện thoại vào database nếu có
         role: "user",
         favorites: [],
         createdAt: serverTimestamp(),
@@ -61,3 +64,7 @@ export const changePassword = async (newPassword: string, currentPassword: strin
 };
 
 export const logout = () => signOut(auth);
+
+export const confirmResetPassword = async (oobCode: string, newPassword: string) => {
+    return await firebaseConfirmPasswordReset(auth, oobCode, newPassword);
+};

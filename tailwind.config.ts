@@ -10,8 +10,16 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        // Đồng bộ font chữ theo yêu cầu của bạn
-        body: ["PT Sans", "sans-serif"],
+        body: [
+          "Be Vietnam Pro",
+          "Inter",
+          "system-ui",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          '"Segoe UI"',
+          "Roboto",
+          "sans-serif",
+        ],
         headline: ["Playfair Display", "serif"],
       },
       colors: {

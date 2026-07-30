@@ -186,7 +186,7 @@ export default function AboutSection() {
         </div>
       </div>
 
-      {/* 5. CALL TO ACTION (ĐÃ SỬA LINK) */}
+      {/* 5. CALL TO ACTION */}
       <div className="py-20 bg-white text-center">
         <div className="container mx-auto px-6 max-w-3xl">
           <h2 className="font-headline text-3xl font-bold text-gray-900 mb-6">
@@ -197,7 +197,7 @@ export default function AboutSection() {
             một nơi ở ưng ý ngay hôm nay.
           </p>
 
-          {/* NÚT NÀY SẼ CUỘN LÊN DANH SÁCH CĂN HỘ */}
+          {/* NÚT NÀY CUỘN DANH SÁCH CĂN HỘ */}
           <Link
             href="#apartments-list"
             className="inline-block px-10 py-4 bg-gray-900 text-white font-bold uppercase tracking-widest rounded-xl hover:bg-[#cda533] transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
@@ -210,7 +210,7 @@ export default function AboutSection() {
   );
 }
 
-// --- HELPER COMPONENTS (Giữ nguyên của bạn) ---
+// --- HELPER COMPONENTS  ---
 
 function StatItem({ number, label }: { number: string; label: string }) {
   return (

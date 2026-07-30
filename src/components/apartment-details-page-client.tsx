@@ -1,6 +1,5 @@
 "use client";
 
-import { getApartmentById } from "@/lib/data-client";
 import { formatPrice } from "@/lib/utils";
 import { ROOM_TYPES } from "@/lib/constants";
 import {
@@ -21,6 +20,8 @@ import {
   ChevronUp,
   Star,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Apartment } from "@/lib/types";
@@ -48,23 +49,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-// Import Firestore để tìm căn hộ gợi ý
+import { Montserrat, Be_Vietnam_Pro } from "next/font/google";
 import { db } from "@/firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  limit,
-  arrayUnion,
-  arrayRemove,
-  setDoc,
-  doc,
-} from "firebase/firestore";
-// IMPORT QUAN TRỌNG: Component Card có sẵn của bạn
+import { arrayUnion, arrayRemove, setDoc, doc } from "firebase/firestore";
 import ApartmentCard from "@/components/apartment-card";
 
-// --- HELPER FUNCTIONS & COMPONENTS ---
+const titleFont = Be_Vietnam_Pro({
+  subsets: ["vietnamese"],
+  weight: ["700"],
+  display: "swap",
+});
+
+const montserrat = Montserrat({
+  subsets: ["vietnamese"],
+  weight: ["700"],
+  display: "swap",
+});
 
 const getRoomTypeLabel = (value: string) => {
   const roomType = ROOM_TYPES.find((rt) => rt.value === value);
@@ -82,6 +82,7 @@ function ShareModal({
 }) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+
   const handleCopyLink = () => {
     if (typeof window !== "undefined") {
       navigator.clipboard.writeText(window.location.href);
@@ -93,6 +94,7 @@ function ShareModal({
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
   const handleFacebookShare = () => {
     if (typeof window !== "undefined") {
       const url = encodeURIComponent(window.location.href);
@@ -102,6 +104,7 @@ function ShareModal({
       );
     }
   };
+
   const handleZaloShare = () => {
     handleCopyLink();
     window.open(`https://chat.zalo.me/`, "_blank");
@@ -111,6 +114,7 @@ function ShareModal({
       className: "bg-blue-50 text-blue-900 border-blue-100",
     });
   };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-sm bg-white rounded-[2rem] border-none shadow-2xl p-6 z-[100]">
@@ -220,108 +224,91 @@ function FeatureRow({
   );
 }
 
-// === COMPONENT: GỢI Ý CĂN HỘ ===
-function RelatedApartments({
-  currentApartment,
-}: {
-  currentApartment: Apartment;
-}) {
-  const [related, setRelated] = useState<Apartment[]>([]);
-  const [loading, setLoading] = useState(true);
+function RelatedApartments({ related }: { related: Apartment[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(Math.ceil(scrollLeft + clientWidth) < scrollWidth - 2);
+    }
+  };
 
   useEffect(() => {
-    const fetchRelated = async () => {
-      try {
-        setLoading(true);
-        // 1. Lấy các căn hộ cùng QUẬN (Ưu tiên cao nhất)
-        const q = query(
-          collection(db, "apartments"),
-          where("district", "==", currentApartment.district),
-          limit(20),
-        );
+    if (related.length > 0) {
+      checkScroll();
+      window.addEventListener("resize", checkScroll);
+      return () => window.removeEventListener("resize", checkScroll);
+    }
+  }, [related.length]);
 
-        const snapshot = await getDocs(q);
-        const fetched: Apartment[] = [];
-        snapshot.forEach((doc) => {
-          if (doc.id !== currentApartment.id) {
-            // Loại bỏ căn hiện tại
-            fetched.push({ id: doc.id, ...doc.data() } as Apartment);
-          }
-        });
-
-        // 2. Logic tính điểm phù hợp (Scoring System)
-        const scored = fetched.map((apt) => {
-          let score = 0;
-          // Cùng loại phòng: +3 điểm
-          if (apt.roomType === currentApartment.roomType) score += 3;
-          // Giá chênh lệch không quá 20%: +2 điểm
-          const priceDiff = Math.abs(apt.price - currentApartment.price);
-          const priceThreshold = currentApartment.price * 0.2;
-          if (priceDiff <= priceThreshold) score += 2;
-
-          return { ...apt, score };
-        });
-
-        // 3. Sắp xếp theo điểm cao nhất -> Mới nhất
-        scored.sort((a, b) => b.score - a.score);
-
-        // 4. Lấy top 4
-        setRelated(scored.slice(0, 4));
-      } catch (err) {
-        console.error("Failed to fetch related", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (currentApartment) fetchRelated();
-  }, [currentApartment]);
-
-  if (loading)
-    return (
-      <div className="bg-gray-50 py-12 md:py-16 border-t border-gray-100">
-        <div className="container mx-auto px-4 md:px-6">
-          <Skeleton className="h-8 w-48 mb-8 mx-auto md:mx-0" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Skeleton className="h-[350px] w-full rounded-2xl" />
-            <Skeleton className="h-[350px] w-full rounded-2xl" />
-            <Skeleton className="h-[350px] w-full rounded-2xl" />
-            <Skeleton className="h-[350px] w-full rounded-2xl" />
-          </div>
-        </div>
-      </div>
-    );
+  const scroll = (direction: "left" | "right") => {
+    if (scrollRef.current) {
+      const { current } = scrollRef;
+      const scrollAmount =
+        direction === "left" ? -current.clientWidth : current.clientWidth;
+      current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
 
   if (related.length === 0) return null;
 
   return (
-    <div className="bg-gray-50 border-t border-gray-100 py-12 md:py-16">
+    <div className="py-12 md:py-16">
       <div className="container mx-auto px-4 md:px-6">
-        <div className="flex items-center justify-between mb-8">
-          <h3 className="font-headline text-2xl md:text-3xl font-bold text-gray-900">
-            Có thể bạn cũng thích
-          </h3>
-          <Link
-            href="/"
-            className="hidden md:flex items-center gap-2 text-primary font-bold hover:underline"
+        <div className="rounded-[2.5rem] bg-gray-50/65 p-6 md:p-10 border border-gray-100/80 shadow-sm relative">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="font-headline text-2xl md:text-3xl font-bold text-gray-900">
+              Có thể bạn cũng thích
+            </h3>
+            <div className="flex items-center gap-6">
+              <div className="hidden md:flex items-center gap-2">
+                <button
+                  onClick={() => scroll("left")}
+                  disabled={!canScrollLeft}
+                  className={`h-10 w-10 flex items-center justify-center rounded-full border border-gray-200 bg-white transition-all shadow-sm ${canScrollLeft ? "hover:border-primary hover:text-primary hover:shadow active:scale-95 text-gray-700 cursor-pointer" : "opacity-40 cursor-not-allowed text-gray-300"}`}
+                >
+                  <ChevronLeft className="h-5 w-5 stroke-[2]" />
+                </button>
+                <button
+                  onClick={() => scroll("right")}
+                  disabled={!canScrollRight}
+                  className={`h-10 w-10 flex items-center justify-center rounded-full border border-gray-200 bg-white transition-all shadow-sm ${canScrollRight ? "hover:border-primary hover:text-primary hover:shadow active:scale-95 text-gray-700 cursor-pointer" : "opacity-40 cursor-not-allowed text-gray-300"}`}
+                >
+                  <ChevronRight className="h-5 w-5 stroke-[2]" />
+                </button>
+              </div>
+              <Link
+                href="/"
+                className="flex items-center gap-2 text-primary font-bold hover:underline text-sm md:text-base"
+              >
+                Xem tất cả <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+          <div className="md:hidden text-center text-xs font-medium text-gray-400 flex items-center justify-center gap-3 mb-6">
+            <span className="opacity-60 text-base">←</span>
+            <span>Vuốt ngang để xem thêm</span>
+            <span className="opacity-60 text-base">→</span>
+          </div>
+          <div
+            ref={scrollRef}
+            onScroll={checkScroll}
+            className="flex gap-6 overflow-x-auto snap-x snap-mandatory py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full scroll-smooth"
           >
-            Xem tất cả <ArrowRight className="h-4 w-4" />
-          </Link>
+            {related.map((apt) => (
+              <div
+                key={apt.id}
+                className="w-full sm:w-[calc(50%-0.75rem)] lg:w-[calc(25%-1.125rem)] flex-shrink-0 snap-start"
+              >
+                <ApartmentCard apartment={apt} />
+              </div>
+            ))}
+          </div>
         </div>
-
-        {/* SỬ DỤNG APARTMENT CARD CÓ SẴN CỦA BẠN */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {related.map((apt) => (
-            <ApartmentCard key={apt.id} apartment={apt} />
-          ))}
-        </div>
-
-        <Link
-          href="/"
-          className="md:hidden mt-8 flex items-center justify-center gap-2 w-full py-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-700"
-        >
-          Xem thêm căn hộ khác
-        </Link>
       </div>
     </div>
   );
@@ -345,19 +332,20 @@ function ApartmentDetailsSkeleton() {
   );
 }
 
-// --- MAIN CLIENT COMPONENT ---
-
 export default function ApartmentDetailsPageClient({
-  apartmentId,
+  initialApartment,
+  initialRelated,
 }: {
-  apartmentId: string;
+  initialApartment: Apartment;
+  initialRelated: Apartment[];
 }) {
   const { user, userData, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
-  const [apartment, setApartment] = useState<Apartment | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const apartment = initialApartment;
+  const apartmentId = initialApartment.id;
+
   const [isFavorited, setIsFavorited] = useState(false);
   const [isFavLoading, setIsFavLoading] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -366,38 +354,26 @@ export default function ApartmentDetailsPageClient({
   const [mobileIndex, setMobileIndex] = useState(0);
   const [mobileCarouselApi, setMobileCarouselApi] = useState<CarouselApi>();
 
-  // Description Read More
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLongContent, setIsLongContent] = useState(false);
   const descriptionRef = useRef<HTMLDivElement>(null);
   const isMobileSwipeRef = useRef(false);
   const touchStartXRef = useRef(0);
   const touchStartYRef = useRef(0);
-  const isCollaborator = userData?.role === "collaborator";
+  const isCollaborator =
+    userData?.role === "collaborator" || userData?.role === "admin";
 
   const formatCommission = (commissionValue: Apartment["commission"]) => {
     if (
       commissionValue === undefined ||
       commissionValue === null ||
       commissionValue === ""
-    ) {
+    )
       return "--";
-    }
-    if (typeof commissionValue === "number") {
+    if (typeof commissionValue === "number")
       return commissionValue.toLocaleString("vi-VN");
-    }
     return commissionValue;
   };
-
-  useEffect(() => {
-    const fetchApartmentData = async () => {
-      setIsLoading(true);
-      const fetchedApartment = await getApartmentById(apartmentId);
-      setApartment(fetchedApartment);
-      setIsLoading(false);
-    };
-    fetchApartmentData();
-  }, [apartmentId]);
 
   useEffect(() => {
     if (!user) {
@@ -416,15 +392,11 @@ export default function ApartmentDetailsPageClient({
 
   useEffect(() => {
     if (!mobileCarouselApi) return;
-
-    const syncMobileIndex = () => {
+    const syncMobileIndex = () =>
       setMobileIndex(mobileCarouselApi.selectedScrollSnap());
-    };
-
     syncMobileIndex();
     mobileCarouselApi.on("select", syncMobileIndex);
     mobileCarouselApi.on("reInit", syncMobileIndex);
-
     return () => {
       mobileCarouselApi.off("select", syncMobileIndex);
       mobileCarouselApi.off("reInit", syncMobileIndex);
@@ -463,16 +435,13 @@ export default function ApartmentDetailsPageClient({
         });
       })
       .catch((error) => {
-        console.error("Lỗi cập nhật yêu thích:", error);
         toast({
           variant: "destructive",
           title: "Không thể lưu yêu thích",
           description: "Vui lòng thử lại sau.",
         });
       })
-      .finally(() => {
-        setIsFavLoading(false);
-      });
+      .finally(() => setIsFavLoading(false));
   };
 
   const openLightbox = (index: number) => {
@@ -492,9 +461,7 @@ export default function ApartmentDetailsPageClient({
     const firstTouch = event.touches[0];
     const deltaX = Math.abs(firstTouch.clientX - touchStartXRef.current);
     const deltaY = Math.abs(firstTouch.clientY - touchStartYRef.current);
-    if (deltaX > 8 || deltaY > 8) {
-      isMobileSwipeRef.current = true;
-    }
+    if (deltaX > 8 || deltaY > 8) isMobileSwipeRef.current = true;
   };
 
   const handleMobileImageClick = (index: number) => {
@@ -505,7 +472,7 @@ export default function ApartmentDetailsPageClient({
     openLightbox(index);
   };
 
-  if (isLoading || authLoading) {
+  if (authLoading) {
     return (
       <>
         <Header />
@@ -515,34 +482,96 @@ export default function ApartmentDetailsPageClient({
     );
   }
 
-  if (!apartment) {
-    return (
-      <>
-        <Header />
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-          <h1 className="text-2xl font-bold mb-2">Không tìm thấy căn hộ</h1>
-          <Button onClick={() => router.push("/")}>Về trang chủ</Button>
-        </div>
-        <Footer />
-      </>
-    );
-  }
-
+  const isRented = apartment.status === "rented";
   const displayDate = apartment.updatedAt?.seconds
     ? apartment.updatedAt
     : apartment.createdAt;
+  const dateInMs = displayDate?.seconds
+    ? displayDate.seconds * 1000
+    : Date.now();
+  const daysPassed = Math.floor(
+    (Date.now() - dateInMs) / (1000 * 60 * 60 * 24),
+  );
+  const isOldListing = daysPassed >= 5;
+
+  let statusLabel = "";
+  let statusTextColor = "";
+  let statusDotColor = "";
+  let statusHeader = "Tình trạng";
+
+  if (isCollaborator) {
+    if (isRented) {
+      statusLabel = "Tạm hết";
+      statusTextColor = "text-gray-500";
+      statusDotColor = "bg-gray-400";
+    } else if (isOldListing) {
+      statusLabel = "Liên hệ xác nhận";
+      statusTextColor = "text-amber-600";
+      statusDotColor = "bg-amber-500";
+    } else {
+      statusLabel = "Còn trống";
+      statusTextColor = "text-green-600";
+      statusDotColor = "bg-green-500";
+    }
+  } else {
+    const hasPetFriendly = apartment.tags?.includes("pet_friendly");
+    const hasLakeView = apartment.tags?.includes("lake_view");
+
+    if (hasPetFriendly) {
+      statusHeader = "Đặc trưng";
+      statusLabel = "Pet Friendly";
+      statusTextColor = "text-emerald-600";
+      statusDotColor = "bg-emerald-500";
+    } else if (hasLakeView) {
+      statusHeader = "Đặc trưng";
+      statusLabel = "Lake View";
+      statusTextColor = "text-sky-600";
+      statusDotColor = "bg-sky-500";
+    } else if (isRented || isOldListing) {
+      statusHeader = "Độ Hot";
+      const B2C_TAGS = [
+        { label: "Hot Deal", color: "text-red-600", dot: "bg-red-500" },
+        { label: "Trending", color: "text-orange-600", dot: "bg-orange-500" },
+        { label: "Best Price", color: "text-blue-600", dot: "bg-blue-500" },
+        { label: "Hot Listing", color: "text-rose-600", dot: "bg-rose-500" },
+        {
+          label: "Great Value",
+          color: "text-indigo-600",
+          dot: "bg-indigo-500",
+        },
+        {
+          label: "Unique Property",
+          color: "text-violet-600",
+          dot: "bg-violet-500",
+        },
+      ];
+      const tagIndex =
+        apartmentId
+          .split("")
+          .reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) %
+        B2C_TAGS.length;
+      const selectedTag = B2C_TAGS[tagIndex];
+
+      statusLabel = selectedTag.label;
+      statusTextColor = selectedTag.color;
+      statusDotColor = selectedTag.dot;
+    } else {
+      statusLabel = "Còn trống";
+      statusTextColor = "text-green-600";
+      statusDotColor = "bg-green-500";
+    }
+  }
 
   return (
     <>
       {!lightboxOpen && <Header />}
-
       <ImageLightbox
         images={apartment.imageUrls}
         selectedIndex={lightboxIndex}
         isOpen={lightboxOpen}
         onClose={() => setLightboxOpen(false)}
+        apartmentCode={apartment.sourceCode}
       />
-
       <ShareModal
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
@@ -550,7 +579,6 @@ export default function ApartmentDetailsPageClient({
       />
 
       <main className="flex-1 bg-white min-h-screen font-body text-gray-800">
-        {/* === IMAGES GALLERY === */}
         <div className="pt-0 md:pt-6">
           <div className="container mx-auto px-0 md:px-6">
             <div className="relative group md:rounded-[2rem] overflow-hidden">
@@ -591,7 +619,6 @@ export default function ApartmentDetailsPageClient({
                   {mobileIndex + 1} / {apartment.imageUrls.length}
                 </div>
               </div>
-
               <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[480px]">
                 {apartment.imageUrls.slice(0, 5).map((url, idx) => (
                   <div
@@ -618,7 +645,6 @@ export default function ApartmentDetailsPageClient({
                   </div>
                 ))}
               </div>
-
               <button
                 onClick={handleFavoriteToggle}
                 disabled={isFavLoading}
@@ -635,14 +661,14 @@ export default function ApartmentDetailsPageClient({
           </div>
         </div>
 
-        {/* === MAIN CONTENT === */}
         <div className="container mx-auto px-6 mt-8 md:mt-12 mb-16">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-            {/* CỘT TRÁI */}
             <div className="lg:col-span-8">
               <div className="border-b border-gray-100 pb-8 mb-8">
                 <div className="flex justify-between items-start gap-4 mb-3">
-                  <h1 className="font-headline text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-[1.1] tracking-tight">
+                  <h1
+                    className={`${titleFont.className} text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-[1.1] tracking-tight`}
+                  >
                     {apartment.title}
                   </h1>
                   <div className="hidden md:flex shrink-0">
@@ -667,9 +693,16 @@ export default function ApartmentDetailsPageClient({
                     </span>
                   </div>
                 </div>
-                <div className="pt-6 flex items-baseline gap-2">
-                  <span className="font-headline text-4xl md:text-5xl font-black text-[#cda533]">
-                    {formatPrice(apartment.price)}
+                <div className="pt-6 flex items-baseline gap-1.5">
+                  <span
+                    className={`${montserrat.className} text-4xl md:text-5xl font-bold text-[#cda533] tracking-tight`}
+                  >
+                    {typeof apartment.price === "number"
+                      ? `₫${(apartment.price * 1000000).toLocaleString("vi-VN")}`
+                      : formatPrice(apartment.price)}
+                  </span>
+                  <span className="text-gray-500 font-medium text-lg md:text-xl">
+                    /tháng
                   </span>
                 </div>
               </div>
@@ -704,30 +737,31 @@ export default function ApartmentDetailsPageClient({
               </div>
 
               <div className="pb-12 border-b border-gray-100 mb-8">
-                <h3 className="font-headline text-2xl font-bold text-gray-900 mb-6">
+                <h3 className="font-headline text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <span className="w-1.5 h-6 bg-[#cda533] rounded-full inline-block"></span>
                   Thông tin mô tả
                 </h3>
                 <div className="relative">
                   <div
                     ref={descriptionRef}
                     className={cn(
-                      "prose prose-lg prose-gray max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap font-body transition-all duration-500 overflow-hidden",
+                      "text-gray-600 text-base md:text-lg leading-relaxed antialiased whitespace-pre-wrap font-body transition-all duration-500 overflow-hidden",
                       !isExpanded && isLongContent
-                        ? "max-h-[250px]"
+                        ? "max-h-[220px]"
                         : "max-h-none",
                     )}
                   >
                     {apartment.details}
                   </div>
                   {!isExpanded && isLongContent && (
-                    <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 w-full h-28 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none" />
                   )}
                 </div>
                 {isLongContent && (
-                  <div className="flex justify-center md:justify-start mt-4">
+                  <div className="flex justify-center md:justify-start mt-6">
                     <button
                       onClick={() => setIsExpanded(!isExpanded)}
-                      className="flex items-center gap-2 text-primary font-bold hover:underline transition-all group"
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gray-100 hover:bg-[#cda533]/10 hover:text-[#cda533] text-gray-700 font-bold text-sm transition-all group"
                     >
                       {isExpanded ? (
                         <>
@@ -735,7 +769,7 @@ export default function ApartmentDetailsPageClient({
                         </>
                       ) : (
                         <>
-                          <ChevronDown className="h-4 w-4" /> Xem thêm mô tả
+                          <ChevronDown className="h-4 w-4" /> Xem thêm
                         </>
                       )}
                     </button>
@@ -757,7 +791,6 @@ export default function ApartmentDetailsPageClient({
               </div>
             </div>
 
-            {/* CỘT PHẢI */}
             <div className="lg:col-span-4 relative">
               <div className="sticky top-28">
                 <div className="rounded-[2.5rem] bg-white p-8 shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-gray-100 relative overflow-hidden">
@@ -766,21 +799,27 @@ export default function ApartmentDetailsPageClient({
                     <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100/50">
                       <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-4">
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
-                          Trạng thái
+                          {statusHeader}
                         </span>
-                        <span className="flex items-center gap-2 text-green-600 text-xs font-bold uppercase tracking-wide">
+                        <span
+                          className={`flex items-center gap-2 ${statusTextColor} text-xs font-bold uppercase tracking-wide`}
+                        >
                           <span className="relative flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-30"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                            <span
+                              className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusDotColor} opacity-40`}
+                            ></span>
+                            <span
+                              className={`relative inline-flex rounded-full h-2.5 w-2.5 ${statusDotColor}`}
+                            ></span>
                           </span>
-                          Còn trống
+                          {statusLabel}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
                           Hotline 24/7
                         </span>
-                        <span className="font-headline text-xl font-bold text-gray-900 tracking-wide font-mono">
+                        <span className="font-mono text-xl font-bold text-gray-900 tracking-wide">
                           0355.885.851
                         </span>
                       </div>
@@ -811,7 +850,7 @@ export default function ApartmentDetailsPageClient({
                         {isFavorited ? "Đã lưu tin" : "Lưu tin này"}
                       </button>
                     </div>
-                    <p className="text-[10px] text-gray-400 text-center font-medium pt-2 italic">
+                    <p className="text-[12px] text-gray-400 text-center font-medium pt-2 italic">
                       Hanoi Residences - Tận Tâm, An Toàn, Chuyên Nghiệp.
                     </p>
                   </div>
@@ -820,11 +859,10 @@ export default function ApartmentDetailsPageClient({
             </div>
           </div>
         </div>
-
-        {/* === 3. RELATED APARTMENTS === */}
-        <RelatedApartments currentApartment={apartment} />
+        {initialRelated.length > 0 && (
+          <RelatedApartments related={initialRelated} />
+        )}
       </main>
-
       {!lightboxOpen && <Footer />}
     </>
   );

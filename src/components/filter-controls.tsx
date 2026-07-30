@@ -269,7 +269,7 @@ export default function FilterControls() {
             onClick={handleReset}
             disabled={!hasActiveFilters}
             className={`
-                group flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] transition-all duration-300 py-2 px-4 rounded-full
+                group flex items-center gap-2 text-[14px] font-bold uppercase tracking-[0.3em] transition-all duration-300 py-2 px-4 rounded-full
                 ${
                   hasActiveFilters
                     ? "text-red-400 hover:text-red-600 hover:bg-red-50 cursor-pointer opacity-100"

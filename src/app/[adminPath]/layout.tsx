@@ -13,6 +13,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 // Thêm icon mới: BarChart3 (Doanh thu), ShieldCheck (Phân quyền), BedDouble (Phòng)
 import {
@@ -229,8 +230,16 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
 
-      {/* QUAN TRỌNG: Nền trắng đặc cho nội dung chính */}
       <SidebarInset className="bg-gray-50 min-h-screen">
+        {/* THÊM ĐOẠN HEADER NÀY */}
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-gray-200 bg-white px-4 shadow-sm md:hidden">
+          <SidebarTrigger className="h-10 w-10 rounded-md border border-gray-200 bg-gray-50 text-gray-700 transition-all hover:bg-gray-100 active:scale-95" />
+          <span className="font-headline text-lg font-bold text-[#cda533]">
+            Hanoi Residences
+          </span>
+        </header>
+        {/* KẾT THÚC THÊM */}
+
         <div className="p-4 md:p-8 w-full max-w-[1600px] mx-auto">
           {children}
         </div>
@@ -246,32 +255,31 @@ export default function AdminLayout({
 }) {
   const { user, userData, loading } = useAuthContext();
   const router = useRouter();
-  const params = useParams<{ adminPath: string }>();
-  const adminPath = params?.adminPath || "";
   const userRole = (userData?.role || "").toLowerCase();
 
   useEffect(() => {
-    if (!loading && !user) {
+    // 1. Đang tải hoặc chưa có trạng thái thì chờ
+    if (loading) return;
+
+    // 2. Chưa đăng nhập -> về trang login
+    if (!user) {
       router.replace("/login");
       return;
     }
 
-    if (!loading && user && adminPath && adminPath !== ADMIN_PATH) {
-      router.replace(`/${ADMIN_PATH}`);
-      return;
-    }
-
-    if (!loading && user && userRole && userRole !== "admin") {
+    // 3. Đã đăng nhập nhưng không phải admin -> về trang chủ
+    if (user && userRole !== "admin") {
       router.replace("/");
     }
-  }, [loading, user, adminPath, userRole, router]);
+  }, [loading, user, userRole, router]);
 
-  if (loading || !user || (userData && userRole !== "admin"))
+  if (loading || !user || (userData && userRole !== "admin")) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-white">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
 
   return <AdminLayoutContent>{children}</AdminLayoutContent>;
 }

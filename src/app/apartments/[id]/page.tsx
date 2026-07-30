@@ -1,20 +1,18 @@
 import { Metadata } from "next";
-import { getApartmentById as getApartmentByIdServer } from "@/lib/data";
-import { use } from "react";
+import { getApartmentById, getRelatedApartments } from "@/lib/data";
 import ApartmentDetailsPageClient from "@/components/apartment-details-page-client";
 
-// Định nghĩa kiểu dữ liệu chuẩn cho Next.js 16
 type PageProps = {
   params: Promise<{ id: string }>;
 };
 
-// --- TỐI ƯU SEO METADATA (SERVER-SIDE) ---
+export const revalidate = 604800;
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  // BẮT BUỘC: Giải nén params bằng await
   const { id } = await params;
-  const apartment = await getApartmentByIdServer(id);
+  const apartment = await getApartmentById(id);
 
   if (!apartment) {
     return {
@@ -24,7 +22,6 @@ export async function generateMetadata({
     };
   }
 
-  // Tối ưu tiêu đề SEO: [Tên căn hộ] - [Quận] | Hanoi Residences
   const title = `${apartment.title} - ${apartment.district} | Hanoi Residences`;
   const description =
     apartment.listingSummary || apartment.details.substring(0, 155);
@@ -36,7 +33,7 @@ export async function generateMetadata({
     openGraph: {
       title: title,
       description: description,
-      url: `https://hanoiresidences.com/apartments/${id}`,
+      url: `https://hanoiresidence.site/apartments/${id}`,
       siteName: "Hanoi Residences",
       images: [
         {
@@ -54,20 +51,34 @@ export async function generateMetadata({
       description: description,
       images: [primaryImage],
     },
-    // Thêm canonical để tránh trùng lặp nội dung
     alternates: {
       canonical: `/apartments/${id}`,
     },
   };
 }
 
-/**
- * Server Component wrapper
- */
-export default function ApartmentPage({ params }: PageProps) {
-  // Giải nén params bằng React.use() cho các Server Component đồng bộ
-  const { id } = use(params);
+export default async function ApartmentPage({ params }: PageProps) {
+  const { id } = await params;
 
-  // Truyền ID đã giải nén xuống Client Component
-  return <ApartmentDetailsPageClient apartmentId={id} />;
+  // 1. Lấy thông tin căn hộ chính
+  const apartment = await getApartmentById(id);
+
+  if (!apartment) {
+    return (
+      <div className="text-center py-20 font-bold text-xl">
+        Không tìm thấy căn hộ
+      </div>
+    );
+  }
+
+  // 2. Lấy 8 căn hộ gợi ý bằng hàm mới tạo
+  const relatedApartments = await getRelatedApartments(apartment);
+
+  // 3. Truyền xuống Client
+  return (
+    <ApartmentDetailsPageClient
+      initialApartment={apartment}
+      initialRelated={relatedApartments}
+    />
+  );
 }

@@ -15,12 +15,16 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/context/auth-context";
+import JSZip from "jszip";
+import { Progress } from "@/components/ui/progress";
 
 type ImageLightboxProps = {
   images: string[];
   selectedIndex: number;
   onClose: () => void;
   isOpen: boolean;
+  apartmentCode?: string;
 };
 
 export default function ImageLightbox({
@@ -28,9 +32,15 @@ export default function ImageLightbox({
   selectedIndex,
   onClose,
   isOpen,
+  apartmentCode,
 }: ImageLightboxProps) {
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { userData } = useAuth();
+
+  const canDownload =
+    userData?.role === "admin" || userData?.role === "collaborator";
+
   const [api, setApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(selectedIndex);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -66,61 +76,211 @@ export default function ImageLightbox({
     if (!images || images.length === 0) return;
 
     setIsDownloading(true);
-    toast({
-      title: "Bắt đầu tải xuống...",
-      description: `Chuẩn bị tải ${images.length} ảnh.`,
+
+    const { id, update, dismiss } = toast({
+      title: "Đang chuẩn bị tải xuống...",
+      duration: 100000,
+      className:
+        "w-full [&>div]:flex-1 bg-white text-gray-800 border border-[#cda533]/30 shadow-[0_20px_50px_rgba(205,165,51,0.15)] rounded-[1.5rem] px-6 py-4 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-90 data-[state=open]:duration-500",
+      description: (
+        <div className="mt-3 w-full flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between items-center text-xs font-medium text-gray-500">
+              <span>Đang lấy dữ liệu (0/{images.length})</span>
+              <span>0%</span>
+            </div>
+            <Progress value={0} className="h-1.5 w-full bg-gray-100" />
+          </div>
+          <div className="flex flex-col gap-1.5 opacity-50">
+            <div className="flex justify-between items-center text-xs font-medium text-gray-400">
+              <span>Đang chờ nén tệp...</span>
+              <span>0%</span>
+            </div>
+            <Progress value={0} className="h-1.5 w-full bg-gray-100" />
+          </div>
+        </div>
+      ),
     });
 
     try {
+      const zip = new JSZip();
+      let hasError = false;
+
       for (let i = 0; i < images.length; i++) {
         const imageUrl = images[i];
         const proxyUrl = `/api/download-image?url=${encodeURIComponent(imageUrl)}`;
 
+        const downloadPercent = Math.round(((i + 1) / images.length) * 100);
+
+        update({
+          id,
+          title: "Đang tải ảnh xuống...",
+          className: "w-full [&>div]:flex-1",
+          description: (
+            <div className="mt-3 w-full flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs font-medium text-gray-600">
+                  <span>
+                    Tải ảnh ({i + 1}/{images.length})
+                  </span>
+                  <span className="text-[#cda533]">{downloadPercent}%</span>
+                </div>
+                <Progress
+                  value={downloadPercent}
+                  className="h-1.5 w-full bg-gray-100 [&>div]:bg-[#cda533]"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 opacity-50">
+                <div className="flex justify-between items-center text-xs font-medium text-gray-400">
+                  <span>Đang chờ nén tệp...</span>
+                  <span>0%</span>
+                </div>
+                <Progress value={0} className="h-1.5 w-full bg-gray-100" />
+              </div>
+            </div>
+          ),
+        });
+
         try {
           const response = await fetch(proxyUrl);
           if (!response.ok) {
-            console.warn(
-              `Could not download image ${i + 1}: ${response.statusText}`,
-            );
+            hasError = true;
             continue;
           }
 
           const blob = await response.blob();
-          const blobUrl = window.URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = blobUrl;
-          const fileName =
-            imageUrl.split("/").pop()?.split("?")[0] || `image-${i + 1}.jpg`;
-          link.setAttribute("download", fileName);
-          document.body.appendChild(link);
-          link.click();
+          const prefix = apartmentCode || "can-ho";
+          const fileName = `${prefix}-${i + 1}.jpeg`;
 
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(blobUrl);
-          await new Promise((resolve) => setTimeout(resolve, 220));
+          zip.file(fileName, blob);
         } catch (fetchError) {
-          console.error(`Error fetching image ${i + 1}:`, fetchError);
+          console.error(`Lỗi khi tải ảnh thứ ${i + 1}:`, fetchError);
+          hasError = true;
         }
       }
 
-      toast({
-        title: "Hoàn tất!",
-        description: "Hệ thống đã tự động kích hoạt tải toàn bộ ảnh.",
-        duration: 3000,
+      const zipBlob = await zip.generateAsync({ type: "blob" }, (metadata) => {
+        const compressPercent = Math.round(metadata.percent);
+
+        update({
+          id,
+          title: "Đang xử lý file nén...",
+          className: "w-full [&>div]:flex-1",
+          description: (
+            <div className="mt-3 w-full flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs font-medium text-gray-600">
+                  <span>Tải ảnh (Hoàn tất)</span>
+                  <span className="text-green-600">100%</span>
+                </div>
+                <Progress
+                  value={100}
+                  className="h-1.5 w-full bg-gray-100 [&>div]:bg-green-500"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex justify-between items-center text-xs font-medium text-gray-600">
+                  <span>Đang nén tệp ZIP</span>
+                  <span className="text-[#cda533]">{compressPercent}%</span>
+                </div>
+                <Progress
+                  value={compressPercent}
+                  className="h-1.5 w-full bg-gray-100 [&>div]:bg-[#cda533]"
+                />
+              </div>
+            </div>
+          ),
+        });
       });
+
+      const zipUrl = window.URL.createObjectURL(zipBlob);
+
+      const link = document.createElement("a");
+      link.href = zipUrl;
+      const dateString = new Date().toISOString().split("T")[0];
+      const prefix = apartmentCode || "chung";
+
+      link.setAttribute("download", `anh-can-ho-${prefix}-${dateString}.zip`);
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(zipUrl);
+      }, 150);
+
+      let countdown = 3;
+
+      const renderSuccessToast = (timeLeft: number) => {
+        update({
+          id,
+          title: "Hoàn tất!",
+          description: (
+            <div className="mt-2 flex flex-col gap-1.5">
+              <p className="text-sm font-medium">
+                {hasError
+                  ? "Đã nén xong, nhưng có vài ảnh bị lỗi."
+                  : "Toàn bộ ảnh đã được nén và tải về máy."}
+              </p>
+              <p className="text-xs text-green-700/60 text-right italic animate-pulse">
+                Tự động đóng sau {timeLeft}s...
+              </p>
+            </div>
+          ),
+          className:
+            "w-full [&>div]:flex-1 bg-green-50 text-green-700 border border-green-300 shadow-[0_20px_50px_rgba(34,197,94,0.25)] rounded-[1.5rem] px-6 py-4",
+        });
+      };
+
+      renderSuccessToast(countdown);
+
+      const interval = setInterval(() => {
+        countdown -= 1;
+        if (countdown <= 0) {
+          clearInterval(interval);
+          dismiss();
+        } else {
+          renderSuccessToast(countdown);
+        }
+      }, 1000);
     } catch (error) {
-      console.error("Download process failed:", error);
-      toast({
-        variant: "destructive",
-        title: "Lỗi",
-        description: "Đã xảy ra lỗi trong quá trình tải xuống.",
-      });
+      let errCountdown = 3;
+
+      const renderErrorToast = (timeLeft: number) => {
+        update({
+          id,
+          title: "Lỗi hệ thống",
+          description: (
+            <div className="mt-2 flex flex-col gap-1.5">
+              <p className="text-sm font-medium">
+                Đã xảy ra lỗi trong quá trình tạo file nén. Vui lòng thử lại.
+              </p>
+              <p className="text-xs text-red-600/60 text-right italic animate-pulse">
+                Tự động đóng sau {timeLeft}s...
+              </p>
+            </div>
+          ),
+          className:
+            "w-full [&>div]:flex-1 bg-red-50 text-red-600 border border-red-100 rounded-[1.5rem] shadow-[0_20px_50px_rgba(239,68,68,0.1)] px-6 py-4",
+        });
+      };
+
+      renderErrorToast(errCountdown);
+
+      const errInterval = setInterval(() => {
+        errCountdown -= 1;
+        if (errCountdown <= 0) {
+          clearInterval(errInterval);
+          dismiss();
+        } else {
+          renderErrorToast(errCountdown);
+        }
+      }, 1000);
     } finally {
       setIsDownloading(false);
     }
   };
-
-  if (!isOpen) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -134,19 +294,21 @@ export default function ImageLightbox({
           </div>
 
           <div className="flex gap-3 pointer-events-auto">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleDownload}
-              disabled={isDownloading}
-              className="text-white hover:bg-white/20 hover:text-white rounded-full h-11 w-11 transition-all active:scale-95 bg-black/30 backdrop-blur-sm"
-            >
-              {isDownloading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Download className="h-6 w-6" />
-              )}
-            </Button>
+            {canDownload && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="text-white hover:bg-white/20 hover:text-white rounded-full h-11 w-11 transition-all active:scale-95 bg-black/30 backdrop-blur-sm"
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Download className="h-6 w-6" />
+                )}
+              </Button>
+            )}
 
             <Button
               variant="ghost"
@@ -183,8 +345,15 @@ export default function ImageLightbox({
                     src={url}
                     alt={`Ảnh ${index + 1}`}
                     draggable={false}
-                    className="max-h-full max-w-full object-contain"
-                    style={{ WebkitTouchCallout: "default" }}
+                    // Thêm pointer-events-none và select-none
+                    className="max-h-full max-w-full object-contain pointer-events-none select-none"
+                    // Đổi WebkitTouchCallout thành "none"
+                    style={{
+                      WebkitTouchCallout: "none",
+                      WebkitUserSelect: "none",
+                    }}
+                    // Chặn menu chuột phải / nhấn giữ Android
+                    onContextMenu={(e) => e.preventDefault()}
                   />
                 </div>
               ))}
@@ -205,10 +374,17 @@ export default function ImageLightbox({
                           alt={`Image ${index + 1}`}
                           fill
                           priority={index === selectedIndex}
-                          className="object-contain p-0 md:p-12"
+                          // Thêm pointer-events-none và select-none
+                          className="object-contain p-0 md:p-12 pointer-events-none select-none"
                           sizes="100vw"
                           quality={100}
                           draggable={false}
+                          // Chặn menu chuột phải / nhấn giữ
+                          onContextMenu={(e) => e.preventDefault()}
+                          style={{
+                            WebkitTouchCallout: "none",
+                            WebkitUserSelect: "none",
+                          }}
                         />
                       </div>
                     </div>

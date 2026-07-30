@@ -1,5 +1,7 @@
-// src/components/featured-districts.tsx
+"use client";
+
 import Link from "next/link";
+import Image from "next/image";
 
 type DistrictStat = {
   name: string;
@@ -22,9 +24,18 @@ export default function FeaturedDistricts({
 }: {
   stats: DistrictStat[];
 }) {
+  const handleScrollToApartments = () => {
+    setTimeout(() => {
+      const element = document.getElementById("apartments-list");
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 50);
+  };
+
   return (
     <section className="py-8">
-      <h2 className="mb-10 text-center text-3xl font-black uppercase tracking-tight text-gray-900">
+      <h2 className="mb-10 text-center font-headline text-3xl font-semibold tracking-tight text-gray-900">
         Khu Vực Tiêu Biểu
       </h2>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
@@ -32,25 +43,38 @@ export default function FeaturedDistricts({
           <Link
             key={district.name}
             href={`/?district=${encodeURIComponent(district.name)}`}
-            // SỬA: mask-image để fix lỗi bo góc nhọn, transform-gpu để mượt hơn
-            className="group relative h-56 overflow-hidden rounded-[2rem] bg-gray-200 shadow-md transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl transform-gpu"
+            scroll={false}
+            onClick={handleScrollToApartments}
+            className="group relative h-[280px] overflow-hidden rounded-[2rem] bg-gray-200 shadow-md transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl transform-gpu"
             style={{ WebkitMaskImage: "-webkit-radial-gradient(white, black)" }}
           >
-            <img
+            <Image
               src={DISTRICT_IMAGES[district.name]}
-              alt={district.name}
-              // SỬA: Thêm transform-gpu
-              className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110 transform-gpu"
+              alt={`Căn hộ dịch vụ cao cấp cho thuê tại ${district.name}, Hà Nội`}
+              fill
+              sizes="(max-width: 768px) 50vw, 25vw"
+              className="object-cover transition-transform duration-1000 group-hover:scale-110 transform-gpu"
+              priority={
+                district.name === "Tây Hồ" || district.name === "Ba Đình"
+              }
             />
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent transition-opacity duration-500 group-hover:from-orange-600/80" />
+            {/* 1. Lớp phủ đen mờ mặc định (sẽ mờ dần và biến mất khi hover) */}
+            <div className="absolute inset-0 bg-black/40 transition-opacity duration-500 group-hover:opacity-0" />
 
-            <div className="absolute inset-0 flex flex-col items-center justify-end pb-8 text-white">
-              <span className="text-2xl font-black uppercase tracking-widest drop-shadow-lg">
+            {/* 2. Lớp phủ Gradient vàng sang trọng (ẩn mặc định, sẽ hiện ra khi hover) */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#9a7b24]/90 via-[#cda533]/80 to-[#e4c467]/60 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+
+            {/* Container 1: Tên quận căn giữa tuyệt đối */}
+            <div className="absolute inset-0 flex items-center justify-center px-4">
+              <span className="font-headline text-3xl font-bold uppercase tracking-widest text-white drop-shadow-2xl text-center">
                 {district.name}
               </span>
+            </div>
 
-              <div className="mt-3 transform rounded-full bg-white/20 px-4 py-1 text-[11px] font-bold tracking-tighter backdrop-blur-md transition-all duration-300 group-hover:bg-white group-hover:text-orange-600">
+            {/* Container 2: Nút số lượng neo ở dưới cùng */}
+            <div className="absolute bottom-0 inset-x-0 flex justify-center pb-10">
+              <div className="transform rounded-full border border-white/30 bg-white/20 px-5 py-1.5 text-xs font-bold tracking-wider text-white backdrop-blur-md transition-all duration-300 group-hover:bg-white group-hover:text-[#cda533] shadow-sm">
                 {district.count > 0
                   ? `${district.count.toLocaleString()} CĂN HỘ`
                   : "ĐANG CẬP NHẬT"}

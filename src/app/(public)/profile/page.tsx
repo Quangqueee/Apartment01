@@ -23,21 +23,65 @@ import Footer from "@/components/footer";
 import MobileNav from "@/components/mobile-nav";
 import Link from "next/link";
 
+// Import Dialog components
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+
 export default function ProfilePage() {
   const { user, userData, loading: isUserLoading } = useAppAuth();
   const { toast } = useToast();
   const router = useRouter();
+
+  // Trạng thái Form & Modal
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [hasSubmittedRequest, setHasSubmittedRequest] = useState(false);
+  const [isCtvModalOpen, setIsCtvModalOpen] = useState(false);
+
+  // Dữ liệu Form
+  const [ctvForm, setCtvForm] = useState({
+    displayName: "",
+    phoneNumber: "",
+    age: "",
+    gender: "Nam",
+    introduction: "",
+  });
 
   const currentRole = userData?.role;
   const isPrivilegedUser =
     currentRole === "collaborator" || currentRole === "admin";
   const isRequestPending =
-    userData?.requestStatus === "pending" || hasSubmittedRequest;
+    (userData as any)?.requestStatus === "pending" || hasSubmittedRequest;
 
-  const handleSubmitCollaboratorRequest = async () => {
-    if (!user || isRequestPending || isSubmittingRequest) {
+  // Hàm mở Modal và nạp sẵn dữ liệu cũ nếu có
+  const handleOpenCtvModal = () => {
+    if (isRequestPending || isSubmittingRequest) return;
+    setCtvForm({
+      displayName: userData?.displayName || user?.displayName || "",
+      phoneNumber: userData?.phoneNumber || "",
+      age: userData?.dob || "",
+      gender: userData?.gender || "Nam",
+      introduction: "",
+    });
+    setIsCtvModalOpen(true);
+  };
+
+  // Hàm Submit Form CTV
+  const handleSubmitCollaboratorRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || isRequestPending || isSubmittingRequest) return;
+
+    // Validate sơ bộ
+    if (!ctvForm.displayName || !ctvForm.phoneNumber) {
+      toast({
+        variant: "destructive",
+        title: "Thiếu thông tin",
+        description: "Vui lòng điền đầy đủ Tên và Số điện thoại.",
+      });
       return;
     }
 
@@ -48,19 +92,25 @@ export default function ProfilePage() {
         {
           uid: user.uid,
           email: user.email ?? "",
-          displayName: userData?.displayName || user.displayName || "",
+          displayName: ctvForm.displayName,
+          phoneNumber: ctvForm.phoneNumber,
+          dob: ctvForm.age, // Lưu tuổi/năm sinh vào dob
+          gender: ctvForm.gender,
+          interests: `[Yêu cầu làm CTV]: ${ctvForm.introduction}`, // Đánh dấu đây là yêu cầu CTV
           role: userData?.role ?? "user",
           requestStatus: "pending",
           requestSubmittedAt: serverTimestamp(),
         },
-        { merge: true }
+        { merge: true },
       );
 
       toast({
-        title: "Đăng ký thành công",
-        description: "Đăng ký thành công, vui lòng chờ duyệt",
+        title: "Gửi yêu cầu thành công!",
+        description:
+          "Thông tin của bạn đã được gửi. BQT sẽ xem xét và liên hệ sớm.",
       });
       setHasSubmittedRequest(true);
+      setIsCtvModalOpen(false); // Đóng modal
     } catch (error) {
       toast({
         variant: "destructive",
@@ -79,9 +129,7 @@ export default function ProfilePage() {
       </div>
     );
 
-  // Lấy URL ảnh
   const rawAvatar = userData?.photoURL || user.photoURL;
-  // FIX: Thêm timestamp để ép trình duyệt tải ảnh mới nhất thay vì dùng cache
   const displayAvatar = rawAvatar
     ? `${rawAvatar}?t=${new Date().getTime()}`
     : null;
@@ -171,6 +219,7 @@ export default function ProfilePage() {
               </div>
             </Link>
 
+            {/* BLOCK ĐĂNG KÝ CTV */}
             {!isPrivilegedUser && (
               <div className="mb-12 rounded-[2.5rem] border border-amber-100 bg-amber-50/40 p-8 md:p-10">
                 <div className="flex items-start justify-between gap-4">
@@ -183,22 +232,19 @@ export default function ProfilePage() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={handleSubmitCollaboratorRequest}
-                  disabled={isRequestPending || isSubmittingRequest}
-                  className="mt-6 inline-flex items-center justify-center rounded-2xl bg-gray-900 px-6 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-primary disabled:cursor-not-allowed disabled:bg-gray-300"
-                >
-                  {isSubmittingRequest ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Đang gửi yêu cầu
-                    </span>
-                  ) : isRequestPending ? (
-                    "Đã gửi yêu cầu"
-                  ) : (
-                    "Gửi yêu cầu"
-                  )}
-                </button>
+
+                {isRequestPending ? (
+                  <div className="mt-6 inline-flex items-center justify-center rounded-2xl bg-gray-300 px-6 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white">
+                    Đã gửi yêu cầu
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleOpenCtvModal}
+                    className="mt-6 inline-flex items-center justify-center rounded-2xl bg-gray-900 px-6 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-primary"
+                  >
+                    Gửi yêu cầu ngay
+                  </button>
+                )}
               </div>
             )}
 
@@ -208,7 +254,7 @@ export default function ProfilePage() {
                   icon: Settings,
                   label: "Cài đặt tài khoản",
                   sub: "Đổi mật khẩu & thông tin cá nhân",
-                  href: "/profile/settings", // Link tới trang Settings mới
+                  href: "/profile/settings",
                 },
                 {
                   icon: ShieldCheck,
@@ -270,6 +316,131 @@ export default function ProfilePage() {
       </main>
       <Footer />
       <MobileNav />
+
+      {/* DIALOG (MODAL) ĐĂNG KÝ CTV */}
+      <Dialog open={isCtvModalOpen} onOpenChange={setIsCtvModalOpen}>
+        <DialogContent className="bg-white z-[100] sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black italic tracking-tight">
+              Biểu mẫu Đăng ký CTV
+            </DialogTitle>
+            <DialogDescription className="text-gray-500 text-sm">
+              Vui lòng điền thông tin để chúng tôi liên hệ và xét duyệt cấp
+              quyền cho bạn.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={handleSubmitCollaboratorRequest}
+            className="space-y-4 mt-4"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase text-gray-500">
+                  Họ và tên *
+                </label>
+                <input
+                  required
+                  type="text"
+                  placeholder="Nhập họ tên"
+                  value={ctvForm.displayName}
+                  onChange={(e) =>
+                    setCtvForm({ ...ctvForm, displayName: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-primary text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase text-gray-500">
+                  Số điện thoại *
+                </label>
+                <input
+                  required
+                  type="tel"
+                  placeholder="Nhập SĐT (có Zalo)"
+                  value={ctvForm.phoneNumber}
+                  onChange={(e) =>
+                    setCtvForm({ ...ctvForm, phoneNumber: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-primary text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase text-gray-500">
+                  Năm sinh
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: 1998"
+                  value={ctvForm.age}
+                  onChange={(e) =>
+                    setCtvForm({ ...ctvForm, age: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-primary text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold uppercase text-gray-500">
+                  Giới tính
+                </label>
+                <select
+                  value={ctvForm.gender}
+                  onChange={(e) =>
+                    setCtvForm({ ...ctvForm, gender: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-primary text-sm bg-white"
+                >
+                  <option value="Nam">Nam</option>
+                  <option value="Nữ">Nữ</option>
+                  <option value="Khác">Khác</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold uppercase text-gray-500">
+                Kinh nghiệm / Giới thiệu bản thân
+              </label>
+              <textarea
+                rows={4}
+                placeholder="Kinh nghiệm của bạn, khu vực muốn chạy, quỹ thời gian rảnh..."
+                value={ctvForm.introduction}
+                onChange={(e) =>
+                  setCtvForm({ ...ctvForm, introduction: e.target.value })
+                }
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg outline-none focus:border-primary text-sm resize-none"
+              ></textarea>
+            </div>
+
+            <div className="pt-4 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsCtvModalOpen(false)}
+                className="px-6 py-2 rounded-lg bg-gray-100 text-gray-700 font-bold text-sm hover:bg-gray-200"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmittingRequest}
+                className="px-6 py-2 rounded-lg bg-primary text-white font-bold text-sm hover:bg-primary/90 flex items-center"
+              >
+                {isSubmittingRequest ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Đang gửi...
+                  </>
+                ) : (
+                  "Xác nhận gửi"
+                )}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

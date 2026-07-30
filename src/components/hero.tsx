@@ -17,10 +17,11 @@ export default function Hero() {
         <div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-20">
           <div className="flex-1 text-white text-center lg:text-left max-w-2xl">
             <h1 className="font-headline text-5xl md:text-8xl font-black uppercase leading-[0.95] tracking-tighter mb-8 animate-in fade-in slide-in-from-bottom-10 duration-1000">
-              Hanoi <br /> <span className="text-primary italic">Residences</span>
+              Hanoi <br />{" "}
+              <span className="text-primary italic">Residences</span>
             </h1>
             <p className="font-body text-base md:text-xl font-medium opacity-80 italic border-l-0 lg:border-l-4 border-primary px-4 lg:pl-6 max-w-lg mx-auto lg:mx-0">
-              Định nghĩa chuẩn mực sống thượng lưu giữa lòng thủ đô.
+              Không gian sống lý tưởng – Giải pháp hoàn hảo cho mọi ngân sách.
             </p>
           </div>
           <div className="w-full sm:max-w-[480px] lg:w-[450px] shrink-0 animate-in fade-in slide-in-from-right-10 duration-1000 delay-300">

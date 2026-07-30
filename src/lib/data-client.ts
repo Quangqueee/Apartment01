@@ -96,22 +96,35 @@ export async function getApartments(
     );
   }
 
-  // --- Client-side Text Search ---
+  // --- Client-side Text Search linh hoạt cho Admin ---
   if (searchQuery) {
-    const normalizedQuery = removeVietnameseTones(searchQuery);
+    // 1. Chuẩn hóa từ khóa gõ vào: chuyển thường, bỏ dấu, thay thế mọi ký tự đặc biệt thành khoảng trắng
+    const normalizedQuery = removeVietnameseTones(searchQuery)
+      .toLowerCase()
+      .replace(/[\/,\-_?]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Tách các từ khóa người dùng gõ thành từng từ đơn (Ví dụ: "279 đội cấn" -> ["279", "doi", "can"])
+    const queryWords = normalizedQuery.split(" ").filter(Boolean);
+
     allMatchingApartments = allMatchingApartments.filter((apt) => {
-      if (searchBy === 'sourceCodeOrAddress') {
-        const normalizedCode = removeVietnameseTones(apt.sourceCode);
-        const normalizedAddress = removeVietnameseTones(apt.address);
-        return normalizedCode.includes(normalizedQuery) || normalizedAddress.includes(normalizedQuery);
-      }
-      // Default to titleOrSourceCode
-      const normalizedTitle = removeVietnameseTones(apt.title);
-      const normalizedCode = removeVietnameseTones(apt.sourceCode);
-      return normalizedTitle.includes(normalizedQuery) || normalizedCode.includes(normalizedQuery);
+      // 2. Chuẩn hóa địa chỉ và mã ID của căn hộ trong database
+      const normalizedAddress = removeVietnameseTones(apt.address || "")
+        .toLowerCase()
+        .replace(/[\/,\-_?]/g, " ")
+        .replace(/\s+/g, " ");
+
+      const normalizedCode = removeVietnameseTones(apt.sourceCode || "")
+        .toLowerCase();
+
+      // Kiểm tra xem tất cả các từ người dùng gõ có cùng xuất hiện trong địa chỉ hoặc mã ID hay không
+      const matchAddress = queryWords.every(word => normalizedAddress.includes(word));
+      const matchCode = queryWords.every(word => normalizedCode.includes(word));
+
+      return matchAddress || matchCode;
     });
   }
-
   // --- Client-side Sorting ---
   if (sortBy === 'price-asc') {
     allMatchingApartments.sort((a, b) => a.price - b.price);

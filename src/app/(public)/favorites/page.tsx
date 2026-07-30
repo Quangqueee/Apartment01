@@ -36,7 +36,7 @@ export default function FavoritesPage() {
 
         const q = query(
           collection(db, "apartments"),
-          where("__name__", "in", idsToFetch)
+          where("__name__", "in", idsToFetch),
         );
 
         const snapshot = await getDocs(q);
@@ -96,12 +96,8 @@ export default function FavoritesPage() {
             </Link>
 
             <h1 className="font-headline text-5xl lg:text-7xl font-black uppercase tracking-tighter text-gray-900 leading-none">
-              Bộ sưu tập <br />
               <span className="text-primary italic">Yêu thích</span>
             </h1>
-            <p className="mt-6 text-sm lg:text-base text-gray-500 font-medium italic border-l-2 border-primary pl-6 max-w-lg">
-              Tuyển chọn những không gian sống tinh tế nhất bạn đã lưu lại tại thủ đô.
-            </p>
           </div>
         </section>
 
@@ -139,7 +135,7 @@ export default function FavoritesPage() {
           ) : (
             <>
               <div className="flex items-center justify-between mb-12 border-b border-gray-50 pb-8">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">
+                <span className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">
                   Số lượng: {favorites.length} Căn hộ
                 </span>
               </div>

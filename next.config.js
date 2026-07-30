@@ -1,18 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
   experimental: {
-    // FIX: Thêm đoạn này vào để tăng giới hạn upload
     serverActions: {
-      bodySizeLimit: '50mb', // Tăng lên 50MB (hoặc '100mb' nếu cần nhiều hơn)
+      bodySizeLimit: '150mb',
     },
-    // turbopack: {
-    //   // This helps Turbopack locate the project root...
-    //   root: process.cwd(),
-    // },
   },
   images: {
     remotePatterns: [
@@ -49,6 +43,24 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'ui-avatars.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'xuanphonggroup.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'hoidisanvanhoa.vn',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'upload.wikimedia.org',
         port: '',
         pathname: '/**',
       },
