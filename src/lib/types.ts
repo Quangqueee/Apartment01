@@ -1,4 +1,6 @@
 export type RoomType = "studio" | "1n1k" | "2n1k" | "other";
+export type ApartmentStatus = "available" | "rented"; // "available": Còn trống, "rented": Đã cho thuê
+export type FeatureTag = "pet_friendly" | "lake_view";
 
 export interface Apartment {
   id: string;
@@ -16,6 +18,9 @@ export interface Apartment {
   isFavorited?: boolean;
   imageUrls: string[];
   searchKeywords?: string[]; // Dùng để Firebase tìm kiếm
+  // Bổ sung thuộc tính mới:
+  status?: ApartmentStatus;
+  tags?: FeatureTag[];
 
   createdAt: {
     seconds: number;

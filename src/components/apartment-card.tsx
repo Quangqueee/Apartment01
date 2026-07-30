@@ -7,8 +7,20 @@ import { doc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import AuthModal from "./auth-modal";
 import Link from "next/link";
 import { Apartment } from "@/lib/types";
-import { Heart, ChevronLeft, ChevronRight } from "lucide-react";
-import { formatRelativeTime } from "@/lib/utils";
+import {
+  Heart,
+  ChevronLeft,
+  ChevronRight,
+  Flame,
+  TrendingUp,
+  Tag,
+  Star,
+  Sparkles,
+  CheckCircle2,
+  Dog,
+  Waves,
+} from "lucide-react";
+import { formatRelativeTime, formatPrice } from "@/lib/utils";
 import { Montserrat, Be_Vietnam_Pro } from "next/font/google";
 
 const titleFont = Be_Vietnam_Pro({
@@ -40,14 +52,15 @@ export default memo(function ApartmentCard({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // LOGIC: HYBRID MOUSE DRAG CHO DESKTOP
   const [isMouseDragging, setIsMouseDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [hasDragged, setHasDragged] = useState(false);
 
-  const canViewCommission =
+  // Phân quyền
+  const isCollaborator =
     userData?.role === "collaborator" || userData?.role === "admin";
+  const canViewCommission = isCollaborator;
 
   const initialFavoriteState =
     typeof apartment.isFavorited === "boolean"
@@ -126,10 +139,7 @@ export default memo(function ApartmentCard({
     }
     if (!scrollRef.current) return;
     const width = scrollRef.current.clientWidth;
-    scrollRef.current.scrollTo({
-      left: index * width,
-      behavior: "smooth",
-    });
+    scrollRef.current.scrollTo({ left: index * width, behavior: "smooth" });
   };
 
   const handleNextImage = (e?: React.MouseEvent) => {
@@ -148,7 +158,6 @@ export default memo(function ApartmentCard({
     scrollToIndex(prevIndex, e);
   };
 
-  // CÁC HÀM XỬ LÝ SỰ KIỆN CHUỘT TRÊN DESKTOP
   const onMouseDown = (e: React.MouseEvent) => {
     setIsMouseDragging(true);
     setHasDragged(false);
@@ -158,16 +167,13 @@ export default memo(function ApartmentCard({
     }
   };
 
-  // 🛠️ SỬA Ở ĐÂY: Hàm tính toán và cuộn mượt khi nhả chuột
   const stopDragging = () => {
     if (!isMouseDragging) return;
     setIsMouseDragging(false);
-
     if (scrollRef.current) {
       const width = scrollRef.current.clientWidth;
       const currentScroll = scrollRef.current.scrollLeft;
       const targetIndex = Math.round(currentScroll / width);
-
       scrollRef.current.scrollTo({
         left: targetIndex * width,
         behavior: "smooth",
@@ -180,11 +186,7 @@ export default memo(function ApartmentCard({
     e.preventDefault();
     const x = e.pageX - scrollRef.current.offsetLeft;
     const walk = x - startX;
-
-    if (Math.abs(walk) > 5) {
-      setHasDragged(true);
-    }
-
+    if (Math.abs(walk) > 5) setHasDragged(true);
     scrollRef.current.scrollLeft = scrollLeft - walk;
   };
 
@@ -201,16 +203,107 @@ export default memo(function ApartmentCard({
     ? apartment.updatedAt
     : apartment.createdAt;
 
+  // LOGIC HIỂN THỊ TAG TRẠNG THÁI & MARKETING TRÊN CARD
+  let tagLabel = null;
+  let tagBgClass = "";
+  let TagIcon = null;
+
+  const isRented = apartment.status === "rented";
+  const dateInMs = timeToDisplay?.seconds
+    ? timeToDisplay.seconds * 1000
+    : Date.now();
+  const daysPassed = Math.floor(
+    (Date.now() - dateInMs) / (1000 * 60 * 60 * 24),
+  );
+  const isOldListing = daysPassed >= 5;
+
+  if (isCollaborator) {
+    // Trạng thái hiển thị cho CTV/Admin (Dạt góc trái dưới)
+    if (isRented) {
+      tagLabel = "Tạm hết";
+      tagBgClass = "bg-gray-500";
+    } else if (isOldListing) {
+      tagLabel = "Liên hệ xác nhận";
+      tagBgClass = "bg-amber-500";
+    } else {
+      tagLabel = "Còn trống";
+      tagBgClass = "bg-green-500";
+    }
+  } else {
+    // Trạng thái & Marketing hiển thị cho Khách B2C (Góc trái trên)
+    const hasPetFriendly = apartment.tags?.includes("pet_friendly");
+    const hasLakeView = apartment.tags?.includes("lake_view");
+
+    if (hasPetFriendly) {
+      tagLabel = "Pet Friendly";
+      tagBgClass = "bg-emerald-500";
+      TagIcon = Dog;
+    } else if (hasLakeView) {
+      tagLabel = "Lake View";
+      tagBgClass = "bg-sky-500";
+      TagIcon = Waves;
+    } else if (isRented || isOldListing) {
+      const B2C_TAGS = [
+        { label: "Hot Deal", bg: "bg-red-500", icon: Flame },
+        { label: "Trending", bg: "bg-orange-500", icon: TrendingUp },
+        { label: "Best Price", bg: "bg-blue-500", icon: Tag },
+        { label: "Hot Listing", bg: "bg-rose-500", icon: Flame },
+        { label: "Great Value", bg: "bg-indigo-500", icon: Star },
+        { label: "Unique Property", bg: "bg-violet-500", icon: Sparkles },
+      ];
+      const tagIndex =
+        apartment.id
+          .split("")
+          .reduce((acc, char) => acc + char.charCodeAt(0), 0) % B2C_TAGS.length;
+      tagLabel = B2C_TAGS[tagIndex].label;
+      tagBgClass = B2C_TAGS[tagIndex].bg;
+      TagIcon = B2C_TAGS[tagIndex].icon;
+    } else {
+      // Mặc định: Căn mới đăng dưới 5 ngày và đang trống
+      tagLabel = "Available";
+      tagBgClass = "bg-green-500";
+      TagIcon = CheckCircle2;
+    }
+  }
+
   return (
     <>
       <div className="group/slider relative flex flex-col h-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1.5 hover:scale-[1.015]">
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
-          {canViewCommission && displayCommission && (
-            <div className="absolute top-3 left-3 z-20 bg-[#5cb85c] text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm pointer-events-none">
-              HH: {displayCommission}
+          {/* GÓC TRÁI TRÊN: Hiển thị Hoa hồng (Cho CTV) & Tag Marketing (Cho Khách) */}
+          <div className="absolute top-3 left-0 z-20 flex flex-col gap-2 pointer-events-none items-start">
+            {canViewCommission && displayCommission && (
+              <div className="bg-[#5cb85c] text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm ml-3">
+                HH: {displayCommission}
+              </div>
+            )}
+
+            {!isCollaborator && tagLabel && (
+              <div
+                className={`${tagBgClass} flex items-center gap-1.5 text-white text-[10px] sm:text-xs font-bold pl-3 pr-4 py-1.5 uppercase tracking-wide drop-shadow-md`}
+                style={{
+                  clipPath:
+                    "polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%)",
+                }}
+              >
+                {TagIcon && <TagIcon className="w-3.5 h-3.5" />}
+                {tagLabel}
+              </div>
+            )}
+          </div>
+
+          {/* GÓC TRÁI DƯỚI: Trạng thái phòng hiển thị riêng cho CTV/Admin */}
+          {isCollaborator && tagLabel && (
+            <div className="absolute bottom-6 left-0 z-20 pointer-events-none">
+              <div
+                className={`${tagBgClass} text-white text-[10px] sm:text-xs font-bold pl-3 pr-2.5 py-1.5 rounded-r-md shadow-md uppercase tracking-wider backdrop-blur-sm bg-opacity-95 border-y border-r border-white/20`}
+              >
+                {tagLabel}
+              </div>
             </div>
           )}
 
+          {/* GÓC PHẢI TRÊN: ID Căn hộ */}
           <div className="absolute top-3 right-3 z-20 bg-black/60 backdrop-blur-md text-white text-xs font-bold px-2 py-1 rounded shadow-sm pointer-events-none">
             ID: {apartment.sourceCode}
           </div>
@@ -225,12 +318,10 @@ export default memo(function ApartmentCard({
               ref={scrollRef}
               onScroll={handleScroll}
               onMouseDown={onMouseDown}
-              // Gọi stopDragging khi nhả tay hoặc chuột rời khỏi ảnh
               onMouseLeave={stopDragging}
               onMouseUp={stopDragging}
               onMouseMove={onMouseMove}
-              // Thêm scroll-smooth vào class để khi bật lại snap nó sẽ trượt nhẹ vào giữa
-              className={`flex h-full w-full overflow-x-auto touch-pan-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${
+              className={`flex h-full w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${
                 isMouseDragging
                   ? "snap-none cursor-grabbing"
                   : "snap-x snap-mandatory scroll-smooth"
@@ -317,16 +408,24 @@ export default memo(function ApartmentCard({
             {apartment.district}
           </p>
 
-          <p className="mt-1 text-[0.85rem] sm:text-sm text-gray-500 line-clamp-1">
-            {apartment.roomType} • {apartment.area} m²
-            {!isCompact && <span> • {formatRelativeTime(timeToDisplay)}</span>}
-          </p>
+          <div className="mt-1 flex items-center justify-between text-[0.85rem] sm:text-sm text-gray-500">
+            <span className="truncate pr-2 font-medium">
+              {apartment.roomType} • {apartment.area} m²
+            </span>
+            {!isCompact && (
+              <span className="whitespace-nowrap text-gray-400 text-[0.75rem] sm:text-[0.8rem] italic">
+                Cập nhật: {formatRelativeTime(timeToDisplay)}
+              </span>
+            )}
+          </div>
 
-          <div className="mt-auto pt-4">
+          <div className="mt-auto pt-4 flex items-baseline">
             <span
-              className={`${montserrat.className} text-[1.4rem] sm:text-[1.45rem] font-bold text-primary tracking-tight`}
+              className={`${montserrat.className} text-[1.4rem] sm:text-[1.45rem] font-bold text-[#cda533] tracking-tight`}
             >
-              ₫{fullPrice.toLocaleString("vi-VN")}
+              {typeof apartment.price === "number"
+                ? `₫${(apartment.price * 1000000).toLocaleString("vi-VN")}`
+                : formatPrice(apartment.price)}
             </span>
             <span className="ml-1 text-[0.85rem] sm:text-sm font-medium text-gray-500">
               /tháng

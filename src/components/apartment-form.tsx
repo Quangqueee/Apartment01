@@ -30,11 +30,8 @@ import {
   MAX_APARTMENT_IMAGES,
   ROOM_TYPES,
 } from "@/lib/constants";
-import { Apartment } from "@/lib/types";
-import {
-  createOrUpdateApartmentAction,
-  generateSummaryAction,
-} from "@/app/actions";
+import { Apartment, ApartmentStatus, FeatureTag } from "@/lib/types";
+import { createOrUpdateApartmentAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import {
   useState,
@@ -44,8 +41,7 @@ import {
   useMemo,
   useEffect,
 } from "react";
-import { Loader2, Sparkles, Trash2, Upload } from "lucide-react";
-import Image from "next/image";
+import { Loader2, Trash2, Upload, Dog, Waves } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -68,19 +64,17 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-// --- IMPORT FIREBASE STORAGE ---
 import { storage } from "@/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-const MAX_FILE_SIZE = 7 * 1024 * 1024; // 7MB
+const MAX_IMAGE_WIDTH = 3840;
+const IMAGE_QUALITY = 0.95;
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/jpg",
   "image/png",
   "image/webp",
 ];
-const IMAGE_QUALITY = 0.95; // Chất lượng nén ảnh (0.0 - 1.0)
-const MAX_IMAGE_WIDTH = 3840; // Giới hạn chiều rộng ảnh để giảm dung lượng, tránh quá lớn
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters."),
@@ -96,6 +90,8 @@ const formSchema = z.object({
   listingSummary: z.string().optional(),
   address: z.string().min(1, "Exact address is required."),
   landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
+  status: z.enum(["available", "rented"]),
+  tags: z.array(z.enum(["pet_friendly", "lake_view"])),
   imageUrls: z
     .array(z.string())
     .min(1, "At least one image is required.")
@@ -147,7 +143,7 @@ const SortableImage = React.memo(function SortableImage({
         type="button"
         variant="destructive"
         size="icon"
-        className="absolute right-1 top-1 z-10 h-6 w-6 color-red-500 p-0 text-red-500 hover:bg-red-500/10"
+        className="absolute right-1 top-1 z-10 h-6 w-6 p-0 text-red-500 hover:bg-red-500/10"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
@@ -164,37 +160,27 @@ type ApartmentFormProps = {
   apartment?: Apartment;
 };
 
-// Cấu trúc lại PreviewItem để chứa cả File (Blob) thật bên cạnh đường link ảo
 type PreviewItem = {
   id: string;
   src: string;
-  blob?: Blob; // Lưu trữ Blob nhị phân nếu là ảnh mới upload
+  blob?: Blob;
 };
 
 const flattenImageSources = (value: unknown): string[] => {
   const flatImageSources: string[] = [];
-
   const visitValue = (currentValue: unknown) => {
     if (Array.isArray(currentValue)) {
       currentValue.forEach(visitValue);
       return;
     }
-
-    if (typeof currentValue !== "string") {
-      return;
-    }
-
+    if (typeof currentValue !== "string") return;
     const normalizedValue = currentValue.trim();
-    if (normalizedValue.length > 0) {
-      flatImageSources.push(normalizedValue);
-    }
+    if (normalizedValue.length > 0) flatImageSources.push(normalizedValue);
   };
-
   visitValue(value);
   return flatImageSources;
 };
 
-// 🛠️ TỐI ƯU HÓA: Xuất ra Blob thay vì Base64 Data URL
 const compressImage = (file: File): Promise<{ src: string; blob: Blob }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -205,25 +191,21 @@ const compressImage = (file: File): Promise<{ src: string; blob: Blob }> => {
       img.onload = () => {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
-
         let { width, height } = img;
         if (width > MAX_IMAGE_WIDTH) {
           height = (height * MAX_IMAGE_WIDTH) / width;
           width = MAX_IMAGE_WIDTH;
         }
-
         canvas.width = width;
         canvas.height = height;
         ctx?.drawImage(img, 0, 0, width, height);
 
-        // Xuất file nhị phân (Blob) để đẩy lên Firebase
         canvas.toBlob(
           (blob) => {
             if (!blob) {
               reject(new Error("Lỗi xử lý ảnh trên canvas."));
               return;
             }
-            // Tạo một URL ảo để hiển thị trên trình duyệt cực mượt, không tốn text
             const objectUrl = URL.createObjectURL(blob);
             resolve({ src: objectUrl, blob });
           },
@@ -252,7 +234,6 @@ const getPreviewSources = (previewItems: PreviewItem[]) =>
 export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>(
@@ -261,9 +242,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
-    useSensor(MouseSensor, {
-      activationConstraint: { distance: 5 },
-    }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 250, tolerance: 5 },
     }),
@@ -287,6 +266,8 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       listingSummary: apartment?.listingSummary || "",
       address: apartment?.address || "",
       landlordPhoneNumber: apartment?.landlordPhoneNumber || "",
+      status: apartment?.status || "available",
+      tags: apartment?.tags || [],
       imageUrls: apartment?.imageUrls || [],
     },
   });
@@ -303,7 +284,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   );
 
   useEffect(() => {
-    // Luôn báo cho react-hook-form biết có ảnh (dù là URL ảo hay URL thật) để vượt qua validation
     form.setValue("imageUrls", getPreviewSources(previewItems), {
       shouldValidate: true,
     });
@@ -315,7 +295,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         const itemToRemove = currentPreviewItems.find(
           (i) => i.id === idToRemove,
         );
-        // Thu hồi bộ nhớ nếu là ảnh URL ảo
         if (itemToRemove?.blob) URL.revokeObjectURL(itemToRemove.src);
         return currentPreviewItems.filter((item) => item.id !== idToRemove);
       });
@@ -331,9 +310,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const handleFiles = useCallback(
     (files: File[]) => {
       if (files.length === 0) return;
-
-      const currentImageCount = previewItems.length;
-      if (currentImageCount + files.length > MAX_APARTMENT_IMAGES) {
+      if (previewItems.length + files.length > MAX_APARTMENT_IMAGES) {
         toast({
           variant: "destructive",
           title: "Quá nhiều ảnh",
@@ -353,17 +330,14 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
 
       Promise.all(filePromises)
         .then((newImages) => {
-          updatePreviewItems((currentPreviewItems) => {
-            const nextItems = [
-              ...currentPreviewItems,
-              ...newImages.map((img) => ({
-                id: createPreviewId(),
-                src: img.src,
-                blob: img.blob, // Lưu trữ nguyên file nhị phân
-              })),
-            ];
-            return nextItems;
-          });
+          updatePreviewItems((currentPreviewItems) => [
+            ...currentPreviewItems,
+            ...newImages.map((img) => ({
+              id: createPreviewId(),
+              src: img.src,
+              blob: img.blob,
+            })),
+          ]);
         })
         .catch((error) => {
           toast({
@@ -388,10 +362,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   );
 
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
-    // Chỉ kích hoạt hiệu ứng kéo/thả nếu thứ đang được kéo là File (ảnh).
-    // Nếu là văn bản (do người dùng kéo chữ từ Textarea), bỏ qua ngay lập tức.
     if (!e.dataTransfer.types.includes("Files")) return;
-
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
@@ -417,7 +388,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
-
       updatePreviewItems((currentPreviewItems) => {
         const oldIndex = currentPreviewItems.findIndex(
           (item) => item.id === String(active.id),
@@ -432,7 +402,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     [updatePreviewItems],
   );
 
-  // 🛠️ TỐI ƯU HÓA: Tách luồng upload ảnh lên Firebase Storage ra khỏi Server Action
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (previewItems.length === 0) {
       form.setError("imageUrls", {
@@ -445,27 +414,19 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     setIsSubmitting(true);
 
     try {
-      const finalImageUrls: string[] = [];
-
-      // Dùng Promise.all để bắn tất cả ảnh mới lên Storage CÙNG MỘT LÚC
       const uploadPromises = previewItems.map(async (item) => {
         if (item.blob) {
-          // Là ảnh mới (chứa file nhị phân)
           const fileName = `apartments/${Date.now()}-${item.id}.webp`;
           const storageRef = ref(storage, fileName);
           await uploadBytes(storageRef, item.blob);
-          const downloadUrl = await getDownloadURL(storageRef);
-          return downloadUrl;
+          return await getDownloadURL(storageRef);
         } else {
-          // Đã là ảnh cũ (có sẵn URL từ Firebase)
           return item.src;
         }
       });
 
-      // Đợi quá trình upload hoàn tất để lấy mảng link chuẩn (không còn link ảo blob:// nữa)
       const uploadedUrls = await Promise.all(uploadPromises);
 
-      // Chỉ gửi nội dung Text và các đường link URL cực nhẹ qua Server Action
       const result = await createOrUpdateApartmentAction(apartment?.id, {
         title: values.title,
         sourceCode: values.sourceCode,
@@ -478,7 +439,9 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         listingSummary: values.listingSummary,
         address: values.address,
         landlordPhoneNumber: values.landlordPhoneNumber,
-        imageUrlsJson: JSON.stringify(uploadedUrls), // Mảng string URL chuẩn, dung lượng tí hon
+        status: values.status,
+        tags: values.tags,
+        imageUrlsJson: JSON.stringify(uploadedUrls),
       });
 
       if (result?.error) {
@@ -543,8 +506,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormControl>
                         <Textarea
                           placeholder="Nhập thông tin chi tiết về căn hộ..."
-                          /* Đã tăng min-h lên 250px cho mobile và 350px cho desktop. 
-                             Thêm text-base để fix lỗi của iOS */
                           className="min-h-[250px] md:min-h-[350px] text-base md:text-sm"
                           {...field}
                         />
@@ -597,8 +558,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       </FormControl>
                       <FormDescription>
                         Tải lên tối đa {MAX_APARTMENT_IMAGES} ảnh (JPG, PNG,
-                        WebP). Ảnh được hiển thị theo thứ tự, ảnh đầu tiên làm
-                        ảnh bìa.
+                        WebP).
                       </FormDescription>
                       <DndContext
                         sensors={sensors}
@@ -631,6 +591,100 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
           </div>
 
           <div className="space-y-8 lg:col-span-1">
+            {/* CARD QUẢN LÝ TRẠNG THÁI VÀ TAGS (ĐÃ CHUẨN HOÁ GIAO DIỆN) */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Trạng thái & Đặc trưng</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Trạng thái phòng</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Chọn trạng thái" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="available">
+                            Còn trống 
+                          </SelectItem>
+                          <SelectItem value="rented">
+                            Tạm hết
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tag nổi bật</FormLabel>
+                      <div className="flex flex-col gap-2 pt-1">
+                        {[
+                          {
+                            id: "pet_friendly",
+                            label: "Pet Friendly",
+                            icon: Dog,
+                          },
+                          { id: "lake_view", label: "Lake View", icon: Waves },
+                        ].map((item) => {
+                          const isChecked = field.value?.includes(
+                            item.id as FeatureTag,
+                          );
+                          const IconComp = item.icon;
+                          return (
+                            <label
+                              key={item.id}
+                              className={cn(
+                                "flex items-center justify-between p-3 rounded-md border cursor-pointer transition-all select-none",
+                                isChecked
+                                  ? "border-primary bg-primary/5 text-primary font-medium"
+                                  : "bg-transparent border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                <IconComp className="h-4 w-4" />
+                                <span className="text-sm">{item.label}</span>
+                              </div>
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-primary text-primary focus:ring-primary"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const currentTags = field.value || [];
+                                  if (e.target.checked) {
+                                    field.onChange([...currentTags, item.id]);
+                                  } else {
+                                    field.onChange(
+                                      currentTags.filter((t) => t !== item.id),
+                                    );
+                                  }
+                                }}
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Thông tin căn hộ</CardTitle>
@@ -657,7 +711,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormLabel>Diện tích (m²)</FormLabel>
                       <FormControl>
                         <Input type="number" placeholder="45" {...field} />
-                      </FormControl>{" "}
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -735,6 +789,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                 />
               </CardContent>
             </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Admin Information</CardTitle>

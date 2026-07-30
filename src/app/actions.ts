@@ -20,7 +20,6 @@ import {
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
 import { Apartment } from "@/lib/types";
-// Đã thêm collection, getDocs, updateDoc vào đây
 import { Timestamp, doc, getDoc, setDoc, collection, getDocs, updateDoc } from "firebase/firestore";
 import { ADMIN_PATH, MAX_APARTMENT_IMAGES } from "@/lib/constants";
 import { firestore } from "@/firebase/server-init";
@@ -48,6 +47,9 @@ const apartmentBaseSchema = z.object({
   listingSummary: z.string().optional(),
   address: z.string().min(1),
   landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
+  // BỔ SUNG 2 TRƯỜNG STATUS VÀ TAGS Ở ĐÂY ĐỂ ĐỒNG BỘ VỚI FRONTEND
+  status: z.enum(["available", "rented"]).optional().default("available"),
+  tags: z.array(z.enum(["pet_friendly", "lake_view"])).optional().default([]),
 });
 
 const apartmentActionSchema = apartmentBaseSchema.extend({

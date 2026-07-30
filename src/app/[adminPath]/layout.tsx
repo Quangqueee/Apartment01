@@ -230,7 +230,6 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
 
-      {/* QUAN TRỌNG: Nền trắng đặc cho nội dung chính */}
       <SidebarInset className="bg-gray-50 min-h-screen">
         {/* THÊM ĐOẠN HEADER NÀY */}
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-gray-200 bg-white px-4 shadow-sm md:hidden">
