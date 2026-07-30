@@ -144,7 +144,7 @@ function ShareModal({
               <p className="font-bold text-gray-900 text-sm">
                 Sao chép liên kết
               </p>
-              <p className="text-xs text-gray-500">Copy link để gửi thủ công</p>
+              <p className="text-xs text-gray-500">Copy link</p>
             </div>
           </button>
           <button
@@ -492,7 +492,7 @@ export default function ApartmentDetailsPageClient({
   const daysPassed = Math.floor(
     (Date.now() - dateInMs) / (1000 * 60 * 60 * 24),
   );
-  const isOldListing = daysPassed >= 5;
+  const isOldListing = daysPassed >= 14;
 
   let statusLabel = "";
   let statusTextColor = "";
