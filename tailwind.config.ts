@@ -50,7 +50,10 @@ const config: Config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    require("@tailwindcss/typography") // Đã thêm plugin hỗ trợ giao diện Markdown tại đây
+  ],
 };
 
 export default config;

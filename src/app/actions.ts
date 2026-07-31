@@ -176,9 +176,33 @@ export async function createOrUpdateApartmentAction(
 
     const textToSearch = `${data.title} ${data.address} ${data.sourceCode}`.trim();
     const searchKeywords = generateSearchKeywords(textToSearch);
+    // Sửa: Tự động gọi AI tạo nội dung chuẩn SEO B2C trước khi lưu
+    let aiOptimizedContent = null;
+    try {
+      const aiResult = await generateListingSummary({
+        title: data.title,
+        roomType: data.roomType,
+        district: data.district,
+        address: data.address,
+        price: data.price,
+        area: data.area,
+        detailedInformation: data.details,
+      });
+
+      aiOptimizedContent = {
+        seoTitle: aiResult.seoTitle,
+        b2cDescription: aiResult.description,
+        highlights: aiResult.highlights,
+        updatedAt: Timestamp.now(),
+      };
+    } catch (aiError) {
+      console.error("Lỗi tự động sinh content AI khi lưu căn hộ:", aiError);
+    }
+
     const apartmentDataWithTimestamp = {
       ...data,
       listingSummary: data.listingSummary || "",
+      aiContent: aiOptimizedContent, // Thêm: Lưu kết quả tối ưu từ AI vào database
       imageUrls: finalImageUrls,
       searchKeywords: searchKeywords,
       updatedAt: Timestamp.now(),
@@ -239,30 +263,45 @@ export async function deleteApartmentAction(id: string) {
   }
 }
 
-const summaryInputSchema = z.object({
+const generateSummarySchema = z.object({
   title: z.string(),
   roomType: z.string(),
   district: z.string(),
+  address: z.string().optional(),
   price: z.number(),
-  detailedInformation: z.string(),
+  area: z.number().optional(),
+  detailedInformation: z.string().optional(),
 });
-
+// THÊM ĐOẠN NÀY VÀO ĐỂ EXPORT CHO COMPONENT GỌI
 export async function generateSummaryAction(
-  input: z.infer<typeof summaryInputSchema>
+  input: z.infer<typeof generateSummarySchema>
 ) {
-  const validatedInput = summaryInputSchema.safeParse(input);
+  const validatedInput = generateSummarySchema.safeParse(input);
   if (!validatedInput.success) {
     return { error: "Invalid input for summary generation." };
   }
+  // Trong src/app/actions.ts
+
   try {
-    const result = await generateListingSummary(validatedInput.data);
-    return { summary: result.summary };
+    const result = await generateListingSummary({
+      title: validatedInput.data.title,
+      roomType: validatedInput.data.roomType,
+      district: validatedInput.data.district,
+      address: validatedInput.data.address || "", // Thêm address (mặc định chuỗi rỗng nếu chưa nhập)
+      price: validatedInput.data.price,
+      area: validatedInput.data.area || 0,        // Thêm area (mặc định 0 nếu chưa nhập)
+      detailedInformation: validatedInput.data.detailedInformation || "",
+    });
+
+    // Trả về nội dung mô tả B2C do AI viết để điền vào form
+    return { summary: result.description };
   } catch (error) {
     console.error("AI summary generation failed:", error);
     return { error: "Failed to generate summary from AI." };
   }
 }
 
+// Sửa: Cập nhật lại hàm này để khớp với cấu trúc output mới của AI
 export async function fetchApartmentsAction(options: {
   query?: string;
   district?: string;
@@ -273,6 +312,7 @@ export async function fetchApartmentsAction(options: {
   sortBy?: string;
   userId?: string;
 }) {
+
   const { apartments, totalResults } = await getApartments(options);
 
   // If a user is logged in, check which apartments are favorited
@@ -437,5 +477,64 @@ export async function migrateApartmentsBatchAction(batch: { id: string; textToSe
   } catch (error) {
     console.error("Lỗi khi đồng bộ Batch:", error);
     return { error: "Lỗi đồng bộ lô dữ liệu." };
+  }
+}
+
+// 1. Lấy danh sách các căn hộ chưa có nội dung AI tối ưu
+export async function getUnmigratedAiApartmentsAction() {
+  try {
+    const apartmentsCol = collection(firestore, "apartments");
+    const querySnapshot = await getDocs(apartmentsCol);
+    const unmigrated: { id: string; aptData: any }[] = [];
+
+    for (const docSnap of querySnapshot.docs) {
+      const data = docSnap.data();
+
+      // Nếu chưa có trường aiContent thì đưa vào danh sách cần chạy AI
+      if (!data.aiContent) {
+        unmigrated.push({
+          id: docSnap.id,
+          aptData: {
+            title: data.title || "Căn hộ cho thuê",
+            roomType: data.roomType || "studio",
+            district: data.district || "Hà Nội",
+            address: data.address || "",
+            price: data.price || 0,
+            area: data.area || 0,
+            detailedInformation: data.details || "",
+          },
+        });
+      }
+    }
+    return { success: true, data: unmigrated };
+  } catch (error) {
+    console.error("Lỗi khi quét danh sách căn hộ cho AI:", error);
+    return { error: "Không thể lấy danh sách căn hộ chưa tối ưu AI." };
+  }
+}
+
+// 2. Xử lý gọi AI và cập nhật theo từng lô (Batch)
+export async function migrateAiApartmentsBatchAction(batch: { id: string; aptData: any }[]) {
+  try {
+    const promises = batch.map(async (item) => {
+      // Gọi AI sinh nội dung chuẩn SEO
+      const aiResult = await generateListingSummary(item.aptData);
+
+      const docRef = doc(firestore, "apartments", item.id);
+      await updateDoc(docRef, {
+        aiContent: {
+          seoTitle: aiResult.seoTitle,
+          b2cDescription: aiResult.description,
+          highlights: aiResult.highlights,
+          updatedAt: Timestamp.now(),
+        }
+      });
+    });
+
+    await Promise.all(promises);
+    return { success: true };
+  } catch (error) {
+    console.error("Lỗi khi chạy Batch AI migration:", error);
+    return { error: "Lỗi đồng bộ AI theo lô." };
   }
 }

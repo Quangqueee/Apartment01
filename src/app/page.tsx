@@ -23,9 +23,12 @@ export default async function Home({ searchParams }: any) {
     priceRange: sParams.price,
     roomType: sParams.roomType,
     page: 1,
-    limit: 12, 
+    limit: 12,
     sortBy: sParams.sort,
   });
+
+  // CHỈ LÀM PHẲNG MẢNG APARTMENTS Ở TRANG CHỦ
+  const serializedApartments = JSON.parse(JSON.stringify(apartments));
 
   const districtNames = ["Tây Hồ", "Ba Đình", "Đống Đa", "Cầu Giấy"];
   const districtStats = await Promise.all(
@@ -35,7 +38,7 @@ export default async function Home({ searchParams }: any) {
         limit: 1,
       });
       return { name, count: totalResults };
-    })
+    }),
   );
 
   let sectionTitle = "CĂN HỘ NỔI BẬT";
@@ -82,8 +85,9 @@ export default async function Home({ searchParams }: any) {
             <SortControls />
           </div>
 
+          {/* Truyền mảng đã được xử lý thay vì mảng gốc */}
           <ApartmentList
-            initialApartments={apartments}
+            initialApartments={serializedApartments}
             searchParams={sParams}
             totalInitialResults={totalResults}
           />

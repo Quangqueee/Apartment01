@@ -31,7 +31,10 @@ import {
   ROOM_TYPES,
 } from "@/lib/constants";
 import { Apartment, ApartmentStatus, FeatureTag } from "@/lib/types";
-import { createOrUpdateApartmentAction } from "@/app/actions";
+import {
+  createOrUpdateApartmentAction,
+  generateSummaryAction,
+} from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import {
   useState,
@@ -236,6 +239,10 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+  // THÊM: Trạng thái hiển thị form SEO B2C, tự động mở nếu đã có dữ liệu trước đó
+  const [isSeoEnabled, setIsSeoEnabled] = useState(!!apartment?.listingSummary);
+
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>(
     createInitialPreviewItems(apartment?.imageUrls || []),
   );
@@ -436,7 +443,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         price: values.price,
         commission: values.commission,
         details: values.details,
-        listingSummary: values.listingSummary,
+        listingSummary: isSeoEnabled ? values.listingSummary : "",
         address: values.address,
         landlordPhoneNumber: values.landlordPhoneNumber,
         status: values.status,
@@ -459,7 +466,12 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         description: apartment ? "Đã cập nhật căn hộ." : "Đã thêm căn hộ mới.",
         duration: 1000,
       });
-      router.push(`/${ADMIN_PATH}/apartments`);
+
+      router.refresh();
+
+      setTimeout(() => {
+        router.push(`/${ADMIN_PATH}/apartments`);
+      }, 100);
     } catch (error) {
       console.error("Lỗi khi upload ảnh:", error);
       toast({
@@ -470,6 +482,56 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       setIsSubmitting(false);
     }
   }
+
+  const handleGenerateAi = async () => {
+    const title = form.getValues("title");
+    const roomType = form.getValues("roomType");
+    const district = form.getValues("district");
+    const price = form.getValues("price");
+    const details = form.getValues("details"); // AI đọc từ trường thông tin thô (details)
+
+    if (!details || details.length < 10) {
+      toast({
+        variant: "destructive",
+        title: "Thiếu thông tin",
+        description: "Vui lòng nhập Thông tin thô (chi tiết) trước khi tạo AI.",
+      });
+      return;
+    }
+
+    setIsGeneratingAi(true);
+    try {
+      const res = await generateSummaryAction({
+        title: title || "Căn hộ cho thuê",
+        roomType: roomType || "studio",
+        district: district || "Hà Nội",
+        price: Number(price) || 0,
+        detailedInformation: details,
+      });
+
+      if (res.error) {
+        throw new Error(res.error);
+      }
+
+      if (res.summary) {
+        // AI viết nội dung mới vào trường listingSummary, không đè lên thông tin gốc
+        form.setValue("listingSummary", res.summary, { shouldValidate: true });
+        toast({
+          title: "Thành công! ✨",
+          description: "AI đã tạo bài viết tối ưu SEO cho căn hộ này.",
+          className: "bg-purple-50 text-purple-900 border-purple-200",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Lỗi AI",
+        description: error.message || "Không thể tạo nội dung từ AI.",
+      });
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
 
   return (
     <Form {...form}>
@@ -497,16 +559,18 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                     </FormItem>
                   )}
                 />
+
+                {/* 1. KHUNG THÔNG TIN GỐC (LUÔN HIỂN THỊ) */}
                 <FormField
                   control={form.control}
                   name="details"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Mô tả căn hộ</FormLabel>
+                      <FormLabel>Thông tin gốc (Chi tiết)</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Nhập thông tin chi tiết về căn hộ..."
-                          className="min-h-[250px] md:min-h-[350px] text-base md:text-sm"
+                          placeholder="Nhập thông số điện nước, phí dịch vụ, giờ giấc, nội thất thô..."
+                          className="min-h-[150px] text-base md:text-sm"
                           {...field}
                         />
                       </FormControl>
@@ -514,6 +578,65 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                     </FormItem>
                   )}
                 />
+
+                {/* 2. CÔNG TẮC BẬT/TẮT SEO B2C */}
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="toggleSeo"
+                    checked={isSeoEnabled}
+                    onChange={(e) => setIsSeoEnabled(e.target.checked)}
+                    className="h-4 w-4 rounded border-primary text-primary focus:ring-primary cursor-pointer"
+                  />
+                  <label
+                    htmlFor="toggleSeo"
+                    className="text-sm font-semibold cursor-pointer select-none text-gray-700"
+                  >
+                    Bật cấu hình tạo SEO AI (Dành cho khách thuê)
+                  </label>
+                </div>
+
+                {/* 3. KHUNG SEO B2C (CHỈ HIỆN KHI BẬT) */}
+                {isSeoEnabled && (
+                  <FormField
+                    control={form.control}
+                    name="listingSummary"
+                    render={({ field }) => (
+                      <FormItem className="p-4 border rounded-md bg-purple-50/50 transition-all mt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <FormLabel className="text-purple-700">
+                            Nội dung chuẩn SEO
+                          </FormLabel>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleGenerateAi}
+                            disabled={isGeneratingAi}
+                            className="text-purple-600 border-purple-200 hover:bg-purple-100 gap-1.5 h-7 text-xs font-semibold cursor-pointer"
+                          >
+                            {isGeneratingAi ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}
+                                Đang viết...
+                              </>
+                            ) : (
+                              <>✨ Tối ưu SEO AI</>
+                            )}
+                          </Button>
+                        </div>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Nội dung bài viết sẽ hiển thị ở đây. Bạn cũng có thể tự do chỉnh sửa..."
+                            className="min-h-[250px] md:min-h-[300px] text-base md:text-sm bg-white"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </CardContent>
             </Card>
 
@@ -591,7 +714,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
           </div>
 
           <div className="space-y-8 lg:col-span-1">
-            {/* CARD QUẢN LÝ TRẠNG THÁI VÀ TAGS (ĐÃ CHUẨN HOÁ GIAO DIỆN) */}
             <Card>
               <CardHeader>
                 <CardTitle>Trạng thái & Đặc trưng</CardTitle>
@@ -613,12 +735,8 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="available">
-                            Còn trống 
-                          </SelectItem>
-                          <SelectItem value="rented">
-                            Tạm hết
-                          </SelectItem>
+                          <SelectItem value="available">Còn trống</SelectItem>
+                          <SelectItem value="rented">Tạm hết</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

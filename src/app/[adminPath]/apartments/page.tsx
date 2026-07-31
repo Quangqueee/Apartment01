@@ -42,6 +42,8 @@ import {
   deleteApartmentAction,
   getUnmigratedApartmentsAction,
   migrateApartmentsBatchAction,
+  getUnmigratedAiApartmentsAction, // Sửa: Thêm hàm mới để lấy danh sách căn hộ chưa có AI content
+  migrateAiApartmentsBatchAction,
 } from "../../actions";
 import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -145,23 +147,30 @@ export default function ApartmentsPage() {
     toast({ title: "Đã sao chép!", description: "Đã lưu vào bộ nhớ tạm." });
   };
 
-// Hàm gọi API đồng bộ dữ liệu có Animation %
+  // Hàm gọi API đồng bộ dữ liệu có Animation %
   const handleMigrate = async () => {
-    const confirm = window.confirm("Đồng bộ từ khóa cho tất cả căn hộ cũ? Quá trình này sẽ mất vài giây.");
+    const confirm = window.confirm(
+      "Đồng bộ từ khóa cho tất cả căn hộ cũ? Quá trình này sẽ mất vài giây.",
+    );
     if (!confirm) return;
 
     // SỬA Ở ĐÂY: Lấy id và hàm update từ kết quả trả về của toast()
     const { id, update } = toast({
       title: "Đang quét dữ liệu...",
       description: "Đang kiểm tra các căn hộ cần đồng bộ.",
-      duration: 100000, 
+      duration: 100000,
     });
 
     // 1. Lấy danh sách cần đồng bộ
     const res = await getUnmigratedApartmentsAction();
-    
+
     if (res?.error || !res.data) {
-      update({ id, variant: "destructive", title: "Lỗi", description: res.error });
+      update({
+        id,
+        variant: "destructive",
+        title: "Lỗi",
+        description: res.error,
+      });
       return;
     }
 
@@ -172,14 +181,15 @@ export default function ApartmentsPage() {
       update({
         id,
         title: "Hoàn tất!",
-        description: "Tất cả căn hộ của bạn đã được chuẩn hóa, không cần đồng bộ thêm.",
+        description:
+          "Tất cả căn hộ của bạn đã được chuẩn hóa, không cần đồng bộ thêm.",
         duration: 3000,
       });
       return;
     }
 
     // 2. Setup thanh tiến trình
-    const BATCH_SIZE = 20; 
+    const BATCH_SIZE = 20;
     let processed = 0;
 
     const updateProgressToast = (current: number) => {
@@ -190,7 +200,9 @@ export default function ApartmentsPage() {
         description: (
           <div className="space-y-2 mt-2 w-full pr-4">
             <div className="flex justify-between text-xs font-medium text-gray-500">
-              <span>{current} / {total} căn</span>
+              <span>
+                {current} / {total} căn
+              </span>
               <span>{percentage}%</span>
             </div>
             <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
@@ -211,12 +223,17 @@ export default function ApartmentsPage() {
     for (let i = 0; i < total; i += BATCH_SIZE) {
       const batch = unmigrated.slice(i, i + BATCH_SIZE);
       const batchRes = await migrateApartmentsBatchAction(batch);
-      
+
       if (batchRes?.error) {
-        update({ id, variant: "destructive", title: "Lỗi", description: "Tiến trình bị gián đoạn." });
+        update({
+          id,
+          variant: "destructive",
+          title: "Lỗi",
+          description: "Tiến trình bị gián đoạn.",
+        });
         return;
       }
-      
+
       processed += batch.length;
       updateProgressToast(processed);
     }
@@ -232,6 +249,102 @@ export default function ApartmentsPage() {
       fetchApartments(); // Refresh lại danh sách
     }, 500);
   };
+  // Hàm gọi API đồng bộ nội dung SEO chuẩn AI cho các căn cũ
+  const handleAiMigrate = async () => {
+    const confirmwindow = window.confirm(
+      "Tự động viết lại nội dung chuẩn SEO cho tất cả căn hộ cũ bằng AI? Quá trình này sẽ gọi AI và mất chút thời gian.",
+    );
+    if (!confirmwindow) return;
+
+    const { id, update } = toast({
+      title: "Đang quét căn hộ thiếu AI...",
+      description: "Đang kiểm tra dữ liệu cũ.",
+      duration: 100000,
+    });
+
+    const res = await getUnmigratedAiApartmentsAction();
+
+    if (res?.error || !res.data) {
+      update({
+        id,
+        variant: "destructive",
+        title: "Lỗi",
+        description: res.error,
+      });
+      return;
+    }
+
+    const unmigratedAi = res.data;
+    const totalAi = unmigratedAi.length;
+
+    if (totalAi === 0) {
+      update({
+        id,
+        title: "Hoàn tất!",
+        description: "Tất cả căn hộ đã có nội dung chuẩn SEO từ AI.",
+        duration: 3000,
+      });
+      return;
+    }
+
+    const BATCH_SIZE_AI = 5; // AI chạy tốn tài nguyên hơn nên để lô nhỏ (5 căn/lô) cho ổn định
+    let processedAi = 0;
+
+    const updateAiProgressToast = (current: number) => {
+      const percentage = Math.round((current / totalAi) * 100);
+      update({
+        id,
+        title: "AI đang tối ưu hóa nội dung SEO...",
+        description: (
+          <div className="space-y-2 mt-2 w-full pr-4">
+            <div className="flex justify-between text-xs font-medium text-gray-500">
+              <span>
+                Đã xử lý: {current} / {totalAi} căn
+              </span>
+              <span>{percentage}%</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+              <div
+                className="bg-purple-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                style={{ width: `${percentage}%` }}
+              ></div>
+            </div>
+          </div>
+        ),
+        duration: 100000,
+      });
+    };
+
+    updateAiProgressToast(0);
+
+    for (let i = 0; i < totalAi; i += BATCH_SIZE_AI) {
+      const batch = unmigratedAi.slice(i, i + BATCH_SIZE_AI);
+      const batchRes = await migrateAiApartmentsBatchAction(batch);
+
+      if (batchRes?.error) {
+        update({
+          id,
+          variant: "destructive",
+          title: "Lỗi",
+          description: "Tiến trình AI bị gián đoạn.",
+        });
+        return;
+      }
+
+      processedAi += batch.length;
+      updateAiProgressToast(processedAi);
+    }
+
+    setTimeout(() => {
+      update({
+        id,
+        title: "Tối ưu AI hoàn tất! 🎉",
+        description: `Đã tạo nội dung chuẩn SEO cho ${totalAi} căn hộ.`,
+        duration: 4000,
+      });
+      fetchApartments();
+    }, 500);
+  };
 
   return (
     <div className="space-y-6">
@@ -244,15 +357,25 @@ export default function ApartmentsPage() {
             Danh sách tất cả các căn hộ ({totalApartments}).
           </p>
         </div>
-        <div className="flex gap-2">
-          {/* Nút bấm đồng bộ data cũ */}
+        <div className="flex gap-2 flex-wrap">
+          {/* Nút đồng bộ data cũ (từ khóa tìm kiếm) */}
           <Button
             onClick={handleMigrate}
             variant="outline"
             className="text-blue-600 border-blue-600"
           >
-            Đồng bộ Data Cũ
+            Đồng bộ Từ khóa Cũ
           </Button>
+
+          {/* Nút bấm mới: Tối ưu SEO bằng AI cho các căn cũ */}
+          <Button
+            onClick={handleAiMigrate}
+            variant="outline"
+            className="text-purple-600 border-purple-600 hover:bg-purple-50"
+          >
+            ✨ Tối ưu SEO AI hàng loạt
+          </Button>
+
           <Button
             asChild
             className="bg-[#1a1a1a] text-white hover:bg-[#cda533]"
