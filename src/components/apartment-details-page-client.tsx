@@ -721,7 +721,7 @@ export default function ApartmentDetailsPageClient({
               <div className="border-b border-gray-100 pb-8 mb-8">
                 <div className="flex justify-between items-start gap-4 mb-3">
                   <h1
-                    className={`${titleFont.className} text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 leading-tight tracking-tight`}
+                    className={`${titleFont.className} text-[22px] sm:text-2xl md:text-3xl lg:text-4xl font-bold text-gray-800 leading-[1.4] md:leading-snug`}
                   >
                     {isCollaborator
                       ? apartment.title
