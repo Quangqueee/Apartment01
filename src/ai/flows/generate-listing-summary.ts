@@ -99,6 +99,11 @@ Yêu cầu trả về kết quả dưới định dạng JSON thuần túy:
           ? parseFloat(retryAfterHeader)
           : Math.pow(2, attempt);
 
+        // Chặn không cho hệ thống bắt người dùng đợi quá 15 giây
+        if (retryAfterSeconds > 15) {
+          throw new Error(`Hệ thống AI đang quá tải lượt dùng miễn phí. Vui lòng thử lại sau ${Math.ceil(retryAfterSeconds / 60)} phút.`);
+        }
+
         const waitMs = Math.max(retryAfterSeconds * 1000, 1000) + Math.random() * 500;
         console.warn(
           `[Groq] Rate limit, thử lại lần ${attempt + 1}/${MAX_RETRIES} sau ${Math.round(waitMs)}ms`

@@ -166,9 +166,12 @@ export async function createOrUpdateApartmentAction(
   let apartmentId = id;
 
   try {
+    // Đưa biến existingApartment ra ngoài để tái sử dụng lấy dữ liệu AI cũ
+    let existingApartment: any = null;
     let existingImageUrls: string[] | undefined = undefined;
+
     if (apartmentId) {
-      const existingApartment = await getApartmentById(apartmentId);
+      existingApartment = await getApartmentById(apartmentId);
       existingImageUrls = existingApartment?.imageUrls;
     }
 
@@ -176,33 +179,28 @@ export async function createOrUpdateApartmentAction(
 
     const textToSearch = `${data.title} ${data.address} ${data.sourceCode}`.trim();
     const searchKeywords = generateSearchKeywords(textToSearch);
-    // Sửa: Tự động gọi AI tạo nội dung chuẩn SEO B2C trước khi lưu
-    let aiOptimizedContent = null;
-    try {
-      const aiResult = await generateListingSummary({
-        title: data.title,
-        roomType: data.roomType,
-        district: data.district,
-        address: data.address,
-        price: data.price,
-        area: data.area,
-        detailedInformation: data.details,
-      });
 
+    // ĐÃ SỬA: KHÔNG tự động gọi AI (generateListingSummary) ở đây nữa để tránh bị treo form
+    let aiOptimizedContent = undefined;
+
+    // Nếu trên giao diện có gửi kèm nội dung bài viết (do AI tạo trước đó hoặc do bạn tự viết)
+    if (data.listingSummary) {
       aiOptimizedContent = {
-        seoTitle: aiResult.seoTitle,
-        b2cDescription: aiResult.description,
-        highlights: aiResult.highlights,
+        // Mượn lại Title SEO cũ nếu là chỉnh sửa, tạo mới thì lấy title gốc
+        seoTitle: existingApartment?.aiContent?.seoTitle || data.title,
+        b2cDescription: data.listingSummary,
+        highlights: existingApartment?.aiContent?.highlights || [],
         updatedAt: Timestamp.now(),
       };
-    } catch (aiError) {
-      console.error("Lỗi tự động sinh content AI khi lưu căn hộ:", aiError);
+    } else if (existingApartment && existingApartment.aiContent) {
+      // Nếu không sửa gì bài viết, giữ nguyên data AI cũ
+      aiOptimizedContent = existingApartment.aiContent;
     }
 
     const apartmentDataWithTimestamp = {
       ...data,
       listingSummary: data.listingSummary || "",
-      aiContent: aiOptimizedContent, // Thêm: Lưu kết quả tối ưu từ AI vào database
+      ...(aiOptimizedContent && { aiContent: aiOptimizedContent }), // Cập nhật nội dung vào DB
       imageUrls: finalImageUrls,
       searchKeywords: searchKeywords,
       updatedAt: Timestamp.now(),

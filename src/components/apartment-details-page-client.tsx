@@ -830,8 +830,7 @@ export default function ApartmentDetailsPageClient({
                     </div>
                     <div>
                       <strong className="text-amber-900 flex items-center gap-2 mb-3">
-                        <span className="text-lg">📝</span> Thông tin thô (Ghi
-                        chú):
+                        <span className="text-lg">📝</span> Thông tin:
                       </strong>
                       <div className="whitespace-pre-wrap leading-relaxed text-gray-700 bg-white p-5 rounded-2xl border border-amber-100/60 shadow-inner">
                         {apartment.details || "Không có thông tin ghi chú."}
