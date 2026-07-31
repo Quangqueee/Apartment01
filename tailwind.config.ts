@@ -49,6 +49,9 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      transitionTimingFunction: {
+        'ios-out': 'cubic-bezier(0.32, 0.72, 0, 1)',
+      },
     },
   },
   plugins: [

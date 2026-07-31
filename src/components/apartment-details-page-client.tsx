@@ -639,16 +639,21 @@ export default function ApartmentDetailsPageClient({
       />
 
       {/* COMPONENT POPUP NẢY LÊN CHO THÔNG TIN CHI TIẾT */}
-      {/* ĐÃ FIX: Giới hạn Desktop Modal và Thêm Mobile Animation */}
       <Dialog open={isDescModalOpen} onOpenChange={setIsDescModalOpen}>
         <DialogContent
           className={cn(
             "p-0 border-none shadow-2xl z-[100] gap-0 bg-white flex flex-col [&>button.absolute]:hidden",
-            // Mobile: Full screen, trượt từ dưới lên (slide-in-from-bottom)
-            "max-sm:h-[100dvh] max-sm:w-full max-sm:max-w-none max-sm:rounded-none max-sm:!top-0 max-sm:!translate-y-0",
-            "max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out max-sm:data-[state=open]:slide-in-from-bottom-full max-sm:data-[state=closed]:slide-out-to-bottom-full max-sm:duration-300",
-            // Desktop: Kích thước cố định (width 780px, max-height 85vh), bo góc tròn
+
+            // --- XỬ LÝ DESKTOP ---
             "sm:max-w-[780px] sm:max-h-[85vh] sm:rounded-2xl overflow-hidden",
+            
+            // --- XỬ LÝ MOBILE ---
+            "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:translate-x-0 max-sm:translate-y-0",
+            "max-sm:h-[100dvh] max-sm:w-full max-sm:rounded-none",
+            "max-sm:will-change-transform", // Báo trước cho browser tối ưu layer riêng
+            "max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out",
+            "max-sm:data-[state=open]:slide-in-from-bottom-full max-sm:data-[state=closed]:slide-out-to-bottom-full",
+            "max-sm:duration-350 max-sm:ease-out", // Thêm easing + nhích thời gian
           )}
         >
           <DialogHeader className="px-5 py-4 sm:px-6 sm:py-5 border-b border-gray-100 flex flex-row items-center gap-4 sticky top-0 bg-white z-10 shrink-0 text-left">
