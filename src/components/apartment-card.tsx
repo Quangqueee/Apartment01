@@ -215,7 +215,7 @@ export default memo(function ApartmentCard({
   const daysPassed = Math.floor(
     (Date.now() - dateInMs) / (1000 * 60 * 60 * 24),
   );
-  const isOldListing = daysPassed >= 5;
+  const isOldListing = daysPassed >= 14;
 
   if (isCollaborator) {
     // Trạng thái hiển thị cho CTV/Admin (Dạt góc trái dưới)

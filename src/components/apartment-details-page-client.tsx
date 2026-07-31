@@ -1,5 +1,5 @@
 "use client";
-
+import ReactMarkdown from "react-markdown";
 import { formatPrice } from "@/lib/utils";
 import { ROOM_TYPES } from "@/lib/constants";
 import {
@@ -22,6 +22,7 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Apartment } from "@/lib/types";
@@ -144,7 +145,7 @@ function ShareModal({
               <p className="font-bold text-gray-900 text-sm">
                 Sao chép liên kết
               </p>
-              <p className="text-xs text-gray-500">Copy link để gửi thủ công</p>
+              <p className="text-xs text-gray-500">Copy link</p>
             </div>
           </button>
           <button
@@ -360,8 +361,10 @@ export default function ApartmentDetailsPageClient({
   const isMobileSwipeRef = useRef(false);
   const touchStartXRef = useRef(0);
   const touchStartYRef = useRef(0);
-  const isCollaborator =
-    userData?.role === "collaborator" || userData?.role === "admin";
+
+  // KIỂM TRA QUYỀN TRUY CẬP
+  const isAdmin = userData?.role === "admin";
+  const isCollaborator = userData?.role === "collaborator" || isAdmin;
 
   const formatCommission = (commissionValue: Apartment["commission"]) => {
     if (
@@ -472,6 +475,57 @@ export default function ApartmentDetailsPageClient({
     openLightbox(index);
   };
 
+  // NÚT COPY THÔNG TIN DÀNH CHO CTV
+  // NÚT COPY THÔNG TIN DÀNH CHO CTV
+  const handleCopyInternalInfo = async () => {
+    let copyText = `📍 Mã căn: ${apartment.sourceCode}\n`;
+    copyText += `💰 Giá: ${formatPrice(apartment.price)}/tháng\n`;
+    copyText += `🤝 Hoa hồng: ${formatCommission(apartment.commission)}\n`;
+
+    if (isAdmin && apartment.landlordPhoneNumber) {
+      copyText += `📞 SĐT Chủ nhà: ${apartment.landlordPhoneNumber}\n`;
+    }
+
+    copyText += `\n--- THÔNG TIN CHUNG ---\n${apartment.details || "Chưa có thông tin chi tiết."}`;
+
+    try {
+      // 1. Thử dùng Clipboard API hiện đại (HTTPS hoặc Localhost)
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(copyText);
+      } else {
+        // 2. Cơ chế Fallback cho môi trường HTTP (Test qua IP LAN)
+        const textArea = document.createElement("textarea");
+        textArea.value = copyText;
+        // Đẩy textarea ra khỏi màn hình để không bị chớp giao diện
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        const successful = document.execCommand("copy");
+        textArea.remove(); // Xóa thẻ sau khi copy xong
+
+        if (!successful) throw new Error("Fallback copy failed");
+      }
+
+      // Thông báo thành công
+      toast({
+        title: "Đã copy thông tin!",
+        // description: "Bạn có thể  để gửi ngay.",
+        className: "bg-white text-green-900 border-none",
+      });
+    } catch (err) {
+      console.error("Lỗi khi copy: ", err);
+      toast({
+        variant: "destructive",
+        title: "Lỗi sao chép",
+        description: "Trình duyệt của bạn không hỗ trợ tính năng này.",
+      });
+    }
+  };
+
   if (authLoading) {
     return (
       <>
@@ -492,7 +546,7 @@ export default function ApartmentDetailsPageClient({
   const daysPassed = Math.floor(
     (Date.now() - dateInMs) / (1000 * 60 * 60 * 24),
   );
-  const isOldListing = daysPassed >= 5;
+  const isOldListing = daysPassed >= 14;
 
   let statusLabel = "";
   let statusTextColor = "";
@@ -667,9 +721,11 @@ export default function ApartmentDetailsPageClient({
               <div className="border-b border-gray-100 pb-8 mb-8">
                 <div className="flex justify-between items-start gap-4 mb-3">
                   <h1
-                    className={`${titleFont.className} text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 leading-[1.1] tracking-tight`}
+                    className={`${titleFont.className} text-[22px] sm:text-2xl md:text-3xl lg:text-4xl font-bold text-gray-800 leading-[1.4] md:leading-snug`}
                   >
-                    {apartment.title}
+                    {isCollaborator
+                      ? apartment.title
+                      : apartment.aiContent?.seoTitle || apartment.title}
                   </h1>
                   <div className="hidden md:flex shrink-0">
                     <Button
@@ -719,14 +775,11 @@ export default function ApartmentDetailsPageClient({
                     label="Thiết kế"
                     value={getRoomTypeLabel(apartment.roomType)}
                   />
+                  {/* Trả lại hiển thị Khu vực (District) cho tất cả mọi người */}
                   <InfoBox
                     icon={MapPin}
-                    label={isCollaborator ? "Hoa hồng" : "Khu vực"}
-                    value={
-                      isCollaborator
-                        ? formatCommission(apartment.commission)
-                        : apartment.district
-                    }
+                    label="Khu vực"
+                    value={apartment.district}
                   />
                   <InfoBox
                     icon={Hash}
@@ -736,46 +789,116 @@ export default function ApartmentDetailsPageClient({
                 </div>
               </div>
 
-              <div className="pb-12 border-b border-gray-100 mb-8">
-                <h3 className="font-headline text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <span className="w-1.5 h-6 bg-[#cda533] rounded-full inline-block"></span>
-                  Thông tin mô tả
-                </h3>
-                <div className="relative">
-                  <div
-                    ref={descriptionRef}
-                    className={cn(
-                      "text-gray-600 text-base md:text-lg leading-relaxed antialiased whitespace-pre-wrap font-body transition-all duration-500 overflow-hidden",
-                      !isExpanded && isLongContent
-                        ? "max-h-[220px]"
-                        : "max-h-none",
-                    )}
-                  >
-                    {apartment.details}
+              {isCollaborator ? (
+                /* GIAO DIỆN HIỂN THỊ DÀNH CHO ADMIN VÀ CTV (B2B) */
+                <div className="pb-12 border-b border-gray-100 mb-8">
+                  <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <h3 className="font-headline text-2xl font-bold text-gray-900 flex items-center gap-2">
+                      <span className="w-1.5 h-6 bg-amber-500 rounded-full inline-block"></span>
+                      Thông tin nội bộ
+                    </h3>
+                    <Button
+                      onClick={handleCopyInternalInfo}
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 text-amber-700 border-amber-200 hover:bg-amber-50 rounded-full"
+                    >
+                      <Copy className="h-4 w-4" /> Copy thông tin
+                    </Button>
                   </div>
-                  {!isExpanded && isLongContent && (
-                    <div className="absolute bottom-0 left-0 w-full h-28 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none" />
+
+                  <div className="bg-amber-50/50 border border-amber-100 rounded-3xl p-6 shadow-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-amber-950 mb-6">
+                      <div className="p-4 bg-white rounded-2xl border border-amber-100/60 shadow-sm">
+                        <strong className="text-amber-900 block mb-1">
+                          Hoa hồng:
+                        </strong>
+                        <span className="font-semibold text-amber-700 text-lg">
+                          {formatCommission(apartment.commission)}
+                        </span>
+                      </div>
+                      {isAdmin && (
+                        <div className="p-4 bg-white rounded-2xl border border-amber-100/60 shadow-sm">
+                          <strong className="text-amber-900 block mb-1">
+                            SĐT Chủ nhà:
+                          </strong>
+                          <span className="font-semibold text-amber-700 text-lg">
+                            {apartment.landlordPhoneNumber || "Chưa có"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <strong className="text-amber-900 flex items-center gap-2 mb-3">
+                        <span className="text-lg">📝</span> Thông tin:
+                      </strong>
+                      <div className="whitespace-pre-wrap leading-relaxed text-gray-700 bg-white p-5 rounded-2xl border border-amber-100/60 shadow-inner">
+                        {apartment.details || "Không có thông tin ghi chú."}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* GIAO DIỆN HIỂN THỊ DÀNH CHO KHÁCH HÀNG (B2C) */
+                <div className="pb-12 border-b border-gray-100 mb-8">
+                  <h3 className="font-headline text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <span className="w-1.5 h-6 bg-[#cda533] rounded-full inline-block"></span>
+                    Thông tin chi tiết
+                  </h3>
+
+                  <div className="relative">
+                    <div
+                      ref={descriptionRef}
+                      className={cn(
+                        "text-gray-600 text-base md:text-lg leading-relaxed antialiased transition-all duration-500 overflow-hidden",
+                        !isExpanded && isLongContent
+                          ? "max-h-[220px]"
+                          : "max-h-none",
+                        // Nếu có bài SEO AI thì dùng prose (ReactMarkdown), nếu là bài viết thô thì dùng whitespace-pre-wrap để không bị vỡ list
+                        apartment.aiContent
+                          ? "prose prose-gray max-w-none"
+                          : "whitespace-pre-wrap",
+                      )}
+                    >
+                      {apartment.aiContent ? (
+                        <ReactMarkdown>
+                          {apartment.aiContent.b2cDescription +
+                            (apartment.aiContent.highlights &&
+                            apartment.aiContent.highlights.length > 0
+                              ? "\n\n**Điểm nổi bật:**\n" +
+                                apartment.aiContent.highlights
+                                  .map((h: string) => `- ${h}`)
+                                  .join("\n")
+                              : "")}
+                        </ReactMarkdown>
+                      ) : (
+                        apartment.details || "Thông tin đang được cập nhật..."
+                      )}
+                    </div>
+                    {!isExpanded && isLongContent && (
+                      <div className="absolute bottom-0 left-0 w-full h-28 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none" />
+                    )}
+                  </div>
+                  {isLongContent && (
+                    <div className="flex justify-center md:justify-start mt-6">
+                      <button
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gray-100 hover:bg-[#cda533]/10 hover:text-[#cda533] text-gray-700 font-bold text-sm transition-all group"
+                      >
+                        {isExpanded ? (
+                          <>
+                            <ChevronUp className="h-4 w-4" /> Thu gọn
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="h-4 w-4" /> Xem thêm
+                          </>
+                        )}
+                      </button>
+                    </div>
                   )}
                 </div>
-                {isLongContent && (
-                  <div className="flex justify-center md:justify-start mt-6">
-                    <button
-                      onClick={() => setIsExpanded(!isExpanded)}
-                      className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gray-100 hover:bg-[#cda533]/10 hover:text-[#cda533] text-gray-700 font-bold text-sm transition-all group"
-                    >
-                      {isExpanded ? (
-                        <>
-                          <ChevronUp className="h-4 w-4" /> Thu gọn
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="h-4 w-4" /> Xem thêm
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
+              )}
 
               <div className="pb-8 space-y-6">
                 <FeatureRow

@@ -1,51 +1,120 @@
-'use server';
+import OpenAI from "openai";
 
-/**
- * @fileOverview Generates a concise and engaging summary of an apartment listing using AI.
- *
- * - generateListingSummary - A function that generates the listing summary.
- * - GenerateListingSummaryInput - The input type for the generateListingSummary function.
- * - GenerateListingSummaryOutput - The return type for the generateListingSummary function.
- */
-
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-
-const GenerateListingSummaryInputSchema = z.object({
-  title: z.string().describe('The title of the apartment listing.'),
-  roomType: z.string().describe('The type of the room (e.g., 1n1k, 2n1k, studio).'),
-  district: z.string().describe('The district where the apartment is located.'),
-  price: z.number().describe('The price of the apartment.'),
-  detailedInformation: z.string().describe('Detailed information about the apartment.'),
+const groq = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: "https://api.groq.com/openai/v1",
 });
-export type GenerateListingSummaryInput = z.infer<typeof GenerateListingSummaryInputSchema>;
 
-const GenerateListingSummaryOutputSchema = z.object({
-  summary: z.string().describe('A concise and engaging summary of the apartment listing.'),
-});
-export type GenerateListingSummaryOutput = z.infer<typeof GenerateListingSummaryOutputSchema>;
+// --- Token-aware rate limiter cho Groq (12,000 TPM trên tier on_demand) ---
+const TPM_LIMIT = 12000;
+const SAFETY_MARGIN = 0.85; // Chỉ dùng 85% hạn mức để tránh sát ngưỡng
+const EFFECTIVE_LIMIT = TPM_LIMIT * SAFETY_MARGIN;
 
-export async function generateListingSummary(
-  input: GenerateListingSummaryInput
-): Promise<GenerateListingSummaryOutput> {
-  return generateListingSummaryFlow(input);
+let tokenWindow: { tokens: number; timestamp: number }[] = [];
+
+async function waitForTokenBudget(estimatedTokens: number) {
+  while (true) {
+    const now = Date.now();
+    // Chỉ giữ lại các lần gọi trong 60 giây gần nhất
+    tokenWindow = tokenWindow.filter((entry) => now - entry.timestamp < 60000);
+
+    const usedTokens = tokenWindow.reduce((sum, entry) => sum + entry.tokens, 0);
+
+    if (usedTokens + estimatedTokens <= EFFECTIVE_LIMIT) {
+      tokenWindow.push({ tokens: estimatedTokens, timestamp: now });
+      return;
+    }
+
+    // Đợi tới khi request cũ nhất "hết hạn" khỏi cửa sổ 60s
+    const oldestEntry = tokenWindow[0];
+    const waitMs = Math.max(60000 - (now - oldestEntry.timestamp) + 200, 300);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
 }
 
-const prompt = ai.definePrompt({
-  name: 'generateListingSummaryPrompt',
-  input: {schema: GenerateListingSummaryInputSchema},
-  output: {schema: GenerateListingSummaryOutputSchema},
-  prompt: `You are an expert real estate copywriter. Generate a concise and engaging summary of the apartment listing based on the following information:\n\nTitle: {{{title}}}\nRoom Type: {{{roomType}}}\nDistrict: {{{district}}}\nPrice: {{{price}}}\nDetailed Information: {{{detailedInformation}}}\n\nSummary: `,
-});
+export async function generateListingSummary(input: {
+  title: string;
+  roomType: string;
+  district: string;
+  address: string;
+  price: number;
+  area: number;
+  detailedInformation: string;
+}) {
+  const promptText = `Bạn là chuyên gia marketing bất động sản cho thuê tại Hà Nội. 
+Hãy viết một bài mô tả căn hộ hấp dẫn, chuyên nghiệp bằng tiếng Việt để thuyết phục khách hàng B2C. 
 
-const generateListingSummaryFlow = ai.defineFlow(
-  {
-    name: 'generateListingSummaryFlow',
-    inputSchema: GenerateListingSummaryInputSchema,
-    outputSchema: GenerateListingSummaryOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+Sử dụng các thông tin thô sau đây:
+- Tiêu đề gốc: ${input.title}
+- Loại phòng: ${input.roomType}
+- Quận: ${input.district}
+- Địa chỉ: ${input.address}
+- Giá thuê: ${input.price} triệu/tháng
+- Diện tích: ${input.area} m2
+- Thông tin thô/Chi phí: ${input.detailedInformation}
+
+YÊU CẦU ĐỊNH DẠNG BẮT BUỘC (MARKDOWN):
+- Phải chia thành các đoạn văn ngắn gọn, rõ ràng, KHÔNG viết liền mạch.
+- Phải dùng Markdown để in đậm (**text**) các từ khóa quan trọng và tiêu đề mục.
+- Phải dùng gạch đầu dòng (-) cho các danh sách tiện ích, chi phí.
+- Phải xuống dòng (dùng ký tự \\n\\n) giữa các phần.
+
+CẤU TRÚC GỢI Ý CỦA BÀI VIẾT:
+1. Mở bài: Dẫn dắt hấp dẫn về không gian sống (1-2 câu).
+2. **THÔNG TIN CĂN HỘ:** Gạch đầu dòng rõ vị trí, diện tích, loại phòng.
+3. **TIỆN ÍCH & NỘI THẤT:** Liệt kê các điểm nhấn.
+4. **CHI PHÍ & DỊCH VỤ:** Liệt kê rõ ràng giá thuê và các phụ phí.
+
+Yêu cầu trả về kết quả dưới định dạng JSON thuần túy:
+{
+  "seoTitle": "Tiêu đề chuẩn SEO",
+  "description": "Nội dung bài viết theo định dạng Markdown như trên",
+  "highlights": ["Điểm nhấn 1", "Điểm nhấn 2"]
+}`;
+
+  // Ước lượng token: ~4 ký tự/token cho tiếng Việt, cộng thêm output dự kiến ~500 token
+  const estimatedInputTokens = Math.ceil(promptText.length / 3.2);
+  const estimatedTokens = estimatedInputTokens + 500;
+
+  const MAX_RETRIES = 5;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    await waitForTokenBudget(estimatedTokens);
+
+    try {
+      const response = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: promptText }],
+        response_format: { type: "json_object" },
+      });
+
+      const content = response.choices[0].message.content;
+      return JSON.parse(content || "{}");
+    } catch (error: any) {
+      const isRateLimit = error?.status === 429;
+
+      if (isRateLimit && attempt < MAX_RETRIES) {
+        const retryAfterHeader = error?.headers?.get?.("retry-after");
+        const retryAfterSeconds = retryAfterHeader
+          ? parseFloat(retryAfterHeader)
+          : Math.pow(2, attempt);
+
+        // Chặn không cho hệ thống bắt người dùng đợi quá 15 giây
+        if (retryAfterSeconds > 15) {
+          throw new Error(`Hệ thống AI đang quá tải lượt dùng miễn phí. Vui lòng thử lại sau ${Math.ceil(retryAfterSeconds / 60)} phút.`);
+        }
+
+        const waitMs = Math.max(retryAfterSeconds * 1000, 1000) + Math.random() * 500;
+        console.warn(
+          `[Groq] Rate limit, thử lại lần ${attempt + 1}/${MAX_RETRIES} sau ${Math.round(waitMs)}ms`
+        );
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        continue;
+      }
+
+      throw error;
+    }
   }
-);
+
+  throw new Error("Đã vượt quá số lần thử lại do rate limit từ Groq.");
+}

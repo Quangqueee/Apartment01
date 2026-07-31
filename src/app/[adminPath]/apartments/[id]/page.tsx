@@ -4,16 +4,13 @@ import { use } from "react";
 import ApartmentDetailsPageClient from "@/components/apartment-details-page-client";
 import { notFound } from "next/navigation";
 
-// Định nghĩa kiểu dữ liệu chuẩn cho Next.js 16
 type PageProps = {
   params: Promise<{ id: string }>;
 };
 
-// --- TỐI ƯU SEO METADATA (SERVER-SIDE) ---
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  // BẮT BUỘC: Giải nén params bằng await
   const { id } = await params;
   const apartment = await getApartmentByIdServer(id);
 
@@ -44,7 +41,7 @@ export async function generateMetadata({
     openGraph: {
       title: title,
       description: description,
-      url: `https://hanoiresidences.com/apartments/${id}`,
+      url: `https://hanoiresidence.site/apartments/${id}`,
       siteName: "Hanoi Residences",
       images: [
         {
@@ -89,24 +86,48 @@ export async function generateMetadata({
 }
 
 export default async function ApartmentPage({ params }: PageProps) {
-  // 1. Chuyển component thành 'async function'
-  // 2. Giải nén params bằng await giống như cách bạn làm trong generateMetadata
   const { id } = await params;
-
-  // 3. Fetch dữ liệu căn hộ ở Server
   const apartment = await getApartmentByIdServer(id);
 
   if (!apartment) {
-    // Trả về trang 404 nếu không tìm thấy dữ liệu
     notFound();
   }
+
   const relatedApartments: any[] = [];
 
-  // 5. Truyền đúng props mà Client Component yêu cầu
+  function serializeTimestamps<T>(obj: T): T {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj !== "object") return obj;
+
+    if (typeof (obj as any).toDate === "function") {
+      return (obj as any).toDate().toISOString() as unknown as T;
+    }
+
+    if ("seconds" in obj && typeof (obj as any).seconds === "number") {
+      return new Date(
+        (obj as any).seconds * 1000,
+      ).toISOString() as unknown as T;
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map((item) => serializeTimestamps(item)) as unknown as T;
+    }
+
+    const result: any = {};
+    for (const key in obj) {
+      result[key] = serializeTimestamps((obj as any)[key]);
+    }
+
+    return result;
+  }
+
+  const safeApartment = serializeTimestamps(apartment);
+  const safeRelatedApartments = serializeTimestamps(relatedApartments);
+
   return (
     <ApartmentDetailsPageClient
-      initialApartment={apartment}
-      initialRelated={relatedApartments}
+      initialApartment={safeApartment}
+      initialRelated={safeRelatedApartments}
     />
   );
 }

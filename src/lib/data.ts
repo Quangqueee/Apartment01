@@ -24,18 +24,44 @@ import { isPriceInRange, parsePriceRange } from "./price-range";
 const apartmentsCollection = collection(firestore, "apartments");
 const usersCollection = collection(firestore, "users");
 
+// DÁN ĐOẠN MỚI NÀY VÀO
 export const toApartment = (docSnap: DocumentData): Apartment => {
   const data = docSnap.data();
-  const createdAt = data.createdAt?.toDate ? {
-    seconds: data.createdAt.seconds,
-    nanoseconds: data.createdAt.nanoseconds,
-  } : { seconds: 0, nanoseconds: 0 };
-  const updatedAt = data.updatedAt?.toDate ? {
-    seconds: data.updatedAt.seconds,
-    nanoseconds: data.updatedAt.nanoseconds,
-  } : { seconds: 0, nanoseconds: 0 };
 
-  return { id: docSnap.id, ...data, createdAt, updatedAt } as Apartment;
+  // 1. Helper bóc tách Timestamp an toàn (chống lỗi cache)
+  const toPlainTimestamp = (ts: any) => {
+    if (!ts) return { seconds: 0, nanoseconds: 0 };
+    if (typeof ts.toDate === "function") {
+      return { seconds: ts.seconds, nanoseconds: ts.nanoseconds };
+    }
+    if (typeof ts.seconds === "number") {
+      return { seconds: ts.seconds, nanoseconds: ts.nanoseconds || 0 };
+    }
+    return { seconds: 0, nanoseconds: 0 };
+  };
+
+  const createdAt = toPlainTimestamp(data.createdAt);
+  const updatedAt = toPlainTimestamp(data.updatedAt);
+
+  // 2. Xử lý triệt để kẻ gây lỗi ẩn nấp bên trong aiContent
+  const aiContent = data.aiContent
+    ? {
+      ...data.aiContent,
+      updatedAt: data.aiContent.updatedAt?.toDate
+        ? data.aiContent.updatedAt.toDate().toISOString() // Dữ liệu thật từ Firebase
+        : data.aiContent.updatedAt?.seconds
+          ? new Date(data.aiContent.updatedAt.seconds * 1000).toISOString() // Dữ liệu bị Cache
+          : data.aiContent.updatedAt ?? null,
+    }
+    : null;
+
+  return {
+    id: docSnap.id,
+    ...data,
+    createdAt,
+    updatedAt,
+    aiContent
+  } as Apartment;
 };
 
 export const toFavorite = (docSnap: DocumentData): Favorite => {

@@ -22,6 +22,14 @@ export interface Apartment {
   status?: ApartmentStatus;
   tags?: FeatureTag[];
 
+  // Sửa: Cho phép aiContent nhận kiểu object, undefined hoặc null
+  aiContent?: {
+    seoTitle: string;
+    b2cDescription: string;
+    highlights: string[];
+    updatedAt?: any;
+  } | null;
+
   createdAt: {
     seconds: number;
     nanoseconds: number;
