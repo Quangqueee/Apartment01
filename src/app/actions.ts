@@ -547,3 +547,33 @@ export async function migrateAiApartmentsBatchAction(
 
   return { success: true };
 }
+
+
+export async function pushApartmentAction(id: string) {
+  if (!id) {
+    return { error: "ID is required" };
+  }
+
+  try {
+    const docRef = doc(firestore, "apartments", id);
+
+    // Cập nhật lại thời gian để căn hộ trồi lên đầu
+    await updateDoc(docRef, {
+      updatedAt: Timestamp.now(),
+      // Ghi đè createdAt để bộ lọc "Mới nhất" đẩy căn hộ lên vị trí đầu tiên
+      createdAt: Timestamp.now(),
+    });
+
+    // Xóa cache chủ động (On-demand Revalidation)
+    // Ngay sau lệnh này, các trang public sẽ được Next.js tự động fetch lại dữ liệu mới nhất 
+    // và lưu thành một bản cache cứng mới, tối ưu chi phí reads.
+    revalidatePath("/");
+    revalidatePath(`/${ADMIN_PATH}`);
+    revalidatePath("/apartments");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Database error on push:", error);
+    return { error: "Database error. Failed to push apartment." };
+  }
+}

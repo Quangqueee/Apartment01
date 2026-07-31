@@ -8,11 +8,9 @@ import FeaturedDistricts from "@/components/featured-districts";
 import MobileNav from "@/components/mobile-nav";
 import Link from "next/link";
 import { X } from "lucide-react";
-
-// Import component About (đường dẫn đã fix)
 import AboutSection from "@/app/about/page";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 604800;
 
 export default async function Home({ searchParams }: any) {
   const sParams = await searchParams;

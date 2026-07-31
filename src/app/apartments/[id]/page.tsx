@@ -6,7 +6,7 @@ type PageProps = {
   params: Promise<{ id: string }>;
 };
 
-export const revalidate = 604800;
+export const revalidate = 86400;
 
 export async function generateMetadata({
   params,

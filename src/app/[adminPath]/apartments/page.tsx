@@ -35,6 +35,7 @@ import {
   Pencil,
   ChevronLeft,
   ChevronRight,
+  ArrowUpCircle, // BỔ SUNG: Import icon cho nút Push
 } from "lucide-react";
 import { getApartments } from "@/lib/data-client";
 import Link from "next/link";
@@ -42,8 +43,9 @@ import {
   deleteApartmentAction,
   getUnmigratedApartmentsAction,
   migrateApartmentsBatchAction,
-  getUnmigratedAiApartmentsAction, // Sửa: Thêm hàm mới để lấy danh sách căn hộ chưa có AI content
+  getUnmigratedAiApartmentsAction,
   migrateAiApartmentsBatchAction,
+  pushApartmentAction, // BỔ SUNG: Import action Push bạn vừa tạo ở Bước 1
 } from "../../actions";
 import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -147,21 +149,38 @@ export default function ApartmentsPage() {
     toast({ title: "Đã sao chép!", description: "Đã lưu vào bộ nhớ tạm." });
   };
 
-  // Hàm gọi API đồng bộ dữ liệu có Animation %
+  // BỔ SUNG: Hàm xử lý khi bấm nút Push Căn hộ
+  const handlePushClick = async (id: string) => {
+    startTransition(async () => {
+      const result = await pushApartmentAction(id);
+      if (result?.error) {
+        toast({
+          variant: "destructive",
+          title: "Lỗi!",
+          description: result.error,
+        });
+      } else {
+        toast({
+          title: "Thành công!",
+          description: "Căn hộ đã được đẩy lên đầu trang.",
+        });
+        fetchApartments(); // Tải lại danh sách để thấy căn hộ nhảy lên đầu
+      }
+    });
+  };
+
   const handleMigrate = async () => {
     const confirm = window.confirm(
       "Đồng bộ từ khóa cho tất cả căn hộ cũ? Quá trình này sẽ mất vài giây.",
     );
     if (!confirm) return;
 
-    // SỬA Ở ĐÂY: Lấy id và hàm update từ kết quả trả về của toast()
     const { id, update } = toast({
       title: "Đang quét dữ liệu...",
       description: "Đang kiểm tra các căn hộ cần đồng bộ.",
       duration: 100000,
     });
 
-    // 1. Lấy danh sách cần đồng bộ
     const res = await getUnmigratedApartmentsAction();
 
     if (res?.error || !res.data) {
@@ -188,7 +207,6 @@ export default function ApartmentsPage() {
       return;
     }
 
-    // 2. Setup thanh tiến trình
     const BATCH_SIZE = 20;
     let processed = 0;
 
@@ -219,7 +237,6 @@ export default function ApartmentsPage() {
 
     updateProgressToast(0);
 
-    // 3. Vòng lặp bắn từng lô lên Server
     for (let i = 0; i < total; i += BATCH_SIZE) {
       const batch = unmigrated.slice(i, i + BATCH_SIZE);
       const batchRes = await migrateApartmentsBatchAction(batch);
@@ -238,7 +255,6 @@ export default function ApartmentsPage() {
       updateProgressToast(processed);
     }
 
-    // 4. Kết thúc
     setTimeout(() => {
       update({
         id,
@@ -246,10 +262,10 @@ export default function ApartmentsPage() {
         description: `Đã đồng bộ ${total} căn hộ. `,
         duration: 4000,
       });
-      fetchApartments(); // Refresh lại danh sách
+      fetchApartments();
     }, 500);
   };
-  // Hàm gọi API đồng bộ nội dung SEO chuẩn AI cho các căn cũ
+
   const handleAiMigrate = async () => {
     const confirmwindow = window.confirm(
       "Tự động viết lại nội dung chuẩn SEO cho tất cả căn hộ cũ bằng AI? Quá trình này sẽ gọi AI và mất chút thời gian.",
@@ -287,7 +303,7 @@ export default function ApartmentsPage() {
       return;
     }
 
-    const BATCH_SIZE_AI = 5; // AI chạy tốn tài nguyên hơn nên để lô nhỏ (5 căn/lô) cho ổn định
+    const BATCH_SIZE_AI = 5;
     let processedAi = 0;
 
     const updateAiProgressToast = (current: number) => {
@@ -358,7 +374,6 @@ export default function ApartmentsPage() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {/* Nút đồng bộ data cũ (từ khóa tìm kiếm) */}
           <Button
             onClick={handleMigrate}
             variant="outline"
@@ -367,7 +382,6 @@ export default function ApartmentsPage() {
             Đồng bộ Từ khóa Cũ
           </Button>
 
-          {/* Nút bấm mới: Tối ưu SEO bằng AI cho các căn cũ */}
           <Button
             onClick={handleAiMigrate}
             variant="outline"
@@ -468,6 +482,24 @@ export default function ApartmentsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-1">
+                          {/* BỔ SUNG: Nút Push */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handlePushClick(apt.id)}
+                                disabled={isPending}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                <ArrowUpCircle className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-white z-[100] border shadow-md">
+                              <p>Đẩy lên đầu</p>
+                            </TooltipContent>
+                          </Tooltip>
+
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button variant="ghost" size="icon" asChild>
@@ -482,6 +514,7 @@ export default function ApartmentsPage() {
                               <p>Sửa</p>
                             </TooltipContent>
                           </Tooltip>
+
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -536,6 +569,15 @@ export default function ApartmentsPage() {
                         align="end"
                         className="bg-white z-[100] shadow-xl border-gray-200"
                       >
+                        {/* BỔ SUNG: Nút Push trên Mobile */}
+                        <DropdownMenuItem
+                          onClick={() => handlePushClick(apt.id)}
+                          disabled={isPending}
+                          className="text-blue-600 focus:text-blue-700"
+                        >
+                          <ArrowUpCircle className="mr-2 h-4 w-4" /> Đẩy lên đầu
+                        </DropdownMenuItem>
+
                         <DropdownMenuItem asChild>
                           <Link
                             href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
@@ -543,9 +585,10 @@ export default function ApartmentsPage() {
                             <Pencil className="mr-2 h-4 w-4" /> Sửa
                           </Link>
                         </DropdownMenuItem>
+
                         <DropdownMenuItem
                           onClick={() => handleDeleteClick(apt.id)}
-                          className="text-destructive"
+                          className="text-destructive focus:text-destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" /> Xóa
                         </DropdownMenuItem>
