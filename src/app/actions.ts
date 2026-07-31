@@ -514,10 +514,15 @@ export async function getUnmigratedAiApartmentsAction() {
 }
 
 // 2. Xử lý gọi AI và cập nhật theo từng lô (Batch)
-export async function migrateAiApartmentsBatchAction(batch: { id: string; aptData: any }[]) {
-  try {
-    const promises = batch.map(async (item) => {
-      // Gọi AI sinh nội dung chuẩn SEO
+export async function migrateAiApartmentsBatchAction(
+  batch: { id: string; aptData: any }[]
+): Promise<{ success: boolean; error?: string }> {
+  const failedIds: string[] = [];
+
+  // Xử lý tuần tự — rate limiter bên trong generateListingSummary
+  // đã tự tối ưu tốc độ theo hạn mức token/phút của Groq
+  for (const item of batch) {
+    try {
       const aiResult = await generateListingSummary(item.aptData);
 
       const docRef = doc(firestore, "apartments", item.id);
@@ -527,14 +532,20 @@ export async function migrateAiApartmentsBatchAction(batch: { id: string; aptDat
           b2cDescription: aiResult.description,
           highlights: aiResult.highlights,
           updatedAt: Timestamp.now(),
-        }
+        },
       });
-    });
-
-    await Promise.all(promises);
-    return { success: true };
-  } catch (error) {
-    console.error("Lỗi khi chạy Batch AI migration:", error);
-    return { error: "Lỗi đồng bộ AI theo lô." };
+    } catch (error) {
+      console.error(`Lỗi khi xử lý căn hộ ${item.id}:`, error);
+      failedIds.push(item.id);
+    }
   }
+
+  if (failedIds.length > 0) {
+    return {
+      success: false,
+      error: `Có ${failedIds.length} căn hộ xử lý thất bại: ${failedIds.join(", ")}`,
+    };
+  }
+
+  return { success: true };
 }

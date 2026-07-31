@@ -723,7 +723,9 @@ export default function ApartmentDetailsPageClient({
                   <h1
                     className={`${titleFont.className} text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 leading-tight tracking-tight`}
                   >
-                    {apartment.aiContent?.seoTitle || apartment.title}
+                    {isCollaborator
+                      ? apartment.title
+                      : apartment.aiContent?.seoTitle || apartment.title}
                   </h1>
                   <div className="hidden md:flex shrink-0">
                     <Button
@@ -773,14 +775,11 @@ export default function ApartmentDetailsPageClient({
                     label="Thiết kế"
                     value={getRoomTypeLabel(apartment.roomType)}
                   />
+                  {/* Trả lại hiển thị Khu vực (District) cho tất cả mọi người */}
                   <InfoBox
                     icon={MapPin}
-                    label={isCollaborator ? "Hoa hồng" : "Khu vực"}
-                    value={
-                      isCollaborator
-                        ? formatCommission(apartment.commission)
-                        : apartment.district
-                    }
+                    label="Khu vực"
+                    value={apartment.district}
                   />
                   <InfoBox
                     icon={Hash}
