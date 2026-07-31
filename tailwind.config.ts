@@ -20,6 +20,7 @@ const config: Config = {
           "Roboto",
           "sans-serif",
         ],
+        airbnb: ["Inter", "Helvetica Neue", "Helvetica", "Arial", "sans-serif"],
         headline: ["Playfair Display", "serif"],
       },
       colors: {

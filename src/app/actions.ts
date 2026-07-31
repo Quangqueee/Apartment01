@@ -45,6 +45,7 @@ const apartmentBaseSchema = z.object({
   commission: z.string().optional(),
   details: z.string().min(20),
   listingSummary: z.string().optional(),
+  seoTitle: z.string().optional(),
   address: z.string().min(1),
   landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
   // BỔ SUNG 2 TRƯỜNG STATUS VÀ TAGS Ở ĐÂY ĐỂ ĐỒNG BỘ VỚI FRONTEND
@@ -184,16 +185,14 @@ export async function createOrUpdateApartmentAction(
     let aiOptimizedContent = undefined;
 
     // Nếu trên giao diện có gửi kèm nội dung bài viết (do AI tạo trước đó hoặc do bạn tự viết)
-    if (data.listingSummary) {
+    if (data.listingSummary || data.seoTitle) {
       aiOptimizedContent = {
-        // Mượn lại Title SEO cũ nếu là chỉnh sửa, tạo mới thì lấy title gốc
-        seoTitle: existingApartment?.aiContent?.seoTitle || data.title,
-        b2cDescription: data.listingSummary,
+        seoTitle: data.seoTitle || existingApartment?.aiContent?.seoTitle || data.title,
+        b2cDescription: data.listingSummary || existingApartment?.aiContent?.b2cDescription || "",
         highlights: existingApartment?.aiContent?.highlights || [],
         updatedAt: Timestamp.now(),
       };
     } else if (existingApartment && existingApartment.aiContent) {
-      // Nếu không sửa gì bài viết, giữ nguyên data AI cũ
       aiOptimizedContent = existingApartment.aiContent;
     }
 
@@ -291,8 +290,8 @@ export async function generateSummaryAction(
       detailedInformation: validatedInput.data.detailedInformation || "",
     });
 
-    // Trả về nội dung mô tả B2C do AI viết để điền vào form
-    return { summary: result.description };
+    // SỬA: Trả về nội dung mô tả VÀ tiêu đề do AI viết
+    return { summary: result.description, seoTitle: result.seoTitle };
   } catch (error) {
     console.error("AI summary generation failed:", error);
     return { error: "Failed to generate summary from AI." };

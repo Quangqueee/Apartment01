@@ -91,13 +91,17 @@ const formSchema = z.object({
     .string()
     .min(20, "Detailed information must be at least 20 characters."),
   listingSummary: z.string().optional(),
+  seoTitle: z.string().optional(), // BỔ SUNG TRƯỜNG SEO TITLE
   address: z.string().min(1, "Exact address is required."),
   landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
   status: z.enum(["available", "rented"]),
   tags: z.array(z.enum(["pet_friendly", "lake_view"])),
   imageUrls: z
     .array(z.string())
-    .min(1, "At least one image is required.")
+    .min(
+      1,
+      "Ảnh đầu tiên được chọn làm ảnh bìa, và các ảnh hiển thị theo thứ tự sắp xếp.",
+    )
     .max(
       MAX_APARTMENT_IMAGES,
       `You can upload a maximum of ${MAX_APARTMENT_IMAGES} images.`,
@@ -240,7 +244,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
-  // THÊM: Trạng thái hiển thị form SEO B2C, tự động mở nếu đã có dữ liệu trước đó
   const [isSeoEnabled, setIsSeoEnabled] = useState(!!apartment?.listingSummary);
 
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>(
@@ -271,6 +274,8 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         apartment?.commission !== undefined ? String(apartment.commission) : "",
       details: apartment?.details || "",
       listingSummary: apartment?.listingSummary || "",
+      // Lấy lại tiêu đề SEO cũ nếu đã có
+      seoTitle: (apartment as any)?.aiContent?.seoTitle || "",
       address: apartment?.address || "",
       landlordPhoneNumber: apartment?.landlordPhoneNumber || "",
       status: apartment?.status || "available",
@@ -444,6 +449,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         commission: values.commission,
         details: values.details,
         listingSummary: isSeoEnabled ? values.listingSummary : "",
+        seoTitle: isSeoEnabled ? values.seoTitle : "", // Đẩy biến seoTitle lên backend
         address: values.address,
         landlordPhoneNumber: values.landlordPhoneNumber,
         status: values.status,
@@ -488,7 +494,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     const roomType = form.getValues("roomType");
     const district = form.getValues("district");
     const price = form.getValues("price");
-    const details = form.getValues("details"); // AI đọc từ trường thông tin thô (details)
+    const details = form.getValues("details");
 
     if (!details || details.length < 10) {
       toast({
@@ -513,12 +519,21 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         throw new Error(res.error);
       }
 
-      if (res.summary) {
-        // AI viết nội dung mới vào trường listingSummary, không đè lên thông tin gốc
-        form.setValue("listingSummary", res.summary, { shouldValidate: true });
+      // Khi AI trả về kết quả, set value cho cả Nội dung và Tiêu đề
+      if (res.summary || res.seoTitle) {
+        if (res.seoTitle) {
+          form.setValue("seoTitle", res.seoTitle, { shouldValidate: true });
+        }
+        if (res.summary) {
+          form.setValue("listingSummary", res.summary, {
+            shouldValidate: true,
+          });
+        }
+
         toast({
           title: "Thành công! ✨",
-          description: "AI đã tạo bài viết tối ưu SEO cho căn hộ này.",
+          description:
+            "AI đã tạo tiêu đề và bài viết tối ưu SEO cho căn hộ này.",
           className: "bg-purple-50 text-purple-900 border-purple-200",
         });
       }
@@ -548,7 +563,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tiêu đề</FormLabel>
+                      <FormLabel>Địa chỉ hiển thị</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="VD. Luxury Apartment with Lake View"
@@ -560,13 +575,12 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   )}
                 />
 
-                {/* 1. KHUNG THÔNG TIN GỐC (LUÔN HIỂN THỊ) */}
                 <FormField
                   control={form.control}
                   name="details"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Thông tin gốc (Chi tiết)</FormLabel>
+                      <FormLabel>Thông tin căn hộ</FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder="Nhập thông số điện nước, phí dịch vụ, giờ giấc, nội thất thô..."
@@ -579,8 +593,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   )}
                 />
 
-                {/* 2. CÔNG TẮC BẬT/TẮT SEO B2C */}
-                <div className="flex items-center gap-2 pt-2">
+                <div className="flex items-center gap-2 pt-2 border-t mt-6">
                   <input
                     type="checkbox"
                     id="toggleSeo"
@@ -596,46 +609,68 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   </label>
                 </div>
 
-                {/* 3. KHUNG SEO B2C (CHỈ HIỆN KHI BẬT) */}
                 {isSeoEnabled && (
-                  <FormField
-                    control={form.control}
-                    name="listingSummary"
-                    render={({ field }) => (
-                      <FormItem className="p-4 border rounded-md bg-purple-50/50 transition-all mt-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <FormLabel className="text-purple-700">
-                            Nội dung chuẩn SEO
+                  <div className="p-4 border rounded-md bg-purple-50/50 transition-all mt-4 space-y-4">
+                    <div className="flex items-center justify-between border-b border-purple-100 pb-3 mb-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateAi}
+                        disabled={isGeneratingAi}
+                        className="text-purple-600 border-purple-200 hover:bg-purple-100 gap-1.5 h-8 text-xs font-semibold cursor-pointer shadow-sm bg-white ml-auto"
+                      >
+                        {isGeneratingAi ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}
+                            Đang viết...
+                          </>
+                        ) : (
+                          <>✨ Tối ưu SEO AI</>
+                        )}
+                      </Button>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="seoTitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-purple-700 font-semibold">
+                            Tiêu đề bài đăng (B2C)
                           </FormLabel>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleGenerateAi}
-                            disabled={isGeneratingAi}
-                            className="text-purple-600 border-purple-200 hover:bg-purple-100 gap-1.5 h-7 text-xs font-semibold cursor-pointer"
-                          >
-                            {isGeneratingAi ? (
-                              <>
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}
-                                Đang viết...
-                              </>
-                            ) : (
-                              <>✨ Tối ưu SEO AI</>
-                            )}
-                          </Button>
-                        </div>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Nội dung bài viết sẽ hiển thị ở đây. Bạn cũng có thể tự do chỉnh sửa..."
-                            className="min-h-[250px] md:min-h-[300px] text-base md:text-sm bg-white"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          <FormControl>
+                            <Input
+                              placeholder="VD: Căn hộ Studio view hồ cực chill, full nội thất..."
+                              className="bg-white font-medium"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="listingSummary"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-purple-700 font-semibold">
+                            Nội dung chi tiết (B2C)
+                          </FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Nội dung bài viết sẽ hiển thị ở đây. Bạn cũng có thể tự do chỉnh sửa..."
+                              className="min-h-[250px] md:min-h-[300px] text-base md:text-sm bg-white"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -883,7 +918,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="roomType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Room Type</FormLabel>
+                      <FormLabel>Dạng phòng</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}

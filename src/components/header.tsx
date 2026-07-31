@@ -17,7 +17,6 @@ import {
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-// Thay đổi link trỏ về route nội bộ của dự án
 const COLLABORATOR_GUIDE_URL = "/huong-dan-cong-viec";
 
 export default function Header() {
@@ -38,8 +37,9 @@ export default function Header() {
   }, [isMobileMenuOpen]);
 
   return (
-    <header className="sticky top-0 z-[100] w-full border-b border-gray-100 bg-white shadow-sm font-sans">
-      <div className="container mx-auto px-4 md:px-6 h-20 md:h-24 flex items-center justify-between relative bg-white z-[101]">
+    // Hạ z-index xuống 40
+    <header className="sticky top-0 z-40 w-full border-b border-gray-100 bg-white shadow-sm font-sans">
+      <div className="container mx-auto px-4 md:px-6 h-20 md:h-24 flex items-center justify-between relative bg-white z-40">
         {/* LOGO */}
         <Link
           href="/"
@@ -148,7 +148,7 @@ export default function Header() {
       {/* MOBILE DROPDOWN MENU */}
       <div
         className={cn(
-          "md:hidden absolute top-full left-0 w-full bg-white border-b border-gray-100 shadow-xl overflow-hidden transition-all duration-300 ease-in-out z-[90]",
+          "md:hidden absolute top-full left-0 w-full bg-white border-b border-gray-100 shadow-xl overflow-hidden transition-all duration-300 ease-in-out z-30",
           isMobileMenuOpen
             ? "max-h-[calc(100vh-80px)] opacity-100"
             : "max-h-0 opacity-0",
