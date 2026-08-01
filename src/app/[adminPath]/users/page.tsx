@@ -379,7 +379,7 @@ export default function UsersPage() {
                         </DialogTrigger>
                         <DialogContent className="bg-white z-[100] shadow-2xl">
                           <DialogHeader>
-                            <DialogTitle>Nhu cầu chi tiết</DialogTitle>
+                            <DialogTitle>Thông tin chi tiết</DialogTitle>
                           </DialogHeader>
                           <div className="p-4 bg-gray-50 rounded text-sm whitespace-pre-wrap">
                             {u.interests}

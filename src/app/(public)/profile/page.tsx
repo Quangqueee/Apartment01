@@ -96,7 +96,7 @@ export default function ProfilePage() {
           phoneNumber: ctvForm.phoneNumber,
           dob: ctvForm.age, // Lưu tuổi/năm sinh vào dob
           gender: ctvForm.gender,
-          interests: `[Yêu cầu làm CTV]: ${ctvForm.introduction}`, // Đánh dấu đây là yêu cầu CTV
+          interests: `[Ghi chú]: ${ctvForm.introduction}`, // Đánh dấu đây là yêu cầu CTV
           role: userData?.role ?? "user",
           requestStatus: "pending",
           requestSubmittedAt: serverTimestamp(),

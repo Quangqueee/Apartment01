@@ -63,6 +63,13 @@ const docsTree: DocNode[] = [
     type: "doc",
     icon: UserPlus,
   },
+  // THÊM MỚI: Tách Cơ chế hoa hồng thành mục riêng
+  {
+    id: "co-che-hoa-hong",
+    title: "Cơ Chế Hoa Hồng",
+    type: "doc",
+    icon: Percent,
+  },
   {
     id: "module-1",
     title: "Module 1: Đọc Bảng Hàng",
@@ -71,7 +78,7 @@ const docsTree: DocNode[] = [
     children: [
       { id: "m1-bang-gia", title: "1.1 Bảng Giá Sàn", type: "doc" },
       { id: "m1-tu-khoa", title: "1.2 Cách Đọc Từ Khóa", type: "doc" },
-      { id: "m1-hoa-hong", title: "1.3 Cơ Chế Hoa Hồng", type: "doc" },
+      // Đã xóa 1.3 Cơ chế hoa hồng ở đây
     ],
   },
   {
@@ -415,6 +422,122 @@ export default function SOPDocsPage() {
           </div>
         );
 
+      case "co-che-hoa-hong":
+        return (
+          <div id="co-che-hoa-hong" className="animate-in fade-in duration-500">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-8 flex items-center gap-4">
+              <span className="p-3 bg-amber-100 text-amber-600 rounded-2xl shadow-sm">
+                <Percent size={32} />
+              </span>
+              Cơ Chế Hoa Hồng & Thu Nhập
+            </h2>
+            <div className="space-y-6">
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-2xl">
+                <h3 className="text-blue-900 font-bold text-xl mb-3">
+                  Hiểu Về "Doanh Số Nhận Về" (Theo tin đăng)
+                </h3>
+                <ul className="list-disc pl-6 space-y-2 text-blue-800 text-base">
+                  <li>
+                    <strong className="text-blue-900 font-black">
+                      50% / 12th:
+                    </strong>{" "}
+                    Nghĩa là khi khách ký hợp đồng 1 năm, doanh số tính cho giao
+                    dịch là 50% tiền thuê 1 tháng.
+                  </li>
+                  <li>
+                    <strong className="text-blue-900 font-black">
+                      30% / 6th:
+                    </strong>{" "}
+                    Nghĩa là khi khách ký hợp đồng 6 tháng, doanh số tính cho
+                    giao dịch là 30% tiền thuê 1 tháng.
+                  </li>
+                </ul>
+                <p className="mt-4 italic text-sm opacity-80">
+                  * Lưu ý: Phần trăm trên tin đăng là "Doanh số của Deal", KHÔNG
+                  PHẢI là số tiền thực nhận về tay bạn.
+                </p>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm">
+                <h3 className="text-2xl font-black text-gray-900 mb-6 text-center">
+                  CƠ CHẾ HOA HỒNG THỰC NHẬN
+                </h3>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-2 h-full bg-amber-400"></div>
+                    <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Smartphone className="text-amber-500" /> Hệ Cộng Tác Viên
+                      (Online)
+                    </h4>
+                    <ul className="space-y-4">
+                      <li className="flex items-center justify-between">
+                        <span className="text-gray-600 text-base">
+                          CTV (Tân binh):
+                        </span>
+                        <span className="font-bold text-xl text-gray-900 bg-white px-3 py-1 rounded-lg border border-gray-200 shadow-sm">
+                          30%
+                        </span>
+                      </li>
+                      <li className="flex items-center justify-between">
+                        <span className="text-gray-600 text-base">
+                          CTV (Chuyên viên), doanh số tích lũy &gt; 15 Triệu:
+                        </span>
+                        <span className="font-bold text-xl text-gray-900 bg-amber-100 px-3 py-1 rounded-lg border border-amber-200 shadow-sm">
+                          40%
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-2 h-full bg-[#cda533]"></div>
+                    <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Building2 className="text-[#cda533]" /> Hệ Nhân Sự Trực
+                      Tiếp (Offline)
+                    </h4>
+                    <ul className="space-y-4">
+                      <li className="flex items-center justify-between">
+                        <span className="text-gray-600 text-base">
+                          Sale Mới (Tân binh):
+                        </span>
+                        <span className="font-bold text-xl text-gray-900 bg-white px-3 py-1 rounded-lg border border-gray-200 shadow-sm">
+                          50%
+                        </span>
+                      </li>
+                      <li className="flex items-center justify-between">
+                        <span className="text-gray-600 text-base">
+                          Chuyên viên:
+                        </span>
+                        <span className="font-bold text-xl text-white bg-[#cda533] px-3 py-1 rounded-lg shadow-sm">
+                          60%
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="mt-6 text-center p-4 bg-gray-100 rounded-xl">
+                  <p className="text-base text-gray-700 font-medium">
+                    Công thức tính tiền về túi:{""}
+                    <strong className="text-black px-2 py-1 rounded ml-1">
+                      Tiền phòng x % Deal (Tin đăng) x Cơ chế
+                    </strong>
+                  </p>
+                </div>
+                <div className="mt-6 text-center p-4 bg-gray-100 rounded-xl">
+                  <p className="text-base text-gray-700 font-medium">
+                    Ví dụ:{""}
+                    <strong className="text-black px-2 py-1 rounded ml-1">
+                      Tiền phòng 10tr x % Deal (50%) x Cơ chế (50%) = 2.5tr
+                    </strong>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
       case "module-1":
         return (
           <div
@@ -531,120 +654,6 @@ export default function SOPDocsPage() {
                     <p className="text-base text-gray-600 leading-relaxed">
                       Nếu không ghi phương thức (VD: cọc 1 thanh toán 3), hệ
                       thống sẽ mặc định là thanh toán 1 cọc 1.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div id="m1-hoa-hong">
-              <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-4">
-                <span className="p-3 bg-amber-100 text-amber-600 rounded-xl">
-                  <Percent size={28} />
-                </span>
-                1.3 Đọc Hoa Hồng & Cơ Chế Thu Nhập
-              </h2>
-              <div className="space-y-6">
-                <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-2xl">
-                  <h3 className="text-blue-900 font-bold text-xl mb-3">
-                    Hiểu Về "Doanh Số Nhận Về" (Theo tin đăng)
-                  </h3>
-                  <ul className="list-disc pl-6 space-y-2 text-blue-800 text-base">
-                    <li>
-                      <strong className="text-blue-900 font-black">
-                        50% / 12th:
-                      </strong>{" "}
-                      Nghĩa là khi khách ký hợp đồng 1 năm, doanh số tính cho
-                      giao dịch là 50% tiền thuê 1 tháng.
-                    </li>
-                    <li>
-                      <strong className="text-blue-900 font-black">
-                        30% / 6th:
-                      </strong>{" "}
-                      Nghĩa là khi khách ký hợp đồng 6 tháng, doanh số tính cho
-                      giao dịch là 30% tiền thuê 1 tháng.
-                    </li>
-                  </ul>
-                  <p className="mt-4 italic text-sm opacity-80">
-                    * Lưu ý: Phần trăm trên tin đăng là "Doanh số của Deal",
-                    KHÔNG PHẢI là số tiền thực nhận về tay bạn.
-                  </p>
-                </div>
-
-                <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm">
-                  <h3 className="text-2xl font-black text-gray-900 mb-6 text-center">
-                    CƠ CHẾ HOA HỒNG THỰC NHẬN
-                  </h3>
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-2 h-full bg-amber-400"></div>
-                      <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <Smartphone className="text-amber-500" /> Hệ Cộng Tác
-                        Viên (Online)
-                      </h4>
-                      <ul className="space-y-4">
-                        <li className="flex items-center justify-between">
-                          <span className="text-gray-600 text-base">
-                            CTV (Tân binh):
-                          </span>
-                          <span className="font-bold text-xl text-gray-900 bg-white px-3 py-1 rounded-lg border border-gray-200 shadow-sm">
-                            30%
-                          </span>
-                        </li>
-                        <li className="flex items-center justify-between">
-                          <span className="text-gray-600 text-base">
-                            CTV (Chuyên viên), doanh số tích lũy &gt; 15 Triệu:
-                          </span>
-                          <span className="font-bold text-xl text-gray-900 bg-amber-100 px-3 py-1 rounded-lg border border-amber-200 shadow-sm">
-                            40%
-                          </span>
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-2 h-full bg-[#cda533]"></div>
-                      <h4 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <Building2 className="text-[#cda533]" /> Hệ Nhân Sự Trực
-                        Tiếp (Offline)
-                      </h4>
-                      <ul className="space-y-4">
-                        <li className="flex items-center justify-between">
-                          <span className="text-gray-600 text-base">
-                            Sale Mới (Tân binh):
-                          </span>
-                          <span className="font-bold text-xl text-gray-900 bg-white px-3 py-1 rounded-lg border border-gray-200 shadow-sm">
-                            50%
-                          </span>
-                        </li>
-                        <li className="flex items-center justify-between">
-                          <span className="text-gray-600 text-base">
-                            Chuyên viên:
-                          </span>
-                          <span className="font-bold text-xl text-white bg-[#cda533] px-3 py-1 rounded-lg shadow-sm">
-                            60%
-                          </span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 text-center p-4 bg-gray-100 rounded-xl">
-                    <p className="text-base text-gray-700 font-medium">
-                      Công thức tính tiền về túi:{""}
-                      <strong className="text-black px-2 py-1 rounded ml-1">
-                        Tiền phòng x % Deal (Tin đăng) x Cơ chế
-                      </strong>
-                    </p>
-                    
-                  </div>
-                  <div className="mt-6 text-center p-4 bg-gray-100 rounded-xl">
-                    <p className="text-base text-gray-700 font-medium">
-                      Ví dụ:{""}
-                      <strong className="text-black px-2 py-1 rounded ml-1">
-                        Tiền phòng 10tr x % Deal (50%) x Cơ chế (50%) = 2.5tr
-                      </strong>
                     </p>
                   </div>
                 </div>
@@ -1337,7 +1346,7 @@ export default function SOPDocsPage() {
             items: [
               {
                 q: "Có cho nuôi thú cưng (Pet) không?",
-                a: "Check thông tin nguồn, không có thì phải hỏi quản lý.",
+                a: "Check thông tin nguồn, không rõ thì hỏi quản lý. Nếu không có thông tin thì báo khách là 'tùy chủ nhà, mình sẽ hỏi lại.",
               },
               {
                 q: "Cho thuê theo nhóm/ở ghép được không?",
@@ -1345,11 +1354,11 @@ export default function SOPDocsPage() {
               },
               {
                 q: "Có giới hạn giờ giấc ra vào không?",
-                a: "Theo quy định tòa nhà/chủ nhà, không rõ thì hỏi lại.",
+                a: "Luôn luôn báo khách là 24/7, không tự ý nhận định khi chưa hỏi quản lý.",
               },
               {
                 q: "Khách nước ngoài thuê được không?",
-                a: "Check thông tin nguồn trước khi trả lời khách.",
+                a: "Check thông tin nguồn trước khi trả lời khách. Nếu không rõ thì hỏi quản lý.",
               },
               {
                 q: "Hợp đồng thuê tối thiểu bao lâu?",
@@ -1363,63 +1372,6 @@ export default function SOPDocsPage() {
           },
         ];
 
-        return (
-          <div
-            id="module-4"
-            className="animate-in fade-in duration-300 space-y-16"
-          >
-            <div>
-              <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-10 flex items-center gap-4">
-                <span className="p-3 bg-[#cda533]/20 text-[#cda533] rounded-2xl shadow-sm">
-                  <HelpCircle size={32} />
-                </span>
-                Module 4: Các câu hỏi thường gặp (FAQ) khi tư vấn khách hàng
-              </h2>
-              <div className="space-y-12">
-                {faqs.map((group, idx) => (
-                  <div
-                    key={idx}
-                    id={group.id}
-                    className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden scroll-mt-24"
-                  >
-                    <div
-                      className={cn(
-                        "px-6 py-4 flex items-center gap-3 border-b",
-                        group.color,
-                      )}
-                    >
-                      <group.icon size={22} className="opacity-80" />
-                      <h3 className="text-xl font-bold">{group.category}</h3>
-                    </div>
-                    <div className="divide-y divide-gray-100">
-                      {group.items.map((item, i) => (
-                        <div
-                          key={i}
-                          className="p-6 hover:bg-gray-50 transition-colors"
-                        >
-                          <h4 className="font-bold text-gray-900 mb-3 flex items-start gap-3 text-lg">
-                            <span className="text-[#cda533] mt-0.5 font-black">
-                              Q.
-                            </span>
-                            {item.q}
-                          </h4>
-                          <div className="flex items-start gap-3">
-                            <span className="text-gray-300 font-bold text-lg mt-0.5">
-                              A.
-                            </span>
-                            <p className="text-base text-gray-600 leading-relaxed font-medium">
-                              {item.a}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
         return (
           <div id="module-4" className="animate-in fade-in duration-300">
             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-10 flex items-center gap-4">
@@ -1479,7 +1431,7 @@ export default function SOPDocsPage() {
               <span className="p-3 bg-amber-100 text-amber-600 rounded-2xl shadow-sm">
                 <HeartHandshake size={32} />
               </span>
-              5: Lời Kết
+              Lời Kết
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
