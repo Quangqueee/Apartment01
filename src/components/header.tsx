@@ -13,6 +13,8 @@ import {
   Building2,
   LogIn,
   UserPlus,
+  CalendarDays,
+  BookOpen, // Thêm icon cho Hướng dẫn CTV
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -37,7 +39,6 @@ export default function Header() {
   }, [isMobileMenuOpen]);
 
   return (
-    // Hạ z-index xuống 40
     <header className="sticky top-0 z-40 w-full border-b border-gray-100 bg-white shadow-sm font-sans">
       <div className="container mx-auto px-4 md:px-6 h-20 md:h-24 flex items-center justify-between relative bg-white z-40">
         {/* LOGO */}
@@ -95,25 +96,37 @@ export default function Header() {
 
         {/* DESKTOP NAV */}
         <nav className="hidden md:flex items-center gap-8">
-          <NavLink href="/" label="Trang chủ" />
-          <NavLink href="/#apartments-list" label="Căn hộ" />
-          <NavLink href="/#about" label="Giới thiệu" />
+          <NavLink href="/" label="Trang chủ" icon={Home} />
+          <NavLink href="/#apartments-list" label="Căn hộ" icon={Building2} />
+          <NavLink href="/#about" label="Giới thiệu" icon={Info} />
 
+          {/* Lịch hẹn */}
+          {user && (
+            <NavLink
+              href="/profile/bookings"
+              label={
+                canSeeCollaboratorGuide ? "Lịch dẫn khách" : "Lịch xem phòng"
+              }
+              icon={CalendarDays}
+            />
+          )}
+
+          {/* Hướng dẫn CTV */}
+          {user && canSeeCollaboratorGuide && (
+            <NavLink
+              href={COLLABORATOR_GUIDE_URL}
+              label="Hướng dẫn CTV"
+              icon={BookOpen}
+            />
+          )}
+
+          {/* Yêu thích (Đã chuyển ra ngoài cùng bên phải) */}
           {user && (
             <Link
               href="/favorites"
-              className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-red-500 transition-colors"
+              className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-red-500 transition-colors"
             >
               <Heart className="h-4 w-4" /> Yêu thích
-            </Link>
-          )}
-
-          {user && canSeeCollaboratorGuide && (
-            <Link
-              href={COLLABORATOR_GUIDE_URL}
-              className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-[#cda533] transition-colors"
-            >
-              Hướng dẫn CTV
             </Link>
           )}
 
@@ -122,12 +135,17 @@ export default function Header() {
               <UserNav />
             ) : (
               <>
-                <NavLink href="/login" label="Đăng nhập" className="italic" />
+                <Link
+                  href="/login"
+                  className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-[#cda533] transition-colors italic flex items-center gap-1.5"
+                >
+                  <LogIn className="h-4 w-4" /> Đăng nhập
+                </Link>
                 <Link
                   href="/signup"
-                  className="bg-[#1a1a1a] text-white px-6 py-2.5 rounded-lg text-[13px] font-bold uppercase tracking-wider hover:bg-[#cda533] transition-all shadow-md active:scale-95"
+                  className="bg-[#1a1a1a] text-white px-6 py-2.5 rounded-lg text-[13px] font-bold uppercase tracking-wider hover:bg-[#cda533] transition-all shadow-md active:scale-95 flex items-center gap-1.5"
                 >
-                  Đăng ký
+                  <UserPlus className="h-4 w-4" /> Đăng ký
                 </Link>
               </>
             )}
@@ -174,10 +192,23 @@ export default function Header() {
             onClick={() => setIsMobileMenuOpen(false)}
           />
 
+          {user && (
+            <MobileNavLink
+              href="/profile/bookings"
+              icon={CalendarDays}
+              label={
+                canSeeCollaboratorGuide
+                  ? "Quản lý lịch dẫn khách"
+                  : "Quản lý lịch hẹn"
+              }
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+          )}
+
           {user && canSeeCollaboratorGuide && (
             <MobileNavLink
               href={COLLABORATOR_GUIDE_URL}
-              icon={Info}
+              icon={BookOpen}
               label="Hướng dẫn CTV"
               onClick={() => setIsMobileMenuOpen(false)}
             />
@@ -220,22 +251,26 @@ export default function Header() {
   );
 }
 
+// Cập nhật NavLink hỗ trợ icon truyền vào
 const NavLink = ({
   href,
   label,
+  icon: Icon,
   className,
 }: {
   href: string;
   label: string;
+  icon?: any; // Thêm prop icon
   className?: string;
 }) => (
   <Link
     href={href}
     className={cn(
-      "text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-[#cda533] transition-colors",
+      "flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-[#cda533] transition-colors",
       className,
     )}
   >
+    {Icon && <Icon className="h-4 w-4" />}
     {label}
   </Link>
 );

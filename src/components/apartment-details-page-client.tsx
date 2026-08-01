@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import ReactMarkdown from "react-markdown";
 import { formatPrice } from "@/lib/utils";
 import { ROOM_TYPES } from "@/lib/constants";
+import BookingWidget from "@/components/booking-widget";
 import {
   MapPin,
   Maximize,
@@ -1292,13 +1293,9 @@ export default function ApartmentDetailsPageClient({
 
                 {/* HIỂN THỊ CỘT HOA HỒNG (VÀ SĐT NẾU LÀ ADMIN) BÊN NGOÀI */}
                 {isCollaborator && (
-                  <div
-                    className={cn(
-                      "grid gap-4 mb-6",
-                      isAdmin ? "grid-cols-2" : "grid-cols-1",
-                    )}
-                  >
-                    <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm">
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    {/* BOX HOA HỒNG (Đã thêm background xanh nhạt để nổi bật thông tin quan trọng) */}
+                    <div className=" bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm">
                       <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
                         Hoa hồng:
                       </div>
@@ -1307,13 +1304,23 @@ export default function ApartmentDetailsPageClient({
                       </div>
                     </div>
 
-                    {isAdmin && (
+                    {/* BOX CỘT 2: HIỂN THỊ SĐT (ADMIN) HOẶC MÃ CĂN (CTV) */}
+                    {isAdmin ? (
                       <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm">
                         <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
                           SĐT Chủ nhà:
                         </div>
                         <div className="text-gray-900 font-bold text-lg">
                           {apartment.landlordPhoneNumber || "Chưa có"}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm">
+                        <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
+                          Mã căn:
+                        </div>
+                        <div className="text-gray-900 font-bold text-lg">
+                          {apartment.sourceCode}
                         </div>
                       </div>
                     )}
@@ -1373,69 +1380,17 @@ export default function ApartmentDetailsPageClient({
             </div>
 
             <div className="lg:col-span-4 relative">
-              <div className="sticky top-28">
-                <div className="rounded-[2.5rem] bg-white p-8 shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-gray-100 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
-                  <div className="relative z-10 space-y-6">
-                    <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100/50">
-                      <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-4">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
-                          {statusHeader}
-                        </span>
-                        <span
-                          className={`flex items-center gap-2 ${statusTextColor} text-xs font-bold uppercase tracking-wide`}
-                        >
-                          <span className="relative flex h-2.5 w-2.5">
-                            <span
-                              className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusDotColor} opacity-40`}
-                            ></span>
-                            <span
-                              className={`relative inline-flex rounded-full h-2.5 w-2.5 ${statusDotColor}`}
-                            ></span>
-                          </span>
-                          {statusLabel}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
-                          Hotline 24/7
-                        </span>
-                        <span className="font-mono text-xl font-bold text-gray-900 tracking-wide">
-                          0355.885.851
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-3 pt-2">
-                      <a
-                        href="tel:+84355885851"
-                        className="flex items-center justify-center w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-[#b88e22] text-white font-bold uppercase tracking-widest hover:shadow-[0_10px_25px_rgba(205,165,51,0.3)] hover:scale-[1.01] transition-all duration-300 gap-2 shadow-lg"
-                      >
-                        <Phone className="h-5 w-5 fill-current" /> Liên hệ ngay
-                      </a>
-                      <button
-                        onClick={handleFavoriteToggle}
-                        disabled={isFavLoading}
-                        className={cn(
-                          "hidden lg:flex items-center justify-center w-full py-4 rounded-2xl border-2 font-bold uppercase tracking-widest transition-all group gap-2 text-xs",
-                          isFavorited
-                            ? "border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300"
-                            : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-primary hover:text-primary",
-                        )}
-                      >
-                        <Heart
-                          className={cn(
-                            "h-5 w-5 transition-transform group-hover:scale-110",
-                            isFavorited && "fill-current",
-                          )}
-                        />
-                        {isFavorited ? "Đã lưu tin" : "Lưu tin này"}
-                      </button>
-                    </div>
-                    <p className="text-[12px] text-gray-400 text-center font-medium pt-2 italic">
-                      Hanoi Residences - Tận Tâm, An Toàn, Chuyên Nghiệp.
-                    </p>
-                  </div>
-                </div>
+              <div className="lg:col-span-4 relative">
+                <BookingWidget
+                  apartment={apartment}
+                  isFavorited={isFavorited}
+                  onFavoriteToggle={handleFavoriteToggle}
+                  isFavLoading={isFavLoading}
+                  statusHeader={statusHeader}
+                  statusLabel={statusLabel}
+                  statusTextColor={statusTextColor}
+                  statusDotColor={statusDotColor}
+                />
               </div>
             </div>
           </div>

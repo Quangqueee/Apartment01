@@ -17,6 +17,7 @@ import {
   Bell,
   BadgeCheck,
   User as UserIcon,
+  CalendarDays, // Import CalendarDays icon
 } from "lucide-react";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
@@ -250,6 +251,14 @@ export default function ProfilePage() {
 
             <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
               {[
+                {
+                  icon: CalendarDays,
+                  label: isPrivilegedUser
+                    ? "Quản lý lịch dẫn khách"
+                    : "Quản lý lịch xem phòng",
+                  sub: "Theo dõi trạng thái và lịch hẹn",
+                  href: "/profile/bookings",
+                },
                 {
                   icon: Settings,
                   label: "Cài đặt tài khoản",

@@ -27,6 +27,7 @@ import {
   BarChart3,
   ShieldCheck,
   BedDouble,
+  CalendarCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth as useFirebaseAuth } from "@/firebase/provider";
@@ -146,6 +147,19 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                     <Link href={`/${ADMIN_PATH}/users`}>
                       <Users />
                       <span>Danh sách Khách hàng</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {/* 3.5 QUẢN LÝ LỊCH HẸN */}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Quản lý lịch hẹn"
+                    isActive={pathname.includes("/bookings")}
+                  >
+                    <Link href={`/${ADMIN_PATH}/bookings`}>
+                      <CalendarCheck />
+                      <span>Quản lý lịch hẹn</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
