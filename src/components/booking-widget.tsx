@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/auth-context";
 import { db } from "@/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,9 +19,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Heart, Phone, Loader2 } from "lucide-react";
+import { Heart, Phone, Loader2, UserPlus, Users, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Apartment } from "@/lib/types";
+
+// Hàm hỗ trợ xóa dấu Tiếng Việt
+const removeVietnameseTones = (str?: string) => {
+  if (!str) return "";
+  return str
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .trim();
+};
 
 interface BookingWidgetProps {
   apartment: Apartment;
@@ -43,28 +63,71 @@ export default function BookingWidget({
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Thêm các state mới cho Tên khách (CTV), Ngày riêng, Giờ riêng (User)
+  // State quản lý danh sách và tìm kiếm CTV
+  const [ctvList, setCtvList] = useState<any[]>([]);
+  const [ctvSearchTerm, setCtvSearchTerm] = useState("");
+  const [isCtvDropdownOpen, setIsCtvDropdownOpen] = useState(false);
+
   const [formData, setFormData] = useState({
     name: userData?.displayName || "",
     phone: userData?.phoneNumber || "",
     clientName: "",
     clientPhone: "",
-    bookingDate: "", // Dùng cho User
-    bookingTime: "", // Dùng cho User (Optional)
-    dateTime: "", // Dùng cho CTV
+    bookingDate: "",
+    bookingTime: "",
     budget: "",
     notes: "",
     consultationPrice: "",
+    adminBookingType: "external",
+    ctvId: "",
+    ctvName: "",
+    ctvPhone: "",
   });
 
   const role = userData?.role;
   const isCollaborator = role === "collaborator" || role === "admin";
   const isGuest = !user;
 
+  useEffect(() => {
+    if (role === "admin") {
+      const fetchCTVs = async () => {
+        const q = query(
+          collection(db, "users"),
+          where("role", "==", "collaborator"),
+        );
+        const snap = await getDocs(q);
+        const ctvs = snap.docs.map((doc) => ({ uid: doc.id, ...doc.data() }));
+        setCtvList(ctvs);
+      };
+      fetchCTVs();
+    }
+  }, [role]);
+
+  // Bộ lọc CTV thông minh (Hỗ trợ gõ không dấu)
+  const normalizedCtvSearchTerm = removeVietnameseTones(ctvSearchTerm);
+  const filteredCtvs = ctvList.filter(
+    (c) =>
+      removeVietnameseTones(c.displayName).includes(normalizedCtvSearchTerm) ||
+      (c.phoneNumber || "").includes(ctvSearchTerm),
+  );
+
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
   ) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSelectCtv = (ctv: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      ctvId: ctv.uid,
+      ctvName: ctv.displayName || "",
+      ctvPhone: ctv.phoneNumber || "",
+    }));
+    setCtvSearchTerm(`${ctv.displayName} - ${ctv.phoneNumber}`);
+    setIsCtvDropdownOpen(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,37 +137,50 @@ export default function BookingWidget({
     try {
       let collectionName = "guest_consultations";
 
-      let finalDateTime = "";
-      if (isCollaborator) {
-        finalDateTime = formData.dateTime;
-      } else if (!isGuest) {
-        finalDateTime = formData.bookingTime
-          ? `${formData.bookingDate}T${formData.bookingTime}`
-          : formData.bookingDate;
-      }
+      // ĐÃ SỬA: Gộp chung logic lấy ngày/giờ cho TẤT CẢ (CTV, Admin, User, Khách vãng lai)
+      let finalDateTime = formData.bookingTime
+        ? `${formData.bookingDate}T${formData.bookingTime}`
+        : formData.bookingDate;
 
-      // Khởi tạo Payload chung (Admin tự tạo thì Auto Approved)
       let payload: any = {
         apartmentId: apartment.id,
         apartmentCode: apartment.sourceCode,
         apartmentLink: window.location.href,
         notes: formData.notes,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
         status: role === "admin" ? "approved" : "pending",
       };
 
-      // Tách bạch rõ ràng Admin và CTV
       if (role === "admin") {
-        collectionName = "user_bookings";
-        payload = {
-          ...payload,
-          name: formData.clientName, // Form đang dùng tên field của CTV
-          phone: formData.clientPhone,
-          budget: formData.budget,
-          consultationPrice: formData.consultationPrice, // Lưu cả giá báo nếu admin nhập
-          dateTime: finalDateTime,
-          isExternal: true, // Đánh dấu đây là "Khách ngoài"
-        };
+        if (formData.adminBookingType === "ctv") {
+          collectionName = "ctv_bookings";
+          payload = {
+            ...payload,
+            ctvId: formData.ctvId || "manual_entry",
+            ctvName: formData.ctvName || "Chưa rõ",
+            ctvPhone: formData.ctvPhone || "N/A",
+            address: apartment.title,
+            consultationPrice: formData.consultationPrice,
+            clientName: formData.clientName,
+            clientPhone: formData.clientPhone,
+            budget: formData.budget,
+            dateTime: finalDateTime,
+            createdByAdminId: user?.uid,
+          };
+        } else {
+          collectionName = "user_bookings";
+          payload = {
+            ...payload,
+            name: formData.clientName,
+            phone: formData.clientPhone,
+            budget: formData.budget,
+            consultationPrice: formData.consultationPrice,
+            dateTime: finalDateTime,
+            isExternal: true,
+            createdByAdminId: user?.uid,
+          };
+        }
       } else if (role === "collaborator") {
         collectionName = "ctv_bookings";
         payload = {
@@ -131,11 +207,13 @@ export default function BookingWidget({
           dateTime: finalDateTime,
         };
       } else {
+        // ĐÃ SỬA: Thêm dateTime cho khách vãng lai
         payload = {
           ...payload,
           name: formData.name,
           phone: formData.phone,
           budget: formData.budget,
+          dateTime: finalDateTime,
         };
       }
 
@@ -143,26 +221,28 @@ export default function BookingWidget({
 
       toast({
         title: "Gửi yêu cầu thành công!",
-        description: "Thông tin đã được ghi nhận trên hệ thống.",
         className: "bg-green-50 text-green-900 border-green-200",
       });
       setIsOpen(false);
+      setCtvSearchTerm(""); // Reset thanh tìm kiếm
       setFormData({
         ...formData,
         clientName: "",
         clientPhone: "",
         bookingDate: "",
         bookingTime: "",
-        dateTime: "",
         notes: "",
         budget: "",
         consultationPrice: "",
+        ctvId: "",
+        ctvName: "",
+        ctvPhone: "",
       });
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Lỗi",
-        description: "Không thể gửi yêu cầu. Vui lòng thử lại.",
+        description: "Vui lòng thử lại.",
       });
     } finally {
       setIsSubmitting(false);
@@ -170,6 +250,7 @@ export default function BookingWidget({
   };
 
   const getButtonText = () => {
+    if (role === "admin") return "Thêm lịch cho căn này";
     if (isCollaborator) return "Đặt lịch dẫn khách";
     if (role === "user") return "Đặt lịch xem phòng";
     return "Nhận tư vấn";
@@ -209,7 +290,6 @@ export default function BookingWidget({
                 </span>
               </div>
             </div>
-
             <div className="space-y-3 pt-2">
               <button
                 onClick={() => setIsOpen(true)}
@@ -217,7 +297,6 @@ export default function BookingWidget({
               >
                 <Phone className="h-5 w-5 fill-current" /> {getButtonText()}
               </button>
-
               <button
                 onClick={onFavoriteToggle}
                 disabled={isFavLoading}
@@ -241,15 +320,133 @@ export default function BookingWidget({
         </div>
       </div>
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-[425px] rounded-2xl bg-white max-h-[90vh] overflow-y-auto">
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) {
+            setCtvSearchTerm("");
+            setIsCtvDropdownOpen(false);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[450px] rounded-2xl bg-white max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">
               {getButtonText()}
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-4">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
+            {role === "admin" && (
+              <div className="flex bg-gray-100 p-1 rounded-xl mb-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({ ...formData, adminBookingType: "external" })
+                  }
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all ${formData.adminBookingType === "external" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  <UserPlus className="h-3.5 w-3.5" /> Khách cá nhân (Private)
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({ ...formData, adminBookingType: "ctv" })
+                  }
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all ${formData.adminBookingType === "ctv" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  <Users className="h-3.5 w-3.5" /> Khách CTV (Shared)
+                </button>
+              </div>
+            )}
+
+            {/* Khối Tìm Kiếm CTV Thông Minh */}
+            {role === "admin" && formData.adminBookingType === "ctv" && (
+              <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3 animate-in slide-in-from-top-2">
+                <div className="space-y-1.5 relative">
+                  <label className="text-xs font-bold text-blue-800">
+                    Tìm & chọn CTV trong hệ thống
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-400" />
+                    <input
+                      type="text"
+                      placeholder="Gõ tên hoặc SĐT để tìm..."
+                      value={ctvSearchTerm}
+                      onChange={(e) => {
+                        setCtvSearchTerm(e.target.value);
+                        setIsCtvDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsCtvDropdownOpen(true)}
+                      className="w-full pl-9 pr-3 py-2.5 border border-blue-200 rounded-lg text-sm outline-none bg-white focus:border-blue-400 shadow-sm transition-all"
+                    />
+
+                    {/* Dropdown Danh sách CTV */}
+                    {isCtvDropdownOpen && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-40"
+                          onClick={() => setIsCtvDropdownOpen(false)}
+                        ></div>
+                        <div className="absolute z-50 w-full mt-1.5 bg-white border border-gray-100 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] max-h-48 overflow-y-auto divide-y divide-gray-50">
+                          {filteredCtvs.length > 0 ? (
+                            filteredCtvs.map((c) => (
+                              <div
+                                key={c.uid}
+                                onClick={() => handleSelectCtv(c)}
+                                className="px-4 py-2.5 hover:bg-blue-50/80 cursor-pointer flex flex-col transition-colors"
+                              >
+                                <span className="font-bold text-gray-900 text-sm">
+                                  {c.displayName}
+                                </span>
+                                <span className="text-gray-500 text-xs">
+                                  {c.phoneNumber}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-4 py-4 text-sm text-gray-400 text-center italic">
+                              Không tìm thấy CTV nào.
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1 border-t border-blue-100/50">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-600">
+                      Tên CTV
+                    </label>
+                    <input
+                      type="text"
+                      name="ctvName"
+                      value={formData.ctvName}
+                      onChange={handleChange}
+                      className="w-full border rounded-md p-2 text-sm outline-none bg-white/60"
+                      placeholder="Tên CTV..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-600">
+                      SĐT CTV
+                    </label>
+                    <input
+                      type="text"
+                      name="ctvPhone"
+                      value={formData.ctvPhone}
+                      onChange={handleChange}
+                      className="w-full border rounded-md p-2 text-sm outline-none bg-white/60"
+                      placeholder="SĐT CTV..."
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {isCollaborator ? (
               <>
                 <div className="grid grid-cols-2 gap-4">
@@ -263,7 +460,7 @@ export default function BookingWidget({
                       name="clientName"
                       value={formData.clientName}
                       onChange={handleChange}
-                      className="border rounded-lg p-2"
+                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
                     />
                   </div>
                   <div className="flex flex-col gap-2">
@@ -276,7 +473,7 @@ export default function BookingWidget({
                       name="clientPhone"
                       value={formData.clientPhone}
                       onChange={handleChange}
-                      className="border rounded-lg p-2"
+                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
                     />
                   </div>
                 </div>
@@ -298,7 +495,7 @@ export default function BookingWidget({
                       value={formData.budget}
                       onChange={handleChange}
                       placeholder="VD: 5-7tr"
-                      className="border rounded-lg p-2"
+                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] text-sm"
                     />
                   </div>
                 </div>
@@ -313,21 +510,39 @@ export default function BookingWidget({
                     value={formData.consultationPrice}
                     onChange={handleChange}
                     placeholder="Giá báo khách..."
-                    className="border rounded-lg p-2"
+                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] text-sm"
                   />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold">
-                    Ngày/Giờ dẫn khách <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="datetime-local"
-                    name="dateTime"
-                    value={formData.dateTime}
-                    onChange={handleChange}
-                    className="border rounded-lg p-2"
-                  />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold">
+                      Ngày dẫn khách <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      required
+                      type="date"
+                      name="bookingDate"
+                      value={formData.bookingDate}
+                      onChange={handleChange}
+                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold whitespace-nowrap">
+                      Giờ dẫn{" "}
+                      <span className="text-gray-400 text-[11px] font-normal">
+                        (Có thể bỏ trống)
+                      </span>
+                    </label>
+                    <input
+                      type="time"
+                      name="bookingTime"
+                      value={formData.bookingTime}
+                      onChange={handleChange}
+                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
+                    />
+                  </div>
                 </div>
               </>
             ) : (
@@ -342,7 +557,7 @@ export default function BookingWidget({
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    className="border rounded-lg p-2"
+                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
                   />
                 </div>
                 <div className="flex flex-col gap-2">
@@ -355,43 +570,41 @@ export default function BookingWidget({
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="border rounded-lg p-2"
+                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
                   />
                 </div>
 
-                {/* User Đăng nhập: Tách Ngày và Giờ */}
-                {!isGuest && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-2">
-                      <label className="text-sm font-semibold">
-                        Ngày xem <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        required
-                        type="date"
-                        name="bookingDate"
-                        value={formData.bookingDate}
-                        onChange={handleChange}
-                        className="border rounded-lg p-2"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <label className="text-sm font-semibold">
-                        Giờ xem{" "}
-                        <span className="text-gray-400 text-xs font-normal">
-                          (Có thể bỏ trống)
-                        </span>
-                      </label>
-                      <input
-                        type="time"
-                        name="bookingTime"
-                        value={formData.bookingTime}
-                        onChange={handleChange}
-                        className="border rounded-lg p-2"
-                      />
-                    </div>
+                {/* ĐÃ SỬA LẠI: Cho phép tất cả người dùng (kể cả khách lạ) nhập Ngày & Giờ */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold">
+                      Ngày xem <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      required
+                      type="date"
+                      name="bookingDate"
+                      value={formData.bookingDate}
+                      onChange={handleChange}
+                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
+                    />
                   </div>
-                )}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold">
+                      Giờ xem{" "}
+                      <span className="text-gray-400 text-[11px] font-normal">
+                        (Có thể bỏ trống)
+                      </span>
+                    </label>
+                    <input
+                      type="time"
+                      name="bookingTime"
+                      value={formData.bookingTime}
+                      onChange={handleChange}
+                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
+                    />
+                  </div>
+                </div>
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-semibold">Ngân sách</label>
@@ -401,7 +614,7 @@ export default function BookingWidget({
                     value={formData.budget}
                     onChange={handleChange}
                     placeholder="VD: 5-7 triệu"
-                    className="border rounded-lg p-2"
+                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] text-sm"
                   />
                 </div>
               </>
@@ -414,11 +627,9 @@ export default function BookingWidget({
                 value={formData.notes}
                 onChange={handleChange}
                 placeholder={
-                  isCollaborator
-                    ? "Tài chính, xe điện, pet..."
-                    : "Yêu cầu đặc biệt (pet, chỗ để oto...)"
+                  "Khu vực muốn ở. Dạng phòng muốn tìm, lưu ý đặc biệt (Có nuôi PET, Có xe điện,...)"
                 }
-                className="border rounded-lg p-2 resize-none h-20"
+                className="border rounded-lg p-2 resize-none h-20 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] text-base"
               />
             </div>
 
@@ -430,7 +641,7 @@ export default function BookingWidget({
               {isSubmitting ? (
                 <Loader2 className="animate-spin h-5 w-5" />
               ) : (
-                "Gửi thông tin"
+                "Xác nhận tạo lịch"
               )}
             </Button>
           </form>

@@ -78,3 +78,8 @@ html {
   animation: light-run 3s linear infinite !important;
   transition-property: transform, opacity !important;
 }
+
+body[data-scroll-locked] {
+  padding-right: 0 !important;
+  margin-right: 0 !important;
+}
