@@ -305,7 +305,7 @@ export default function BookingsManagementPage() {
         return `${timePart} ${d}/${m}/${y}`;
       } else {
         const [y, m, d] = dtStr.split("-");
-        return `Cả ngày ${d}/${m}/${y}`;
+        return `${d}/${m}/${y}`;
       }
     } catch (e) {
       return dtStr;

@@ -714,7 +714,6 @@ export default function AdminBookingsPage() {
       </div>
 
       <div className="bg-transparent md:bg-white md:rounded-2xl md:shadow-sm md:border md:border-gray-200 flex flex-col overflow-hidden">
-        {/* VIEW DESKTOP */}
         <div className="hidden md:block overflow-x-auto min-h-[400px]">
           <table className="w-full text-sm text-left min-w-[1400px]">
             <thead className="sticky top-0 z-10 text-xs text-gray-500 uppercase bg-gray-50/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
@@ -739,7 +738,6 @@ export default function AdminBookingsPage() {
                 <th className="px-5 py-4 font-bold text-right w-[150px]">
                   Thao tác
                 </th>{" "}
-                {/* Thêm cột thao tác */}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -893,7 +891,6 @@ export default function AdminBookingsPage() {
                       )}
                     </td>
                     <td className="px-5 py-4 align-middle text-right">
-                      {/* ĐÃ BỔ SUNG: Nút Xóa */}
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => openDetailsModal(booking)}
@@ -1414,7 +1411,7 @@ export default function AdminBookingsPage() {
                 rows={4}
                 value={noteContent}
                 onChange={(e) => setNoteContent(e.target.value)}
-                placeholder="VD: Đã check căn này chủ nhà đi vắng..."
+                placeholder="VD: Khách ưng phòng, chăm thêm,..."
                 className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
               />
             </div>

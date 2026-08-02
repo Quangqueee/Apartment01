@@ -88,6 +88,11 @@ export default function BookingWidget({
   const isCollaborator = role === "collaborator" || role === "admin";
   const isGuest = !user;
 
+  // Biến kiểm tra Khóa ô CTV an toàn với TypeScript
+  const isCtvSelectedFromList = !!(
+    formData.ctvId && formData.ctvId !== "manual_entry"
+  );
+
   useEffect(() => {
     if (role === "admin") {
       const fetchCTVs = async () => {
@@ -116,7 +121,19 @@ export default function BookingWidget({
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >,
   ) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => {
+      let newCtvId = prev.ctvId;
+      // Tự động gỡ ID nếu Admin cố tình gõ đè vào ô Tên/SĐT của CTV
+      if (
+        (name === "ctvName" || name === "ctvPhone") &&
+        prev.ctvId &&
+        prev.ctvId !== "manual_entry"
+      ) {
+        newCtvId = "manual_entry";
+      }
+      return { ...prev, [name]: value, ctvId: newCtvId };
+    });
   };
 
   const handleSelectCtv = (ctv: any) => {
@@ -130,6 +147,11 @@ export default function BookingWidget({
     setIsCtvDropdownOpen(false);
   };
 
+  const handleClearSelectedCtv = () => {
+    setFormData((prev) => ({ ...prev, ctvId: "", ctvName: "", ctvPhone: "" }));
+    setCtvSearchTerm("");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -137,7 +159,6 @@ export default function BookingWidget({
     try {
       let collectionName = "guest_consultations";
 
-      // ĐÃ SỬA: Gộp chung logic lấy ngày/giờ cho TẤT CẢ (CTV, Admin, User, Khách vãng lai)
       let finalDateTime = formData.bookingTime
         ? `${formData.bookingDate}T${formData.bookingTime}`
         : formData.bookingDate;
@@ -207,7 +228,6 @@ export default function BookingWidget({
           dateTime: finalDateTime,
         };
       } else {
-        // ĐÃ SỬA: Thêm dateTime cho khách vãng lai
         payload = {
           ...payload,
           name: formData.name,
@@ -416,17 +436,19 @@ export default function BookingWidget({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-1 border-t border-blue-100/50">
+                <div className="grid grid-cols-2 gap-3 pt-1 border-t border-blue-100/50 relative">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-gray-600">
-                      Tên CTV
+                      Tên CTV <span className="text-red-500">*</span>
                     </label>
                     <input
+                      required={formData.adminBookingType === "ctv"}
                       type="text"
                       name="ctvName"
                       value={formData.ctvName}
                       onChange={handleChange}
-                      className="w-full border rounded-md p-2 text-sm outline-none bg-white/60"
+                      readOnly={isCtvSelectedFromList}
+                      className={`w-full border rounded-md p-2 text-sm outline-none ${isCtvSelectedFromList ? "bg-gray-100 text-gray-500 border-gray-200" : "bg-white/60 focus:border-blue-400"}`}
                       placeholder="Tên CTV..."
                     />
                   </div>
@@ -439,10 +461,23 @@ export default function BookingWidget({
                       name="ctvPhone"
                       value={formData.ctvPhone}
                       onChange={handleChange}
-                      className="w-full border rounded-md p-2 text-sm outline-none bg-white/60"
+                      readOnly={isCtvSelectedFromList}
+                      className={`w-full border rounded-md p-2 text-sm outline-none ${isCtvSelectedFromList ? "bg-gray-100 text-gray-500 border-gray-200" : "bg-white/60 focus:border-blue-400"}`}
                       placeholder="SĐT CTV..."
                     />
                   </div>
+                  {/* Nút Bỏ chọn CTV nếu đã chọn từ List */}
+                  {isCtvSelectedFromList && (
+                    <div className="col-span-2 text-right">
+                      <button
+                        type="button"
+                        onClick={handleClearSelectedCtv}
+                        className="text-xs font-bold text-red-500 hover:text-red-700 underline"
+                      >
+                        Huỷ chọn CTV này (Nhập tay)
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -495,7 +530,7 @@ export default function BookingWidget({
                       value={formData.budget}
                       onChange={handleChange}
                       placeholder="VD: 5-7tr"
-                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] text-sm"
+                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
                     />
                   </div>
                 </div>
@@ -510,7 +545,7 @@ export default function BookingWidget({
                     value={formData.consultationPrice}
                     onChange={handleChange}
                     placeholder="Giá báo khách..."
-                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] text-sm"
+                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
                   />
                 </div>
 
@@ -574,7 +609,6 @@ export default function BookingWidget({
                   />
                 </div>
 
-                {/* ĐÃ SỬA LẠI: Cho phép tất cả người dùng (kể cả khách lạ) nhập Ngày & Giờ */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
                     <label className="text-sm font-semibold">
@@ -593,7 +627,7 @@ export default function BookingWidget({
                     <label className="text-sm font-semibold">
                       Giờ xem{" "}
                       <span className="text-gray-400 text-[11px] font-normal">
-                        (Có thể bỏ trống)
+                        (Bỏ trống)
                       </span>
                     </label>
                     <input
@@ -614,7 +648,7 @@ export default function BookingWidget({
                     value={formData.budget}
                     onChange={handleChange}
                     placeholder="VD: 5-7 triệu"
-                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] text-sm"
+                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
                   />
                 </div>
               </>
@@ -627,9 +661,11 @@ export default function BookingWidget({
                 value={formData.notes}
                 onChange={handleChange}
                 placeholder={
-                  "Khu vực muốn ở. Dạng phòng muốn tìm, lưu ý đặc biệt (Có nuôi PET, Có xe điện,...)"
+                  isCollaborator
+                    ? "Tài chính, xe điện, pet..."
+                    : "Yêu cầu đặc biệt (pet, chỗ để oto...)"
                 }
-                className="border rounded-lg p-2 resize-none h-20 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] text-base"
+                className="border rounded-lg p-2 resize-none h-20 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
               />
             </div>
 
