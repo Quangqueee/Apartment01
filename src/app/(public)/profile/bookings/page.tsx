@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/context/auth-context";
 import { db } from "@/firebase";
 import {
@@ -23,6 +23,8 @@ import {
   Save,
   ChevronLeft,
   ChevronRight,
+  X,
+  Copy,
 } from "lucide-react";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
@@ -37,7 +39,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface Booking {
   id: string;
-  _collection?: string; // Nhãn ngầm để biết sửa vào bảng nào
+  _collection?: string;
   apartmentCode?: string;
   apartmentLink?: string;
   clientName?: string;
@@ -72,7 +74,6 @@ export default function BookingsManagementPage() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // ĐÃ CẬP NHẬT: Tách dateTime thành bookingDate và bookingTime, thêm budget
   const [editForm, setEditForm] = useState({
     clientName: "",
     clientPhone: "",
@@ -93,7 +94,6 @@ export default function BookingsManagementPage() {
         let fetchedData: Booking[] = [];
 
         if (role === "admin") {
-          // Admin xem được cả Khách cá nhân tự tạo VÀ Khách CTV (nếu Admin đóng vai trò CTV)
           const q1 = query(
             collection(db, "user_bookings"),
             where("createdByAdminId", "==", user.uid),
@@ -173,7 +173,6 @@ export default function BookingsManagementPage() {
   const openDetailsModal = (booking: Booking) => {
     setSelectedBooking(booking);
 
-    // Tách chuỗi dateTime
     let dDate = "";
     let dTime = "";
     if (booking.dateTime) {
@@ -265,31 +264,31 @@ export default function BookingsManagementPage() {
     switch (status) {
       case "pending":
         return (
-          <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-full bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap">
+          <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-md bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap">
             Chờ duyệt
           </span>
         );
       case "approved":
         return (
-          <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-full bg-blue-100 text-blue-800 border border-blue-200 whitespace-nowrap">
+          <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-md bg-blue-100 text-blue-800 border border-blue-200 whitespace-nowrap">
             Đã duyệt
           </span>
         );
       case "contacted":
         return (
-          <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-full bg-green-100 text-green-800 border border-green-200 whitespace-nowrap">
+          <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-md bg-green-100 text-green-800 border border-green-200 whitespace-nowrap">
             Đã dẫn khách
           </span>
         );
       case "failed":
         return (
-          <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-full bg-red-100 text-red-800 border border-red-200 whitespace-nowrap">
+          <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-md bg-red-100 text-red-800 border border-red-200 whitespace-nowrap">
             Không thành công
           </span>
         );
       default:
         return (
-          <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-full bg-gray-100 text-gray-800 border border-gray-200 whitespace-nowrap">
+          <span className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-md bg-gray-100 text-gray-800 border border-gray-200 whitespace-nowrap">
             Chờ xử lý
           </span>
         );
@@ -305,25 +304,26 @@ export default function BookingsManagementPage() {
         return `${timePart} ${d}/${m}/${y}`;
       } else {
         const [y, m, d] = dtStr.split("-");
-        return `${d}/${m}/${y}`;
+        return `Cả ngày ${d}/${m}/${y}`;
       }
     } catch (e) {
       return dtStr;
     }
   };
 
-  const searchFilteredBookings = isCollaborator
-    ? bookings.filter((b) => {
-        const term = searchTerm.toLowerCase();
-        const matchName =
-          b.name?.toLowerCase().includes(term) ||
-          b.clientName?.toLowerCase().includes(term);
-        const matchPhone =
-          b.phone?.includes(term) || b.clientPhone?.includes(term);
-        const matchCode = b.apartmentCode?.toLowerCase().includes(term);
-        return matchName || matchPhone || matchCode;
-      })
-    : bookings;
+  const searchFilteredBookings = useMemo(() => {
+    if (!isCollaborator) return bookings;
+    return bookings.filter((b) => {
+      const term = searchTerm.toLowerCase();
+      const matchName =
+        b.name?.toLowerCase().includes(term) ||
+        b.clientName?.toLowerCase().includes(term);
+      const matchPhone =
+        b.phone?.includes(term) || b.clientPhone?.includes(term);
+      const matchCode = b.apartmentCode?.toLowerCase().includes(term);
+      return matchName || matchPhone || matchCode;
+    });
+  }, [bookings, searchTerm, isCollaborator]);
 
   const totalPages = Math.ceil(searchFilteredBookings.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -334,7 +334,7 @@ export default function BookingsManagementPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex h-screen flex-col bg-white font-body">
+      <div className="flex min-h-[100dvh] flex-col bg-white font-body w-full">
         <Header />
         <div className="flex flex-1 items-center justify-center">
           <Loader2 className="h-10 w-10 animate-spin text-[#cda533]" />
@@ -344,11 +344,11 @@ export default function BookingsManagementPage() {
     );
   }
 
+  // WRAPPER CHỐNG TRÀN VIỀN BẢO VỆ GIAO DIỆN
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50/30 font-body">
+    <div className="w-full overflow-x-hidden bg-gray-50/40 min-h-[100dvh] font-body flex flex-col">
       <Header />
-      <main className="flex-1 container mx-auto px-4 md:px-6 py-8 lg:py-12 max-w-[1440px]">
-        {/* ĐÃ CẬP NHẬT: Đổi text Quay lại Trang chủ */}
+      <main className="flex-1 w-full max-w-[1440px] mx-auto px-4 md:px-6 py-6 md:py-10">
         <Link
           href="/"
           className="inline-flex items-center text-sm font-bold text-gray-500 hover:text-[#cda533] transition-colors mb-6"
@@ -356,37 +356,34 @@ export default function BookingsManagementPage() {
           <ArrowLeft className="h-4 w-4 mr-2" /> Quay lại Trang chủ
         </Link>
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
-          <div className="flex items-center gap-5">
-            <div className="p-4 bg-white shadow-[0_10px_30px_rgba(0,0,0,0.05)] rounded-2xl border border-gray-100 hidden md:block">
-              <CalendarDays className="h-8 w-8 text-[#cda533]" />
-            </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight text-gray-900 italic flex items-center gap-2">
-                <CalendarDays className="h-6 w-6 text-[#cda533] md:hidden" />
-                {isCollaborator
-                  ? "Quản lý lịch dẫn khách"
-                  : "Quản lý lịch xem phòng"}
-              </h1>
-              <p className="text-gray-500 font-medium mt-2">
-                Theo dõi trạng thái, lịch trình và phản hồi từ ban quản trị hệ
-                thống.
-              </p>
-            </div>
+        <div className="flex items-center gap-4 mb-8">
+          <div className="p-3 bg-white shadow-sm rounded-2xl border border-gray-100 hidden md:block">
+            <CalendarDays className="h-7 w-7 text-[#cda533]" />
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900 flex items-center gap-2">
+              <CalendarDays className="h-6 w-6 text-[#cda533] md:hidden" />
+              {isCollaborator
+                ? "Quản lý lịch dẫn khách"
+                : "Quản lý lịch xem phòng"}
+            </h1>
+            <p className="text-gray-500 font-medium mt-1 text-sm md:text-base">
+              Theo dõi trạng thái, lịch trình và phản hồi từ ban quản trị.
+            </p>
           </div>
         </div>
 
         {/* --- VIEW DESKTOP --- */}
-        <div className="hidden md:flex flex-col bg-white rounded-[2rem] shadow-[0_10px_40px_rgba(0,0,0,0.03)] border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto min-h-[400px]">
+        <div className="hidden md:flex flex-col bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden w-full">
+          <div className="overflow-x-auto">
             <table className="w-full text-sm text-left border-collapse min-w-[1100px]">
               <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-5 font-black tracking-wider w-[130px]">
+                  <th className="px-6 py-5 font-black tracking-wider w-[120px]">
                     Mã căn
                   </th>
                   <th className="px-6 py-5 font-black tracking-wider w-[220px]">
-                    {isCollaborator ? "Thông tin Khách" : "Thông tin"}
+                    {isCollaborator ? "Khách Hàng" : "Thông tin"}
                   </th>
                   <th className="px-6 py-5 font-black tracking-wider w-[160px]">
                     Thời gian hẹn
@@ -397,21 +394,21 @@ export default function BookingsManagementPage() {
                   <th className="px-6 py-5 font-black tracking-wider text-center w-[140px]">
                     Trạng thái
                   </th>
-                  <th className="px-6 py-5 font-black tracking-wider text-blue-700 bg-blue-50/50 border-l border-blue-100/50 w-[240px]">
-                    Phản hồi từ BQT
+                  <th className="px-6 py-5 font-black tracking-wider text-blue-700 bg-blue-50/50 w-[240px]">
+                    Phản hồi BQT
                   </th>
                   <th className="px-6 py-5 font-black tracking-wider text-right w-[150px]">
-                    Chi tiết
+                    Hành động
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-100">
                 {currentBookings.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-24 text-center">
                       <div className="flex flex-col items-center justify-center text-gray-400">
-                        <CalendarDays className="h-16 w-16 mb-4 opacity-20" />
-                        <p className="font-bold text-lg text-gray-600">
+                        <CalendarDays className="h-14 w-14 mb-3 opacity-20" />
+                        <p className="font-bold text-base text-gray-500">
                           Bạn chưa có lịch hẹn nào
                         </p>
                       </div>
@@ -421,7 +418,7 @@ export default function BookingsManagementPage() {
                   currentBookings.map((booking) => (
                     <tr
                       key={booking.id}
-                      className="hover:bg-gray-50/80 transition-colors group"
+                      className="hover:bg-gray-50/50 transition-colors"
                     >
                       <td className="px-6 py-5 align-middle">
                         <div className="font-black text-gray-900 text-base">
@@ -439,33 +436,31 @@ export default function BookingsManagementPage() {
                         )}
                       </td>
                       <td className="px-6 py-5 align-middle">
-                        <div className="space-y-1">
-                          <div className="font-bold text-gray-900">
-                            {booking._collection === "ctv_bookings"
-                              ? booking.clientName
-                              : booking.name || "Khách"}
-                          </div>
-                          <div className="font-medium text-gray-600">
-                            {booking._collection === "ctv_bookings"
-                              ? booking.clientPhone
-                              : booking.phone}
-                          </div>
+                        <div className="font-bold text-gray-900">
+                          {booking._collection === "ctv_bookings"
+                            ? booking.clientName
+                            : booking.name || "Khách"}
+                        </div>
+                        <div className="font-medium text-gray-600 text-xs mt-0.5">
+                          {booking._collection === "ctv_bookings"
+                            ? booking.clientPhone
+                            : booking.phone}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-2">
                           {booking.budget && (
-                            <div className="inline-block px-2 py-0.5 bg-emerald-50 border border-emerald-200/60 rounded-md text-[11px] font-bold text-emerald-800 whitespace-nowrap mt-1 mr-1">
+                            <span className="px-2 py-0.5 bg-gray-100 border border-gray-200 rounded text-[10px] font-bold text-gray-600">
                               Ngân sách: {booking.budget}
-                            </div>
+                            </span>
                           )}
                           {booking.consultationPrice && (
-                            <div className="inline-block px-2 py-0.5 bg-amber-50 border border-amber-200/60 rounded-md text-[11px] font-bold text-amber-800 whitespace-nowrap mt-1">
+                            <span className="px-2 py-0.5 bg-[#cda533]/10 border border-[#cda533]/20 rounded text-[10px] font-bold text-[#cda533]">
                               Giá báo: {booking.consultationPrice}
-                            </div>
+                            </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-5 align-middle">
-                        <div className="font-bold text-gray-900 whitespace-nowrap">
-                          {formatBookingTime(booking.dateTime)}
-                        </div>
+                      <td className="px-6 py-5 align-middle font-bold text-gray-900">
+                        {formatBookingTime(booking.dateTime)}
                       </td>
                       <td className="px-6 py-5 align-middle">
                         <div
@@ -483,23 +478,21 @@ export default function BookingsManagementPage() {
                         {renderStatus(booking.status)}
                       </td>
                       <td className="px-6 py-5 bg-blue-50/20 border-l border-blue-50 align-middle">
-                        <div className="flex items-start gap-2.5">
+                        <div className="flex items-start gap-2 text-sm font-semibold text-blue-900 line-clamp-3">
                           <MessageSquareText className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
-                          <span className="text-sm font-semibold text-blue-900 line-clamp-3">
-                            {booking.adminNotes || (
-                              <span className="text-blue-300 italic font-medium">
-                                Chưa có phản hồi
-                              </span>
-                            )}
-                          </span>
+                          {booking.adminNotes || (
+                            <span className="text-blue-300 italic font-medium">
+                              Chưa có phản hồi
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-5 text-right align-middle">
                         <button
                           onClick={() => openDetailsModal(booking)}
-                          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:border-[#cda533] hover:text-[#cda533] hover:shadow-sm transition-all whitespace-nowrap"
+                          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-[#cda533] bg-[#cda533]/10 rounded-xl hover:bg-[#cda533]/20 transition-all whitespace-nowrap"
                         >
-                          <FileText className="h-3.5 w-3.5" /> Xem / Sửa Form
+                          <Edit3 className="h-3.5 w-3.5" /> Chỉnh sửa
                         </button>
                       </td>
                     </tr>
@@ -509,6 +502,7 @@ export default function BookingsManagementPage() {
             </table>
           </div>
 
+          {/* Phân trang Desktop */}
           {totalPages > 1 && (
             <div className="px-6 py-4 flex items-center justify-between border-t border-gray-100 bg-gray-50/50">
               <span className="text-sm text-gray-500 font-medium">
@@ -532,7 +526,7 @@ export default function BookingsManagementPage() {
                 <button
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage((prev) => prev - 1)}
-                  className="p-2 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+                  className="p-2 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 shadow-sm"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -542,7 +536,7 @@ export default function BookingsManagementPage() {
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`h-8 w-8 flex items-center justify-center text-sm font-bold rounded-lg border transition-colors shadow-sm ${currentPage === page ? "bg-[#cda533] text-white border-[#cda533]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}
+                        className={`h-8 w-8 flex items-center justify-center text-sm font-bold rounded-lg border shadow-sm transition-colors ${currentPage === page ? "bg-[#cda533] text-white border-[#cda533]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}
                       >
                         {page}
                       </button>
@@ -552,7 +546,7 @@ export default function BookingsManagementPage() {
                 <button
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage((prev) => prev + 1)}
-                  className="p-2 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+                  className="p-2 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 shadow-sm"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -561,32 +555,33 @@ export default function BookingsManagementPage() {
           )}
         </div>
 
-        {/* --- VIEW MOBILE --- */}
-        <div className="md:hidden flex flex-col gap-4">
+        {/* --- VIEW MOBILE THIẾT KẾ CARD --- */}
+        <div className="md:hidden flex flex-col gap-4 w-full">
           {currentBookings.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center text-gray-400 shadow-[0_10px_40px_rgba(0,0,0,0.03)] border border-gray-100">
+            <div className="bg-white rounded-2xl p-8 text-center text-gray-400 shadow-sm border border-gray-100">
               Bạn chưa có lịch hẹn nào.
             </div>
           ) : (
             currentBookings.map((booking) => (
               <div
                 key={booking.id}
-                className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col gap-4"
+                className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col gap-3 w-full"
               >
-                <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                <div className="flex items-center justify-between border-b border-gray-50 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                      Mã căn
+                    </span>
+                    <span className="font-black text-[#cda533] text-base">
+                      {booking.apartmentCode || "N/A"}
+                    </span>
+                  </div>
                   {renderStatus(booking.status)}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
-                      Mã Căn
-                    </span>
-                    <div className="font-black text-gray-900 text-sm">
-                      {booking.apartmentCode || "N/A"}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
+
+                <div className="grid grid-cols-2 gap-3 min-w-0">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">
                       {isCollaborator ? "Khách hàng" : "Thông tin"}
                     </span>
                     <div className="font-bold text-gray-900 text-sm truncate">
@@ -594,240 +589,338 @@ export default function BookingsManagementPage() {
                         ? booking.clientName
                         : booking.name}
                     </div>
-                    <div className="font-medium text-gray-600 text-[11px]">
+                    <div className="font-medium text-gray-500 text-[12px] truncate mt-0.5">
                       {booking._collection === "ctv_bookings"
                         ? booking.clientPhone
                         : booking.phone}
                     </div>
                   </div>
-                </div>
-                <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 space-y-1">
-                  <div className="text-sm font-bold text-gray-900">
-                    {formatBookingTime(booking.dateTime)}
+                  <div className="text-right min-w-0">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">
+                      Giờ xem
+                    </span>
+                    <div className="font-bold text-gray-900 text-[13px] truncate flex items-center justify-end gap-1.5 mt-0.5">
+                      <CalendarDays className="h-3.5 w-3.5 text-gray-400" />
+                      {formatBookingTime(booking.dateTime)}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-600">
-                    <span className="font-bold text-gray-500">Lưu ý:</span>{" "}
-                    {booking.notes || "Không có"}
-                  </div>
                 </div>
+
+                {booking.adminNotes && (
+                  <div className="bg-blue-50/50 p-2.5 rounded-lg border border-blue-100/50 flex items-start gap-2">
+                    <MessageSquareText className="h-4 w-4 text-blue-500 shrink-0" />
+                    <span className="text-xs font-semibold text-blue-800 line-clamp-2">
+                      {booking.adminNotes}
+                    </span>
+                  </div>
+                )}
+
                 <button
                   onClick={() => openDetailsModal(booking)}
-                  className="w-full h-10 px-4 text-xs font-bold text-[#cda533] bg-[#cda533]/10 rounded-xl flex items-center justify-center gap-1.5"
+                  className="w-full h-10 px-4 text-xs font-bold text-[#cda533] bg-[#cda533]/10 hover:bg-[#cda533]/20 rounded-xl flex items-center justify-center gap-1.5 transition-colors mt-1"
                 >
-                  <Edit3 className="h-4 w-4" /> Xem và Sửa thông tin
+                  <Edit3 className="h-3.5 w-3.5" /> Xem chi tiết và Chỉnh sửa
                 </button>
               </div>
             ))
           )}
+
+          {/* Phân trang Mobile */}
+          {totalPages > 1 && (
+            <div className="pt-4 flex flex-col items-center gap-4 w-full">
+              <span className="text-xs text-gray-500 font-medium text-center">
+                Đang xem{" "}
+                <span className="font-bold text-gray-900">
+                  {startIndex + 1}
+                </span>{" "}
+                -{" "}
+                <span className="font-bold text-gray-900">
+                  {Math.min(
+                    startIndex + itemsPerPage,
+                    searchFilteredBookings.length,
+                  )}
+                </span>{" "}
+                /{" "}
+                <span className="font-bold text-gray-900">
+                  {searchFilteredBookings.length}
+                </span>
+              </span>
+              <div className="flex items-center justify-center gap-2 w-full">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((prev) => prev - 1)}
+                  className="p-2.5 text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 shadow-sm shrink-0"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="flex items-center justify-center gap-1 max-w-[200px] overflow-x-auto no-scrollbar">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`shrink-0 h-9 w-9 flex items-center justify-center text-sm font-bold rounded-xl border shadow-sm transition-colors ${currentPage === page ? "bg-[#cda533] text-white border-[#cda533]" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
+                </div>
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                  className="p-2.5 text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50 shadow-sm shrink-0"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
-      {/* POPUP XEM & CHỈNH SỬA FORM */}
+      {/* POPUP FULL-SCREEN VIEW CỰC GỌN (COMPACT CARDS) */}
       <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
-        <DialogContent className="w-[90%] max-w-[500px] bg-white rounded-3xl p-6 max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold border-b border-gray-100 pb-3 flex items-center gap-2">
-              <FileText className="h-5 w-5 text-[#cda533]" /> Form Đặt Lịch
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent
+          className={
+            "p-0 border-none shadow-2xl z-[100] gap-0 bg-gray-100 flex flex-col [&>button.absolute]:hidden " +
+            // --- XỬ LÝ DESKTOP ---
+            "sm:max-w-[500px] sm:max-h-[90vh] sm:rounded-3xl overflow-hidden " +
+            // --- XỬ LÝ MOBILE ---
+            "max-sm:fixed max-sm:inset-0 max-sm:w-full max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:translate-x-0 max-sm:translate-y-0 " +
+            "max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out " +
+            "max-sm:data-[state=open]:slide-in-from-bottom-full max-sm:data-[state=closed]:slide-out-to-bottom-full " +
+            "max-sm:duration-300 max-sm:ease-out"
+          }
+        >
+          {/* HEADER SIÊU GỌN */}
+          <div className="px-4 py-3.5 sm:px-6 sm:py-5 border-b border-gray-200 flex flex-row items-center justify-between bg-white z-20 shrink-0 shadow-sm w-full">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="p-1.5 -ml-1.5 rounded-full hover:bg-gray-100 transition-colors sm:hidden"
+              >
+                <ChevronLeft className="h-6 w-6 text-gray-900" />
+              </button>
+              <DialogTitle className="font-black text-lg sm:text-xl text-gray-900 m-0 !mt-0 flex items-center gap-2">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-[#cda533]" />{" "}
+                Cập nhật Lịch hẹn
+              </DialogTitle>
+            </div>
+            <button
+              onClick={() => setIsDetailsModalOpen(false)}
+              className="hidden sm:flex p-1.5 rounded-full hover:bg-gray-100 transition-colors text-gray-500"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
           {selectedBooking && (
-            <form onSubmit={handleSaveChanges} className="space-y-5 mt-2">
-              <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
-                    Mã căn
-                  </span>
-                  <div className="font-black text-gray-900 text-lg leading-none">
-                    {selectedBooking.apartmentCode || "N/A"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
-                    Trạng thái
-                  </span>
-                  <div className="mt-1">
-                    {renderStatus(selectedBooking.status)}
-                  </div>
-                </div>
-                {selectedBooking.adminNotes && (
-                  <div className="col-span-2 mt-2 pt-3 border-t border-gray-200">
-                    <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest flex items-center gap-1 mb-1">
-                      <MessageSquareText className="h-3 w-3" /> Phản hồi từ BQT
-                    </span>
-                    <div className="text-sm font-semibold text-blue-900 whitespace-pre-wrap">
-                      {selectedBooking.adminNotes}
+            <form
+              onSubmit={handleSaveChanges}
+              className="flex flex-col flex-1 h-full overflow-hidden w-full"
+            >
+              {/* BODY SCROLLABLE: Tách Card rõ ràng */}
+              <div className="px-4 py-5 sm:px-6 sm:py-6 overflow-y-auto flex-1 space-y-4 no-scrollbar w-full">
+                {/* THẺ 1: Status & Admin Note (Chỉ xem) */}
+                <div className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm w-full">
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">
+                        Mã căn
+                      </span>
+                      <div className="font-black text-gray-900 text-xl truncate mt-0.5">
+                        {selectedBooking.apartmentCode || "N/A"}
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      {renderStatus(selectedBooking.status)}
                     </div>
                   </div>
-                )}
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-2">
-                  Thông tin Khách Hàng
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-gray-700">
-                      Tên khách
-                    </label>
-                    <input
-                      required
-                      type="text"
-                      value={
-                        selectedBooking._collection === "ctv_bookings"
-                          ? editForm.clientName
-                          : editForm.name
-                      }
-                      onChange={(e) =>
-                        setEditForm((prev) =>
-                          selectedBooking._collection === "ctv_bookings"
-                            ? { ...prev, clientName: e.target.value }
-                            : { ...prev, name: e.target.value },
-                        )
-                      }
-                      className="w-full border border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:border-[#cda533]"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-gray-700">
-                      Số điện thoại
-                    </label>
-                    <input
-                      required
-                      type="tel"
-                      value={
-                        selectedBooking._collection === "ctv_bookings"
-                          ? editForm.clientPhone
-                          : editForm.phone
-                      }
-                      onChange={(e) =>
-                        setEditForm((prev) =>
-                          selectedBooking._collection === "ctv_bookings"
-                            ? { ...prev, clientPhone: e.target.value }
-                            : { ...prev, phone: e.target.value },
-                        )
-                      }
-                      className="w-full border border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:border-[#cda533]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-gray-700">
-                      Ngân sách yêu cầu
-                    </label>
-                    <input
-                      type="text"
-                      value={editForm.budget}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          budget: e.target.value,
-                        }))
-                      }
-                      placeholder="VD: 5-7 triệu..."
-                      className="w-full border border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:border-[#cda533]"
-                    />
-                  </div>
-                  {(isCollaborator || selectedBooking.consultationPrice) && (
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-bold text-gray-700">
-                        Giá báo khách
-                      </label>
-                      <input
-                        type="text"
-                        value={editForm.consultationPrice}
-                        onChange={(e) =>
-                          setEditForm((prev) => ({
-                            ...prev,
-                            consultationPrice: e.target.value,
-                          }))
-                        }
-                        placeholder="Nhập giá đã báo..."
-                        className="w-full border border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:border-[#cda533]"
-                      />
+                  {selectedBooking.adminNotes && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest flex items-center gap-1.5 mb-1.5">
+                        <MessageSquareText className="h-3.5 w-3.5" /> Phản hồi
+                        từ Ban Quản Trị
+                      </span>
+                      <div className="text-sm font-semibold text-blue-900 whitespace-pre-wrap leading-relaxed bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+                        {selectedBooking.adminNotes}
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
 
-              <div className="space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-2">
-                  Thời gian & Yêu cầu
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-gray-700">
-                      Ngày hẹn xem <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      required
-                      type="date"
-                      value={editForm.bookingDate}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          bookingDate: e.target.value,
-                        })
-                      }
-                      className="w-full border border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:border-[#cda533]"
-                    />
+                {/* THẺ 2: Chỉnh sửa thông tin Khách & Tiền */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 shadow-sm w-full space-y-4">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-2">
+                    Thông tin Khách Hàng
+                  </h3>
+                  <div className="grid grid-cols-1 gap-4 w-full">
+                    <div className="flex gap-4 w-full">
+                      <div className="space-y-1.5 w-full min-w-0">
+                        <label className="text-[13px] font-bold text-gray-700">
+                          Tên khách <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          required
+                          type="text"
+                          value={
+                            selectedBooking._collection === "ctv_bookings"
+                              ? editForm.clientName
+                              : editForm.name
+                          }
+                          onChange={(e) =>
+                            setEditForm((prev) =>
+                              selectedBooking._collection === "ctv_bookings"
+                                ? { ...prev, clientName: e.target.value }
+                                : { ...prev, name: e.target.value },
+                            )
+                          }
+                          className="w-full border border-gray-200 rounded-xl p-3 text-[16px] outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] bg-gray-50/50 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-1.5 w-full min-w-0">
+                        <label className="text-[13px] font-bold text-gray-700">
+                          SĐT khách <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          required
+                          type="tel"
+                          value={
+                            selectedBooking._collection === "ctv_bookings"
+                              ? editForm.clientPhone
+                              : editForm.phone
+                          }
+                          onChange={(e) =>
+                            setEditForm((prev) =>
+                              selectedBooking._collection === "ctv_bookings"
+                                ? { ...prev, clientPhone: e.target.value }
+                                : { ...prev, phone: e.target.value },
+                            )
+                          }
+                          className="w-full border border-gray-200 rounded-xl p-3 text-[16px] outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] bg-gray-50/50 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4 w-full">
+                      <div className="space-y-1.5 w-full min-w-0">
+                        <label className="text-[13px] font-bold text-gray-700">
+                          Ngân sách
+                        </label>
+                        <input
+                          type="text"
+                          value={editForm.budget}
+                          onChange={(e) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              budget: e.target.value,
+                            }))
+                          }
+                          placeholder="VD: 5tr"
+                          className="w-full border border-gray-200 rounded-xl p-3 text-[16px] outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] bg-gray-50/50 transition-all"
+                        />
+                      </div>
+                      {(isCollaborator ||
+                        selectedBooking.consultationPrice) && (
+                        <div className="space-y-1.5 w-full min-w-0">
+                          <label className="text-[13px] font-bold text-gray-700">
+                            Giá báo
+                          </label>
+                          <input
+                            type="text"
+                            value={editForm.consultationPrice}
+                            onChange={(e) =>
+                              setEditForm((prev) => ({
+                                ...prev,
+                                consultationPrice: e.target.value,
+                              }))
+                            }
+                            placeholder="VD: 6tr"
+                            className="w-full border border-gray-200 rounded-xl p-3 text-[16px] outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] bg-gray-50/50 transition-all"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-gray-700 whitespace-nowrap">
-                      Giờ hẹn{" "}
-                      <span className="text-gray-400 text-[11px] font-normal">
-                        (Có thể bỏ trống)
-                      </span>
+                </div>
+
+                {/* THẺ 3: Chỉnh sửa Lịch & Note */}
+                <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 shadow-sm w-full space-y-4">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-2">
+                    Thời gian & Yêu cầu
+                  </h3>
+                  <div className="flex gap-4 w-full">
+                    <div className="space-y-1.5 w-full min-w-0">
+                      <label className="text-[13px] font-bold text-gray-700">
+                        Ngày xem <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        required
+                        type="date"
+                        value={editForm.bookingDate}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            bookingDate: e.target.value,
+                          })
+                        }
+                        className="w-full border border-gray-200 rounded-xl p-3 text-[16px] outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] bg-gray-50/50 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1.5 w-full min-w-0">
+                      <label className="text-[13px] font-bold text-gray-700">
+                        Giờ xem
+                      </label>
+                      <input
+                        type="time"
+                        value={editForm.bookingTime}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            bookingTime: e.target.value,
+                          })
+                        }
+                        className="w-full border border-gray-200 rounded-xl p-3 text-[16px] outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] bg-gray-50/50 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 w-full min-w-0 pb-1">
+                    <label className="text-[13px] font-bold text-gray-700">
+                      Ghi chú yêu cầu của khách
                     </label>
-                    <input
-                      type="time"
-                      value={editForm.bookingTime}
+                    <textarea
+                      rows={3}
+                      value={editForm.notes}
                       onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          bookingTime: e.target.value,
-                        })
+                        setEditForm({ ...editForm, notes: e.target.value })
                       }
-                      className="w-full border border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:border-[#cda533]"
+                      placeholder="VD: Nuôi pet, có xe điện..."
+                      className="w-full border border-gray-200 rounded-xl p-3.5 text-[16px] resize-none outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] bg-gray-50/50 transition-all"
                     />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-gray-700">
-                    Ghi chú thêm
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={editForm.notes}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, notes: e.target.value })
-                    }
-                    placeholder="Tài chính, có pet, xe điện..."
-                    className="w-full border border-gray-200 rounded-xl p-2.5 text-sm resize-none outline-none focus:border-[#cda533]"
-                  />
-                </div>
               </div>
 
-              <div className="pt-2 flex flex-col sm:flex-row justify-end gap-3 border-t border-gray-100 mt-6">
+              {/* FOOTER CỐ ĐỊNH, NHỎ GỌN */}
+              <div className="shrink-0 p-3 sm:px-6 sm:py-4 border-t border-gray-200 bg-white sticky bottom-0 z-20 flex gap-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] w-full">
                 <button
                   type="button"
                   onClick={() => setIsDetailsModalOpen(false)}
-                  className="px-5 py-3 rounded-xl bg-gray-100 text-gray-700 font-bold text-sm hover:bg-gray-200 transition-colors w-full sm:w-auto"
+                  className="hidden sm:block px-6 py-3 rounded-xl bg-gray-100 text-gray-700 font-bold text-[15px] hover:bg-gray-200 transition-colors"
                 >
                   Đóng
                 </button>
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-5 py-3 rounded-xl bg-[#cda533] text-white font-bold text-sm hover:bg-[#b88e22] transition-colors w-full sm:w-auto flex items-center justify-center gap-2"
+                  className="w-full sm:flex-1 h-12 sm:h-auto rounded-xl sm:rounded-xl bg-gray-900 hover:bg-[#cda533] text-white font-bold text-[16px] flex items-center justify-center gap-2 transition-colors shadow-sm"
                 >
                   {isSaving ? (
-                    <Loader2 className="animate-spin h-4 w-4" />
+                    <Loader2 className="animate-spin h-5 w-5" />
                   ) : (
                     <>
-                      <Save className="h-4 w-4" /> Lưu thông tin
+                      <Save className="h-5 w-5" /> Cập nhật Lịch Hẹn
                     </>
                   )}
                 </button>
@@ -836,6 +929,7 @@ export default function BookingsManagementPage() {
           )}
         </DialogContent>
       </Dialog>
+
       <Footer />
     </div>
   );

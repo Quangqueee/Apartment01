@@ -21,17 +21,17 @@ import {
 } from "@/components/ui/dialog";
 import { Heart, Phone, Loader2, UserPlus, Users, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Apartment } from "@/lib/types";
+import { Apartment } from "@/lib/types"; // ĐÃ GỘP IMPORT TỪ TYPES.TS
 
-// Hàm hỗ trợ xóa dấu Tiếng Việt
-const removeVietnameseTones = (str?: string) => {
+// Helper function to remove Vietnamese tone marks
+const removeVietnameseTones = (str: string = "") => {
   if (!str) return "";
   return str
     .toString()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
+    .replace(/đ/g, "d")      // Bổ sung xử lý chữ đ
+    .replace(/Đ/g, "D")      // Bổ sung xử lý chữ Đ
     .toLowerCase()
     .trim();
 };
@@ -63,7 +63,6 @@ export default function BookingWidget({
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State quản lý danh sách và tìm kiếm CTV
   const [ctvList, setCtvList] = useState<any[]>([]);
   const [ctvSearchTerm, setCtvSearchTerm] = useState("");
   const [isCtvDropdownOpen, setIsCtvDropdownOpen] = useState(false);
@@ -88,7 +87,6 @@ export default function BookingWidget({
   const isCollaborator = role === "collaborator" || role === "admin";
   const isGuest = !user;
 
-  // Biến kiểm tra Khóa ô CTV an toàn với TypeScript
   const isCtvSelectedFromList = !!(
     formData.ctvId && formData.ctvId !== "manual_entry"
   );
@@ -108,7 +106,6 @@ export default function BookingWidget({
     }
   }, [role]);
 
-  // Bộ lọc CTV thông minh (Hỗ trợ gõ không dấu)
   const normalizedCtvSearchTerm = removeVietnameseTones(ctvSearchTerm);
   const filteredCtvs = ctvList.filter(
     (c) =>
@@ -124,7 +121,6 @@ export default function BookingWidget({
     const { name, value } = e.target;
     setFormData((prev) => {
       let newCtvId = prev.ctvId;
-      // Tự động gỡ ID nếu Admin cố tình gõ đè vào ô Tên/SĐT của CTV
       if (
         (name === "ctvName" || name === "ctvPhone") &&
         prev.ctvId &&
@@ -244,7 +240,7 @@ export default function BookingWidget({
         className: "bg-green-50 text-green-900 border-green-200",
       });
       setIsOpen(false);
-      setCtvSearchTerm(""); // Reset thanh tìm kiếm
+      setCtvSearchTerm("");
       setFormData({
         ...formData,
         clientName: "",
@@ -381,7 +377,6 @@ export default function BookingWidget({
               </div>
             )}
 
-            {/* Khối Tìm Kiếm CTV Thông Minh */}
             {role === "admin" && formData.adminBookingType === "ctv" && (
               <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3 animate-in slide-in-from-top-2">
                 <div className="space-y-1.5 relative">
@@ -402,7 +397,6 @@ export default function BookingWidget({
                       className="w-full pl-9 pr-3 py-2.5 border border-blue-200 rounded-lg text-sm outline-none bg-white focus:border-blue-400 shadow-sm transition-all"
                     />
 
-                    {/* Dropdown Danh sách CTV */}
                     {isCtvDropdownOpen && (
                       <>
                         <div
@@ -466,7 +460,6 @@ export default function BookingWidget({
                       placeholder="SĐT CTV..."
                     />
                   </div>
-                  {/* Nút Bỏ chọn CTV nếu đã chọn từ List */}
                   {isCtvSelectedFromList && (
                     <div className="col-span-2 text-right">
                       <button
@@ -530,7 +523,7 @@ export default function BookingWidget({
                       value={formData.budget}
                       onChange={handleChange}
                       placeholder="VD: 5-7tr"
-                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
+                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] text-sm"
                     />
                   </div>
                 </div>
@@ -545,7 +538,7 @@ export default function BookingWidget({
                     value={formData.consultationPrice}
                     onChange={handleChange}
                     placeholder="Giá báo khách..."
-                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
+                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] text-sm"
                   />
                 </div>
 

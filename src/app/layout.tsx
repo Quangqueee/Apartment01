@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
+// BƯỚC 1: Import AuthProvider vào đây
+import { AuthProvider } from "@/context/auth-context";
 import "./globals.css";
 import MobileNav from "@/components/mobile-nav";
 import MultiContact from "@/components/multi-contact";
@@ -72,14 +74,16 @@ export default function RootLayout({
       </head>
       <body className="font-body bg-background text-foreground antialiased overflow-x-hidden">
         <FirebaseClientProvider>
-          {/* Căn chỉnh lại container chính để không bóp nghẹt component con */}
-          <div className="relative flex min-h-screen flex-col">
-            <main className="flex-1 pb-24 md:pb-0">{children}</main>
-          </div>
+          {/* BƯỚC 2: Bọc AuthProvider ôm trọn ứng dụng (nằm ngay dưới Firebase Provider) */}
+          <AuthProvider>
+            <div className="relative flex min-h-screen flex-col">
+              <main className="flex-1 pb-24 md:pb-0">{children}</main>
+            </div>
 
-          <MultiContact />
-          <MobileNav />
-          <Toaster />
+            <MultiContact />
+            <MobileNav />
+            <Toaster />
+          </AuthProvider>
         </FirebaseClientProvider>
       </body>
     </html>
