@@ -13,6 +13,8 @@ import {
   where,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { createNotification } from "@/lib/notifications";
+import { ADMIN_PATH } from "@/lib/constants";
 import { Loader2, Search, UserPlus, Users } from "lucide-react";
 import {
   Dialog,
@@ -113,6 +115,30 @@ export function AddBookingModal({
     setIsCtvDropdownOpen(false);
   };
 
+  const notifyAdminsOfManualBooking = async (
+    clientName: string,
+    apartmentCode?: string,
+  ) => {
+    try {
+      const adminsSnap = await getDocs(
+        query(collection(db, "users"), where("role", "==", "admin")),
+      );
+      await Promise.all(
+        adminsSnap.docs.map((adminDoc) =>
+          createNotification({
+            recipientId: adminDoc.id,
+            title: "Lịch hẹn thủ công mới",
+            message: `Đã tạo lịch hẹn thủ công cho khách ${clientName || "khách hàng"}${apartmentCode ? ` - mã căn ${apartmentCode}` : ""}.`,
+            type: "new_booking",
+            link: `/${ADMIN_PATH}/bookings`,
+          }),
+        ),
+      );
+    } catch (error) {
+      console.error("Lỗi gửi thông báo cho admin:", error);
+    }
+  };
+
   const handleManualAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsAdding(true);
@@ -152,6 +178,8 @@ export function AddBookingModal({
         };
         await addDoc(collection(db, "user_bookings"), payload);
       }
+
+      await notifyAdminsOfManualBooking(addForm.name, addForm.apartmentCode);
 
       toast({
         title: "Đã tạo lịch thành công",

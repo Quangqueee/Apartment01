@@ -35,7 +35,7 @@ import {
   collection,
   deleteField,
   doc,
-  getDocs,
+  onSnapshot,
   updateDoc,
   deleteDoc, // <-- Thêm hàm deleteDoc
 } from "firebase/firestore";
@@ -59,6 +59,7 @@ interface UserData {
   dob?: string;
   gender?: string;
   interests?: string;
+  ctvIntroduction?: string;
   role?: "user" | "collaborator" | "admin";
   requestStatus?: "pending" | string;
   createdAt?: any; // <-- Khai báo thêm trường createdAt
@@ -73,38 +74,39 @@ export default function UsersPage() {
   const [processingUserId, setProcessingUserId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
-  const fetchUsers = async () => {
-    setIsLoadingUsers(true);
-    try {
-      const usersRef = collection(db, "users");
-      const querySnapshot = await getDocs(usersRef);
-      const usersData: UserData[] = [];
-      querySnapshot.forEach((doc) => {
-        usersData.push({ uid: doc.id, ...doc.data() } as UserData);
-      });
-
-      // SẮP XẾP MỚI NHẤT LÊN ĐẦU
-      usersData.sort((a, b) => {
-        const timeA = a.createdAt?.seconds || 0;
-        const timeB = b.createdAt?.seconds || 0;
-        return timeB - timeA;
-      });
-
-      setUsers(usersData);
-    } catch (error) {
-      console.error("Lỗi tải danh sách người dùng:", error);
-      toast({
-        variant: "destructive",
-        title: "Không thể tải danh sách người dùng",
-        description: "Vui lòng thử lại sau.",
-      });
-    } finally {
-      setIsLoadingUsers(false);
-    }
-  };
-
   useEffect(() => {
-    fetchUsers();
+    setIsLoadingUsers(true);
+    const usersRef = collection(db, "users");
+    const unsubscribe = onSnapshot(
+      usersRef,
+      (querySnapshot) => {
+        const usersData: UserData[] = [];
+        querySnapshot.forEach((doc) => {
+          usersData.push({ uid: doc.id, ...doc.data() } as UserData);
+        });
+
+        // SẮP XẾP MỚI NHẤT LÊN ĐẦU
+        usersData.sort((a, b) => {
+          const timeA = a.createdAt?.seconds || 0;
+          const timeB = b.createdAt?.seconds || 0;
+          return timeB - timeA;
+        });
+
+        setUsers(usersData);
+        setIsLoadingUsers(false);
+      },
+      (error) => {
+        console.error("Lỗi tải danh sách người dùng:", error);
+        toast({
+          variant: "destructive",
+          title: "Không thể tải danh sách người dùng",
+          description: "Vui lòng thử lại sau.",
+        });
+        setIsLoadingUsers(false);
+      },
+    );
+
+    return () => unsubscribe();
   }, []);
 
   const filteredUsers = useMemo(() => {
@@ -367,28 +369,31 @@ export default function UsersPage() {
                     </div>
                   </TableCell>
                   <TableCell className="max-w-[250px]">
-                    {u.interests ? (
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <div className="cursor-pointer hover:bg-gray-100 p-1 rounded group">
-                            <p className="line-clamp-2 text-xs group-hover:text-primary">
-                              <FileText className="inline h-3 w-3 mr-1" />{" "}
-                              {u.interests}
-                            </p>
-                          </div>
-                        </DialogTrigger>
-                        <DialogContent className="bg-white z-[100] shadow-2xl">
-                          <DialogHeader>
-                            <DialogTitle>Thông tin chi tiết</DialogTitle>
-                          </DialogHeader>
-                          <div className="p-4 bg-gray-50 rounded text-sm whitespace-pre-wrap">
-                            {u.interests}
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    ) : (
-                      <span className="text-gray-300 text-xs italic">--</span>
-                    )}
+                    {(() => {
+                      const noteContent = u.interests || u.ctvIntroduction;
+                      return noteContent ? (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <div className="cursor-pointer hover:bg-gray-100 p-1 rounded group">
+                              <p className="line-clamp-2 text-xs group-hover:text-primary">
+                                <FileText className="inline h-3 w-3 mr-1" />{" "}
+                                {noteContent}
+                              </p>
+                            </div>
+                          </DialogTrigger>
+                          <DialogContent className="bg-white z-[100] shadow-2xl">
+                            <DialogHeader>
+                              <DialogTitle>Thông tin chi tiết</DialogTitle>
+                            </DialogHeader>
+                            <div className="p-4 bg-gray-50 rounded text-sm whitespace-pre-wrap">
+                              {noteContent}
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      ) : (
+                        <span className="text-gray-300 text-xs italic">--</span>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>{renderRoleControl(u)}</TableCell>
                   <TableCell className="text-right">
@@ -495,7 +500,7 @@ export default function UsersPage() {
                     Nhu cầu
                   </span>
                   <p className="text-xs bg-gray-50 p-2 rounded text-gray-700">
-                    {u.interests || "..."}
+                    {u.interests || u.ctvIntroduction || "..."}
                   </p>
                 </div>
                 <div className="space-y-2 border-t border-gray-100 pt-3">

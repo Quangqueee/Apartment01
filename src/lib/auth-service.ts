@@ -13,6 +13,8 @@ import {
     confirmPasswordReset as firebaseConfirmPasswordReset
 } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { notifyAdmins } from "@/lib/notifications";
+import { ADMIN_PATH } from "@/lib/constants";
 
 export const login = async (email: string, pass: string) => {
     return await signInWithEmailAndPassword(auth, email, pass);
@@ -29,6 +31,12 @@ export const signup = async (email: string, pass: string, fullName: string, phon
         role: "user",
         favorites: [],
         createdAt: serverTimestamp(),
+    });
+    await notifyAdmins({
+        title: "Thành viên mới đăng ký",
+        message: `${fullName || email} vừa đăng ký tài khoản mới trên hệ thống.`,
+        type: "system",
+        link: `/${ADMIN_PATH}/users`,
     });
     return res.user;
 };

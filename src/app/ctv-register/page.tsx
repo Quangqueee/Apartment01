@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { db } from "@/firebase";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { notifyAdmins } from "@/lib/notifications";
+import { ADMIN_PATH } from "@/lib/constants";
 import { useState, useEffect, useRef } from "react";
 import { Loader2, Users, CheckCircle2, PhoneCall } from "lucide-react";
 import Header from "@/components/header";
@@ -164,6 +166,13 @@ export default function CtvRegisterPage() {
         },
         { merge: true },
       );
+
+      await notifyAdmins({
+        title: "Yêu cầu đăng ký CTV mới",
+        message: `${ctvForm.displayName || user.email || "Người dùng"} vừa gửi yêu cầu đăng ký trở thành CTV, cần xét duyệt.`,
+        type: "system",
+        link: `/${ADMIN_PATH}/users`,
+      });
 
       // Thời gian hiển thị Toast (10 giây)
       const toastDuration = 60000; // 60 giây

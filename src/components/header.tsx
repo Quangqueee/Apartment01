@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useUser } from "@/firebase/provider";
 import { useAuth as useAuthContext } from "@/context/auth-context";
 import UserNav from "./user-nav";
+import NotificationBell from "./notification-bell";
 import {
   Menu,
   X,
@@ -130,9 +131,12 @@ export default function Header() {
             </Link>
           )}
 
-          <div className="flex items-center gap-6 border-l border-gray-100 pl-8 ml-2">
+          <div className="flex items-center gap-4 border-l border-gray-100 pl-8 ml-2">
             {user ? (
-              <UserNav />
+              <>
+                <NotificationBell userId={user.uid} />
+                <UserNav />
+              </>
             ) : (
               <>
                 <Link
@@ -153,7 +157,8 @@ export default function Header() {
         </nav>
 
         {/* MOBILE MENU BUTTON */}
-        <div className="md:hidden flex items-center">
+        <div className="md:hidden flex items-center gap-1">
+          {user && <NotificationBell userId={user.uid} />}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"

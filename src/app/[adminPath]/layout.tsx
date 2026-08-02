@@ -36,9 +36,11 @@ import { useRouter, usePathname, useParams } from "next/navigation";
 import { useEffect } from "react";
 import { signOut } from "firebase/auth";
 import { ADMIN_PATH } from "@/lib/constants";
+import NotificationBell from "@/components/notification-bell";
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const auth = useFirebaseAuth();
+  const { user: authUser } = useAuthContext();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -245,14 +247,19 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
       </Sidebar>
 
       <SidebarInset className="bg-gray-50 min-h-screen">
-        {/* THÊM ĐOẠN HEADER NÀY */}
+        {/* Header mobile */}
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-gray-200 bg-white px-4 shadow-sm md:hidden">
           <SidebarTrigger className="h-10 w-10 rounded-md border border-gray-200 bg-gray-50 text-gray-700 transition-all hover:bg-gray-100 active:scale-95" />
-          <span className="font-headline text-lg font-bold text-[#cda533]">
+          <span className="font-headline text-lg font-bold text-[#cda533] flex-1">
             Hanoi Residences
           </span>
+          <NotificationBell userId={authUser?.uid} />
         </header>
-        {/* KẾT THÚC THÊM */}
+
+        {/* Header desktop */}
+        <header className="hidden md:flex sticky top-0 z-20 h-16 items-center justify-end border-b border-gray-200 bg-white px-6 shadow-sm">
+          <NotificationBell userId={authUser?.uid} />
+        </header>
 
         <div className="p-4 md:p-8 w-full max-w-[1600px] mx-auto">
           {children}

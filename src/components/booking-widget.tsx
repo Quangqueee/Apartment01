@@ -12,6 +12,8 @@ import {
   where,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { createNotification, notifyAdmins } from "@/lib/notifications";
+import { ADMIN_PATH } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -234,6 +236,47 @@ export default function BookingWidget({
       }
 
       await addDoc(collection(db, collectionName), payload);
+
+      const successMessage = `Bạn đã đặt lịch hẹn thành công cho căn ${apartment.sourceCode || "N/A"}.`;
+
+      if (role === "collaborator") {
+        await notifyAdmins({
+          title: "Lịch hẹn CTV mới",
+          message: `CTV ${userData?.displayName || user?.displayName || "Cộng tác viên"} đã đặt lịch dẫn khách ${formData.clientName || "khách hàng"} xem mã căn ${apartment.sourceCode || "N/A"}.`,
+          type: "new_booking",
+          link: `/${ADMIN_PATH}/bookings`,
+        });
+        if (user?.uid) {
+          await createNotification({
+            recipientId: user.uid,
+            title: "Đặt lịch thành công",
+            message: successMessage,
+            type: "new_booking",
+            link: "/profile/bookings",
+          });
+        }
+      } else if (role === "user" && user) {
+        await notifyAdmins({
+          title: "Lịch hẹn mới từ khách hàng",
+          message: `Khách ${formData.name || userData?.displayName || "Người dùng"} đã đặt lịch mới xem mã căn ${apartment.sourceCode || "N/A"}.`,
+          type: "new_booking",
+          link: `/${ADMIN_PATH}/bookings`,
+        });
+        await createNotification({
+          recipientId: user.uid,
+          title: "Đặt lịch thành công",
+          message: successMessage,
+          type: "new_booking",
+          link: "/profile/bookings",
+        });
+      } else if (isGuest) {
+        await notifyAdmins({
+          title: "Khách vãng lai đặt lịch tư vấn",
+          message: `Khách ${formData.name || "vãng lai"} (SĐT: ${formData.phone || "N/A"}) đã đặt lịch mới xem mã căn ${apartment.sourceCode || "N/A"}.`,
+          type: "new_booking",
+          link: `/${ADMIN_PATH}/bookings`,
+        });
+      }
 
       toast({
         title: "Gửi yêu cầu thành công!",

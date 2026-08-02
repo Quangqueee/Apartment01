@@ -1,77 +1,62 @@
+"use client";
+
 import { db } from "@/firebase";
 import {
-    addDoc,
-    collection,
-    getDocs,
-    orderBy,
-    query,
-    serverTimestamp,
-    updateDoc,
-    doc,
+  collection,
+  addDoc,
+  serverTimestamp,
+  getDocs,
+  query,
+  where,
 } from "firebase/firestore";
 
-export interface AppNotification {
-    id: string;
-    userId: string;
-    title: string;
-    message: string;
-    type: string;
-    isRead: boolean;
-    createdAt: any;
+export type NotificationType = "new_booking" | "status_update" | "system";
+
+export interface CreateNotificationInput {
+  recipientId: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  link: string;
 }
 
-export async function createNotification(
-    userId: string,
-    title: string,
-    message: string,
-    type = "system"
-) {
-    if (!userId) return null;
-
-    const notificationsRef = collection(db, "notifications", userId, "items");
-    const docRef = await addDoc(notificationsRef, {
-        userId,
-        title,
-        message,
-        type,
-        isRead: false,
-        createdAt: serverTimestamp(),
+/**
+ * Ghi một thông báo mới vào collection `notifications`.
+ * Lỗi được nuốt (log ra console) để không làm gián đoạn luồng nghiệp vụ chính
+ * (VD: đổi trạng thái lịch hẹn vẫn thành công dù gửi thông báo thất bại).
+ */
+export async function createNotification(data: CreateNotificationInput) {
+  try {
+    await addDoc(collection(db, "notifications"), {
+      recipientId: data.recipientId,
+      title: data.title,
+      message: data.message,
+      type: data.type,
+      isRead: false,
+      link: data.link,
+      createdAt: serverTimestamp(),
     });
-
-    return docRef.id;
+  } catch (error) {
+    console.error("Lỗi tạo thông báo:", error);
+  }
 }
 
-export async function getNotificationsForUser(userId: string) {
-    if (!userId) return [];
-
-    const notificationsRef = collection(db, "notifications", userId, "items");
-    const q = query(notificationsRef, orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
-
-    return snapshot.docs.map((item) => ({
-        id: item.id,
-        ...(item.data() as Omit<AppNotification, "id">),
-    })) as AppNotification[];
-}
-
-export async function markNotificationAsRead(userId: string, notificationId: string) {
-    if (!userId || !notificationId) return;
-
-    const notificationRef = doc(db, "notifications", userId, "items", notificationId);
-    await updateDoc(notificationRef, { isRead: true });
-}
-
-export async function ensureUserNotification(
-    userId: string,
-    type: string,
-    title: string,
-    message: string
+/**
+ * Gửi thông báo tới toàn bộ user có role "admin".
+ */
+export async function notifyAdmins(
+  data: Omit<CreateNotificationInput, "recipientId">,
 ) {
-    if (!userId) return null;
-
-    const notifications = await getNotificationsForUser(userId);
-    const existing = notifications.find((item) => item.type === type);
-    if (existing) return existing;
-
-    return createNotification(userId, title, message, type);
+  try {
+    const adminsSnap = await getDocs(
+      query(collection(db, "users"), where("role", "==", "admin")),
+    );
+    await Promise.all(
+      adminsSnap.docs.map((adminDoc) =>
+        createNotification({ ...data, recipientId: adminDoc.id }),
+      ),
+    );
+  } catch (error) {
+    console.error("Lỗi gửi thông báo cho admin:", error);
+  }
 }

@@ -1,15 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, getCountFromServer } from "firebase/firestore";
+import {
+  collection,
+  getCountFromServer,
+  query,
+  where,
+} from "firebase/firestore";
 import { db } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Users, TrendingUp, Activity } from "lucide-react";
+import { Building2, Users, TrendingUp, Activity, CalendarClock, UserCheck } from "lucide-react";
+
+const PENDING_BOOKING_COLLECTIONS = [
+  "ctv_bookings",
+  "user_bookings",
+  "guest_consultations",
+];
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState({
     totalApartments: 0,
     totalUsers: 0,
+    pendingBookings: 0,
+    pendingCtvRequests: 0,
     isLoading: true,
   });
 
@@ -24,9 +37,26 @@ export default function AdminDashboardPage() {
         const usersCol = collection(db, "users");
         const usersSnapshot = await getCountFromServer(usersCol);
 
+        // Đếm tổng số lịch hẹn đang chờ duyệt trên cả 3 collection
+        const pendingCounts = await Promise.all(
+          PENDING_BOOKING_COLLECTIONS.map(async (name) => {
+            const snap = await getCountFromServer(
+              query(collection(db, name), where("status", "==", "pending")),
+            );
+            return snap.data().count;
+          }),
+        );
+
+        // Đếm số CTV đang chờ duyệt
+        const ctvRequestSnapshot = await getCountFromServer(
+          query(usersCol, where("requestStatus", "==", "pending")),
+        );
+
         setStats({
           totalApartments: aptSnapshot.data().count,
           totalUsers: usersSnapshot.data().count,
+          pendingBookings: pendingCounts.reduce((sum, c) => sum + c, 0),
+          pendingCtvRequests: ctvRequestSnapshot.data().count,
           isLoading: false,
         });
       } catch (error) {
@@ -88,6 +118,48 @@ export default function AdminDashboardPage() {
             <p className="text-xs text-gray-500 font-medium flex items-center mt-2">
               <Activity className="h-3 w-3 mr-1" />
               Đã đăng ký tài khoản
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Thẻ Thống kê Lịch hẹn chờ duyệt */}
+        <Card className="shadow-sm border-gray-100 transition-all hover:shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-bold uppercase text-gray-500">
+              Lịch hẹn đang chờ duyệt
+            </CardTitle>
+            <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
+              <CalendarClock className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-black text-gray-900">
+              {stats.isLoading ? "..." : stats.pendingBookings}
+            </div>
+            <p className="text-xs text-orange-600 font-medium flex items-center mt-2">
+              <Activity className="h-3 w-3 mr-1" />
+              Cần Admin xử lý
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Thẻ Thống kê CTV chờ duyệt */}
+        <Card className="shadow-sm border-gray-100 transition-all hover:shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-bold uppercase text-gray-500">
+              CTV đang chờ duyệt
+            </CardTitle>
+            <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
+              <UserCheck className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-black text-gray-900">
+              {stats.isLoading ? "..." : stats.pendingCtvRequests}
+            </div>
+            <p className="text-xs text-purple-600 font-medium flex items-center mt-2">
+              <Activity className="h-3 w-3 mr-1" />
+              Yêu cầu cần xét duyệt
             </p>
           </CardContent>
         </Card>

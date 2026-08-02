@@ -15,6 +15,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { createNotification } from "@/lib/notifications";
 import {
   Loader2,
   ExternalLink,
@@ -95,6 +96,9 @@ export default function AdminBookingsPage() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [dateFilterType, setDateFilterType] = useState<
     "all" | "today" | "week" | "month" | "custom"
+  >("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "pending" | "approved" | "contacted" | "failed"
   >("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -199,7 +203,14 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, debouncedSearchTerm, dateFilterType, startDate, endDate]);
+  }, [
+    activeTab,
+    debouncedSearchTerm,
+    dateFilterType,
+    startDate,
+    endDate,
+    statusFilter,
+  ]);
 
   const searchFilteredBookings = useMemo(() => {
     const combined = [...ctvBookings, ...userBookings, ...guestBookings].sort(
@@ -218,6 +229,7 @@ export default function AdminBookingsPage() {
       )
         return false;
       if (activeTab !== "all" && b.type !== activeTab) return false;
+      if (statusFilter !== "all" && b.status !== statusFilter) return false;
 
       if (dateFilterType !== "all") {
         if (!b.dateTime) return false;
@@ -272,6 +284,7 @@ export default function AdminBookingsPage() {
     dateFilterType,
     startDate,
     endDate,
+    statusFilter,
     user?.uid,
   ]);
 
@@ -288,6 +301,36 @@ export default function AdminBookingsPage() {
     return "user_bookings";
   };
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "Chờ duyệt";
+      case "approved":
+        return "Đã duyệt";
+      case "contacted":
+        return "Đã dẫn khách";
+      case "failed":
+        return "Hủy / Từ chối";
+      default:
+        return status;
+    }
+  };
+
+  const getBookingRecipientId = (booking: AdminBooking) =>
+    booking.type === "ctv" ? booking.ctvId : booking.userId;
+
+  const notifyStatusChange = async (booking: AdminBooking, newStatus: string) => {
+    const recipientId = getBookingRecipientId(booking);
+    if (!recipientId) return;
+    await createNotification({
+      recipientId,
+      title: "Cập nhật trạng thái lịch hẹn",
+      message: `Lịch hẹn của bạn cho căn ${booking.apartmentCode || "N/A"} đã được chuyển sang trạng thái ${getStatusLabel(newStatus)}.`,
+      type: "status_update",
+      link: "/profile/bookings",
+    });
+  };
+
   const handleStatusChange = async (
     booking: AdminBooking,
     newStatus: string,
@@ -301,6 +344,7 @@ export default function AdminBookingsPage() {
         doc(db, getCollectionNameByType(booking.type), booking.id),
         { status: newStatus, updatedAt: serverTimestamp() },
       );
+      await notifyStatusChange(booking, newStatus);
       toast({
         title: "Đã cập nhật trạng thái",
         className: "bg-green-50 text-green-900 border-green-200",
@@ -321,6 +365,7 @@ export default function AdminBookingsPage() {
         ),
         { status: "failed", updatedAt: serverTimestamp() },
       );
+      await notifyStatusChange(cancelConfirm.booking, "failed");
       toast({
         title: "Đã đổi trạng thái Hủy",
         className: "bg-red-50 text-red-900 border-red-200",
@@ -365,6 +410,16 @@ export default function AdminBookingsPage() {
         ),
         { adminNotes: newNoteContent, updatedAt: serverTimestamp() },
       );
+      const recipientId = getBookingRecipientId(selectedBooking);
+      if (recipientId && newNoteContent.trim()) {
+        await createNotification({
+          recipientId,
+          title: "Ghi chú lịch hẹn được cập nhật",
+          message: `Admin đã cập nhật ghi chú cho lịch hẹn căn ${selectedBooking.apartmentCode || "N/A"}: ${newNoteContent}`,
+          type: "status_update",
+          link: "/profile/bookings",
+        });
+      }
       toast({
         title: "Đã lưu ghi chú",
         className: "bg-green-50 text-green-900 border-green-200",
@@ -524,6 +579,28 @@ export default function AdminBookingsPage() {
           <div className="flex items-center gap-2 text-sm font-bold text-gray-700 whitespace-nowrap">
             <Filter className="h-4 w-4" /> Lọc theo lịch hẹn:
           </div>
+          <div className="relative w-full md:w-auto">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="w-full md:w-auto h-[38px] pl-4 pr-9 rounded-xl text-xs font-bold border border-gray-200 bg-white text-gray-600 shadow-sm outline-none cursor-pointer appearance-none hover:bg-gray-50 focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] transition-all"
+            >
+              <option value="all">Tất cả trạng thái</option>
+              <option value="pending">Chờ duyệt</option>
+              <option value="approved">Đã duyệt</option>
+              <option value="contacted">Đã liên hệ/dẫn</option>
+              <option value="failed">Đã hủy/thất bại</option>
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center opacity-60">
+              <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             {[
               { id: "all", label: "Tất cả" },
@@ -598,7 +675,7 @@ export default function AdminBookingsPage() {
                     colSpan={8}
                     className="px-6 py-20 text-center text-gray-400 font-medium text-base"
                   >
-                    {debouncedSearchTerm || dateFilterType !== "all"
+                    {debouncedSearchTerm || dateFilterType !== "all" || statusFilter !== "all"
                       ? "Không tìm thấy kết quả phù hợp với bộ lọc."
                       : "Chưa có dữ liệu lịch hẹn."}
                   </td>
@@ -781,7 +858,7 @@ export default function AdminBookingsPage() {
         <div className="md:hidden flex flex-col gap-4">
           {currentBookings.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center text-gray-400 shadow-sm border border-gray-100">
-              {debouncedSearchTerm || dateFilterType !== "all"
+              {debouncedSearchTerm || dateFilterType !== "all" || statusFilter !== "all"
                 ? "Không tìm thấy kết quả."
                 : "Chưa có dữ liệu."}
             </div>
