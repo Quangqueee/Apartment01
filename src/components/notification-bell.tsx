@@ -17,7 +17,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-// Đã xóa import ScrollArea vì chúng ta dùng thẻ div mặc định để cuộn mượt hơn
 
 import {
   useNotifications,

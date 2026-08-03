@@ -12,7 +12,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { kiemTraMatKhau, layMauSacDoDamBao } from "@/lib/kiem-tra-mat-khau";
+import { checkPasswordStrength, getPasswordStrengthColor, getPasswordStrengthMessage } from "@/lib/password-utils";
 
 // Tách nội dung chính thành Component con
 function ResetPasswordContent() {
@@ -32,8 +32,8 @@ function ResetPasswordContent() {
 
   const [cacLoiNhap, setCacLoiNhap] = useState<string[]>([]);
   const [doDamBao, setDoDamBao] = useState<
-    "yeu" | "trung_binh" | "manh" | "rat_manh"
-  >("yeu");
+    "weak" | "medium" | "strong" | "very_strong"
+  >("weak");
 
   useEffect(() => setMounted(true), []);
 
@@ -42,10 +42,10 @@ function ResetPasswordContent() {
     setPassword(newVal);
     setErrorMsg("");
 
-    if (newVal.length > 0) {
-      const ketQua = kiemTraMatKhau(newVal);
-      setCacLoiNhap(ketQua.cacLoiNhap);
-      setDoDamBao(ketQua.doDamBao);
+ if (newVal.length > 0) {
+      const ketQua = checkPasswordStrength(newVal);
+      setCacLoiNhap(ketQua.errors);
+      setDoDamBao(ketQua.strengthLevel);
     } else {
       setCacLoiNhap([]);
     }
@@ -184,12 +184,12 @@ function ResetPasswordContent() {
                       Độ mạnh:
                     </span>
                     <span
-                      className={`text-xs font-bold uppercase tracking-widest ${layMauSacDoDamBao(doDamBao)}`}
+                      className={`text-xs font-bold uppercase tracking-widest ${getPasswordStrengthColor(doDamBao)}`}
                     >
-                      {doDamBao === "yeu" && "⚠️ Yếu"}
-                      {doDamBao === "trung_binh" && "⚙️ Trung bình"}
-                      {doDamBao === "manh" && "✅ Mạnh"}
-                      {doDamBao === "rat_manh" && "🔒 Rất mạnh"}
+                      {doDamBao === "weak" && "⚠️ Yếu"}
+                      {doDamBao === "medium" && "⚙️ Trung bình"}
+                      {doDamBao === "strong" && "✅ Mạnh"}
+                      {doDamBao === "very_strong" && "🔒 Rất mạnh"}
                     </span>
                   </div>
                   {cacLoiNhap.length > 0 && (

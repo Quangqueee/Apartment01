@@ -5,7 +5,7 @@ import { useUser } from "@/firebase/provider";
 import { db, auth } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { changePassword } from "@/lib/auth-service";
-import { kiemTraMatKhau, kiemTraXacNhanMatKhau } from "@/lib/kiem-tra-mat-khau";
+import { checkPasswordStrength, checkPasswordMatch } from "@/lib/password-utils";
 import {
   ArrowLeft,
   Save,
@@ -112,16 +112,16 @@ export default function SettingsPage() {
   const handleChangePassword = async () => {
     if (!user) return;
 
-    const passwordValidation = kiemTraMatKhau(passForm.newPassword);
-    const confirmValidation = kiemTraXacNhanMatKhau(
+    const passwordValidation = checkPasswordStrength(passForm.newPassword);
+    const confirmValidation = checkPasswordMatch(
       passForm.newPassword,
       passForm.confirmPassword,
     );
 
-    const nextErrors = [...passwordValidation.cacLoiNhap];
-    if (!confirmValidation.hopLe) {
+    const nextErrors = [...(passwordValidation.errors || [])];
+    if (!confirmValidation.isValid) {
       nextErrors.push(
-        confirmValidation.loiNhap || "Mật khẩu xác nhận không khớp",
+        confirmValidation.errorMessage || "Mật khẩu xác nhận không khớp",
       );
     }
 
@@ -132,7 +132,7 @@ export default function SettingsPage() {
       return;
     }
 
-    if (!passwordValidation.hopLe || !confirmValidation.hopLe) {
+    if (!passwordValidation.isValid || !confirmValidation.isValid) {
       showToast(
         "Mật khẩu chưa đủ mạnh",
         "Vui lòng sửa các lỗi bên dưới.",

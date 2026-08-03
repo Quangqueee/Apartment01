@@ -4,7 +4,7 @@ import { useUser } from "@/firebase/provider";
 import { db, storage } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { kiemTraSoDienThoai } from "@/lib/kiem-tra-mat-khau";
+import { checkPhoneNumber } from "@/lib/password-utils";
 import {
   Camera,
   Save,
@@ -50,12 +50,12 @@ export default function ProfileEditPage() {
 
     // Validate số điện thoại nếu có nhập
     if (formData.phoneNumber.trim()) {
-      const ketQua = kiemTraSoDienThoai(formData.phoneNumber);
-      if (!ketQua.hopLe) {
+      const ketQua = checkPhoneNumber(formData.phoneNumber);
+      if (!ketQua.isValid) {
         toast({
           variant: "destructive",
           title: "Lỗi",
-          description: ketQua.loiNhap,
+          description: ketQua.errorMessage || "Số điện thoại không hợp lệ",
         });
         return;
       }
