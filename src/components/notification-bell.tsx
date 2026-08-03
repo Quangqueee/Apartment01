@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, CalendarDays, RefreshCw, Info, CheckCheck } from "lucide-react";
+import {
+  Bell,
+  CalendarDays,
+  RefreshCw,
+  Info,
+  CheckCheck,
+  type LucideIcon,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import {
@@ -10,17 +17,31 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
+// Đã xóa import ScrollArea vì chúng ta dùng thẻ div mặc định để cuộn mượt hơn
+
 import {
   useNotifications,
   type AppNotification,
 } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
 
-const NOTIFICATION_ICONS: Record<AppNotification["type"], any> = {
+const NOTIFICATION_ICONS: Record<AppNotification["type"], LucideIcon> = {
   new_booking: CalendarDays,
   status_update: RefreshCw,
   system: Info,
+};
+
+const formatNotificationTime = (createdAt: any) => {
+  if (!createdAt || typeof createdAt.toDate !== "function") return "";
+  try {
+    return formatDistanceToNow(createdAt.toDate(), {
+      addSuffix: true,
+      locale: vi,
+    });
+  } catch (error) {
+    console.error("Lỗi parse thời gian:", error);
+    return "";
+  }
 };
 
 export default function NotificationBell({
@@ -37,17 +58,27 @@ export default function NotificationBell({
 
   const handleClickNotification = async (notification: AppNotification) => {
     setIsOpen(false);
-    if (!notification.isRead) {
-      await markAsRead(notification.id);
-    }
-    if (notification.link) {
-      router.push(notification.link);
+
+    try {
+      if (!notification.isRead) {
+        await markAsRead(notification.id);
+      }
+      if (notification.link) {
+        router.push(notification.link);
+      }
+    } catch (error) {
+      console.error("Lỗi khi xử lý thông báo:", error);
     }
   };
 
   const handleMarkAllAsRead = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await markAllAsRead();
+
+    try {
+      await markAllAsRead();
+    } catch (error) {
+      console.error("Lỗi khi đánh dấu đọc tất cả:", error);
+    }
   };
 
   return (
@@ -65,11 +96,16 @@ export default function NotificationBell({
           )}
         </button>
       </PopoverTrigger>
+
+      {/* 
+        Bao bọc PopoverContent: Đảm bảo nó có flex-col và overflow-hidden 
+        để phần cuộn bên trong (thẻ div) hoạt động tốt nhất.
+      */}
       <PopoverContent
         align="end"
-        className="z-[100] w-[340px] p-0 rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-lg dark:bg-zinc-900 dark:border-zinc-800"
+        className="z-[100] w-[340px] p-0 flex flex-col rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-lg dark:bg-zinc-900 dark:border-zinc-800"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-zinc-800 gap-2">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-zinc-800 gap-2 shrink-0">
           <h3 className="font-bold text-sm text-gray-900 dark:text-white">
             Thông báo
           </h3>
@@ -84,7 +120,15 @@ export default function NotificationBell({
             </button>
           )}
         </div>
-        <ScrollArea className="max-h-[400px]">
+
+        {/* 
+          VÙNG CUỘN ĐÃ ĐƯỢC FIX:
+          Thay thế ScrollArea bằng div tiêu chuẩn.
+          - overflow-y-auto: Tự động cuộn dọc khi danh sách dài.
+          - max-h-[400px]: Giới hạn chiều cao hộp là 400px.
+          - overscroll-contain: Tránh lỗi cuộn lan ra cả trang web.
+        */}
+        <div className="max-h-[400px] overflow-y-auto overscroll-contain">
           {isLoading ? (
             <div className="px-4 py-8 text-center text-sm text-gray-400">
               Đang tải...
@@ -94,7 +138,7 @@ export default function NotificationBell({
               Không có thông báo nào.
             </div>
           ) : (
-            <div className="divide-y divide-gray-50">
+            <div className="divide-y divide-gray-50 dark:divide-zinc-800">
               {notifications.map((notification) => {
                 const Icon = NOTIFICATION_ICONS[notification.type] || Info;
                 return (
@@ -102,8 +146,9 @@ export default function NotificationBell({
                     key={notification.id}
                     onClick={() => handleClickNotification(notification)}
                     className={cn(
-                      "w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors",
-                      !notification.isRead && "bg-[#cda533]/5",
+                      "w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors",
+                      !notification.isRead &&
+                        "bg-[#cda533]/5 dark:bg-[#cda533]/10",
                     )}
                   >
                     <div className="h-9 w-9 shrink-0 rounded-full bg-[#cda533]/10 flex items-center justify-center text-[#cda533]">
@@ -111,23 +156,18 @@ export default function NotificationBell({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <p className="font-bold text-xs text-gray-900 truncate">
+                        <p className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
                           {notification.title}
                         </p>
                         {!notification.isRead && (
                           <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
                         )}
                       </div>
-                      <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">
                         {notification.message}
                       </p>
                       <p className="text-[10px] text-gray-400 mt-1 font-medium">
-                        {notification.createdAt?.toDate
-                          ? formatDistanceToNow(
-                              notification.createdAt.toDate(),
-                              { addSuffix: true, locale: vi },
-                            )
-                          : ""}
+                        {formatNotificationTime(notification.createdAt)}
                       </p>
                     </div>
                   </button>
@@ -135,7 +175,7 @@ export default function NotificationBell({
               })}
             </div>
           )}
-        </ScrollArea>
+        </div>
       </PopoverContent>
     </Popover>
   );

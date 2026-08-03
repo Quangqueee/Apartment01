@@ -65,6 +65,7 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+    unoptimized: process.env.NODE_ENV !== 'production', // Disable image optimization in development mode
   },
 };
 

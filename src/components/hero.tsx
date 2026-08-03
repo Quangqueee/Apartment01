@@ -1,14 +1,20 @@
 "use client";
+import Image from "next/image"; // 1. Import thẻ Image của Next.js
 import FilterControls from "./filter-controls";
 
 export default function Hero() {
   return (
     <section className="relative min-h-[90vh] w-full flex items-center overflow-hidden">
       <div className="absolute inset-0 z-0">
-        <img
-          src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1600&q=80"
+        {/* 2. Thay <img> bằng <Image /> với các cờ tối ưu */}
+        <Image
+          src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750"
           alt="Hanoi Residences Hero"
-          className="h-full w-full object-cover"
+          fill // Tự động lấp đầy thẻ div cha
+          priority // QUAN TRỌNG NHẤT: Ép trình duyệt tải ảnh này đầu tiên, không được delay!
+          quality={90} // Đẩy chất lượng lên 90 để ảnh nền nhìn sang trọng hơn
+          sizes="100vw" // Khẳng định ảnh này luôn chiếm 100% chiều rộng màn hình
+          className="object-cover"
         />
         <div className="absolute inset-0 bg-black/40 bg-gradient-to-r from-black/80 to-transparent" />
       </div>

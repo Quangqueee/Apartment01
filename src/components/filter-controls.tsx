@@ -59,6 +59,7 @@ export default function FilterControls() {
 
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
 
+  // --- LOGIC: KHÔNG THAY ĐỔI ---
   useEffect(() => {
     const urlPriceRange = parsePriceRange(searchParams.get("price") || "");
     setFilters({
@@ -150,17 +151,21 @@ export default function FilterControls() {
   ] as const;
 
   return (
-    <div className="bg-white/95 backdrop-blur-xl rounded-[3rem] p-8 md:p-12 shadow-[0_30px_100px_rgba(0,0,0,0.1)] border border-white/60 w-full max-w-[900px] mx-auto select-none relative z-10">
-      <div className="mb-10 text-center">
-        <h2 className="font-headline text-3xl md:text-3xl text-gray-900 tracking-tight italic font-medium">
-          Tìm căn hộ theo nhu cầu
-        </h2>
-        <div className="h-1 w-12 bg-[#cda533] mt-6 mx-auto rounded-full" />
+    // Tối ưu Padding (p-6 cho mobile, p-10 cho tablet/desktop) và Radius
+    <div className="bg-white/90 backdrop-blur-2xl rounded-3xl md:rounded-[2.5rem] p-6 md:p-10 shadow-[0_20px_80px_rgba(0,0,0,0.12)] border border-white w-full max-w-[900px] mx-auto select-none relative z-10">
+      <div className="mb-8 flex justify-center text-center">
+        <div className="inline-flex flex-col items-center">
+          <h2 className="font-headline text-2xl md:text-3xl text-gray-900 tracking-tight italic font-bold">
+            Tìm căn hộ theo nhu cầu
+          </h2>
+          <div className="h-[3px] w-[90%] bg-gradient-to-r from-[#cda533]/10 via-[#cda533] to-[#cda533]/10 mt-4 rounded-full" />
+        </div>
       </div>
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5 md:gap-6">
+        {/* Thanh tìm kiếm */}
         <div className="relative group w-full">
-          <div className="absolute left-6 top-1/2 -translate-y-1/2 pointer-events-none">
+          <div className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none">
             <Search className="h-5 w-5 text-gray-400 group-focus-within:text-[#cda533] transition-colors" />
           </div>
           <input
@@ -169,16 +174,20 @@ export default function FilterControls() {
             value={filters.query}
             onChange={(e) => setFilters({ ...filters, query: e.target.value })}
             onKeyDown={(e) => e.key === "Enter" && handleApply()}
-            className="h-16 w-full rounded-2xl border border-gray-100 bg-gray-50/50 text-base font-semibold pl-14 pr-6 shadow-inner transition-all font-body text-gray-900 focus:ring-2 focus:ring-[#cda533]/30 focus:border-[#cda533] focus:bg-white placeholder:text-gray-400 outline-none"
+            // Tối ưu height từ h-16 xuống h-12 (Mobile) / h-14 (Desktop)
+            className="h-12 md:h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 text-sm md:text-base font-semibold pl-12 pr-5 shadow-sm transition-all font-body text-gray-900 focus:ring-2 focus:ring-[#cda533]/30 focus:border-[#cda533] focus:bg-white placeholder:text-gray-400 outline-none"
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
+        {/* Dropdowns */}
+        {/* Sửa grid-cols-1 sm:grid-cols-2 thành grid-cols-2 trên mọi thiết bị. Giảm gap trên mobile xuống gap-3 */}
+        <div className="grid grid-cols-2 gap-3 md:gap-5">
           {selectFields.map((field) => (
-            <div key={field.id} className="w-full space-y-2">
-              <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 font-body ml-2 cursor-default">
-                <field.icon className="h-3.5 w-3.5 text-[#cda533]" />{" "}
-                {field.label}
+            // Thêm min-w-0 cực kỳ quan trọng để Grid không bị phá vỡ nội dung bên trong quá dài
+            <div key={field.id} className="w-full space-y-1.5 min-w-0">
+              <label className="flex items-center gap-1 text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-gray-500 font-body ml-1 cursor-default truncate">
+                <field.icon className="h-3 w-3 md:h-3.5 md:w-3.5 text-[#cda533] shrink-0" />{" "}
+                <span className="truncate">{field.label}</span>
               </label>
               <Select
                 value={filters[field.id]}
@@ -186,15 +195,20 @@ export default function FilterControls() {
                   setFilters({ ...filters, [field.id]: value })
                 }
               >
-                <SelectTrigger className="h-14 w-full rounded-2xl border-gray-200 bg-white text-sm font-bold px-6 hover:border-[#cda533]/50 hover:bg-gray-50 transition-all font-body text-gray-800 focus:ring-2 focus:ring-[#cda533]/20 shadow-sm">
+                {/* 
+                  1. h-11 trên mobile để thanh thoát hơn. 
+                  2. px-3 để lấy thêm không gian cho chữ. 
+                  3. [&>span]:truncate để text hiển thị bên trong SelectValue tự động biến thành "Quận Nam T..." nếu quá dài 
+                */}
+                <SelectTrigger className="h-11 md:h-14 w-full rounded-xl md:rounded-2xl border-gray-200 bg-white text-[12px] md:text-sm font-bold px-3 md:px-5 hover:border-[#cda533]/50 hover:bg-gray-50 transition-all font-body text-gray-800 focus:ring-2 focus:ring-[#cda533]/20 shadow-sm [&>span]:truncate">
                   <SelectValue placeholder={field.placeholder} />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-gray-100 bg-white shadow-xl z-[150] p-1.5 max-h-[300px]">
+                <SelectContent className="rounded-xl border-gray-100 bg-white shadow-xl z-[150] p-1.5 max-h-[280px]">
                   {field.items.map((item) => (
                     <SelectItem
                       key={item.value}
                       value={item.value}
-                      className="py-3 pl-10 pr-4 text-sm font-medium cursor-pointer font-body rounded-lg focus:bg-[#cda533]/10 focus:text-[#cda533] transition-colors data-[state=checked]:bg-[#cda533]/5 data-[state=checked]:text-[#cda533]"
+                      className="py-2.5 pl-8 pr-4 text-xs md:text-sm font-medium cursor-pointer font-body rounded-lg focus:bg-[#cda533]/10 focus:text-[#cda533] transition-colors data-[state=checked]:bg-[#cda533]/10 data-[state=checked]:text-[#cda533]"
                     >
                       {item.label}
                     </SelectItem>
@@ -205,15 +219,17 @@ export default function FilterControls() {
           ))}
         </div>
 
-        <div className="rounded-2xl border border-gray-100 bg-white p-4 md:p-5 space-y-4">
-          <label className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 font-body ml-1 cursor-default">
-            <Banknote className="h-3.5 w-3.5 text-[#cda533]" /> Ngân sách (triệu
+        {/* Ngân sách */}
+        {/* Đổi border-gray-100 bg-white sang bg-gray-50 để tạo phân tầng thị giác (Visual Hierarchy) */}
+        <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 md:p-5 space-y-3">
+          <label className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500 font-body ml-1 cursor-default">
+            <Banknote className="h-4 w-4 text-[#cda533]" /> Ngân sách (Triệu
             VNĐ)
           </label>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500 block ml-1">
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block ml-1">
                 Từ (Min)
               </label>
               <input
@@ -225,11 +241,11 @@ export default function FilterControls() {
                 onChange={(event) =>
                   setFilters({ ...filters, priceMinInput: event.target.value })
                 }
-                className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533]"
+                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500 block ml-1">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block ml-1">
                 Đến (Max)
               </label>
               <input
@@ -241,18 +257,18 @@ export default function FilterControls() {
                 onChange={(event) =>
                   setFilters({ ...filters, priceMaxInput: event.target.value })
                 }
-                className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533]"
+                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
               />
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col justify-end">
-          <div className="h-[22px] mb-2 hidden md:block" />
+        {/* Nút hành động */}
+        <div className="pt-2 flex flex-col gap-3">
           <Button
             onClick={handleApply}
             disabled={isPending}
-            className="w-full h-14 rounded-2xl bg-gradient-to-r from-[#1a1a1a] to-[#333] hover:from-[#cda533] hover:to-[#b88e22] text-white font-body font-bold text-xs uppercase tracking-[0.2em] shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all duration-300 active:scale-[0.98]"
+            className="w-full h-12 md:h-14 rounded-2xl bg-gradient-to-r from-[#1a1a1a] to-[#333] hover:from-[#cda533] hover:to-[#b88e22] text-white font-body font-bold text-[13px] uppercase tracking-widest shadow-[0_8px_20px_rgba(0,0,0,0.15)] hover:shadow-[0_10px_25px_rgba(205,165,51,0.3)] hover:-translate-y-0.5 transition-all duration-300 active:translate-y-0 disabled:opacity-70 disabled:hover:translate-y-0"
           >
             {isPending ? (
               <div className="flex items-center gap-2">
@@ -262,23 +278,21 @@ export default function FilterControls() {
               "TÌM KIẾM NGAY"
             )}
           </Button>
-        </div>
 
-        <div className="mt-2 flex justify-center">
           <button
             onClick={handleReset}
             disabled={!hasActiveFilters}
             className={`
-                group flex items-center gap-2 text-[14px] font-bold uppercase tracking-[0.3em] transition-all duration-300 py-2 px-4 rounded-full
-                ${
-                  hasActiveFilters
-                    ? "text-red-400 hover:text-red-600 hover:bg-red-50 cursor-pointer opacity-100"
-                    : "text-gray-300 cursor-not-allowed opacity-50"
-                }
-              `}
+              group flex items-center justify-center gap-2 text-[11px] md:text-xs font-bold uppercase tracking-widest transition-all duration-300 py-2 px-4 rounded-full mx-auto
+              ${
+                hasActiveFilters
+                  ? "text-red-500 hover:text-red-600 hover:bg-red-50 cursor-pointer opacity-100"
+                  : "text-gray-300 cursor-not-allowed opacity-50"
+              }
+            `}
           >
             <RotateCcw
-              className={`h-3.5 w-3.5 transition-transform duration-500 ${
+              className={`h-3 w-3 md:h-3.5 md:w-3.5 transition-transform duration-500 ${
                 hasActiveFilters ? "group-hover:-rotate-180" : ""
               }`}
             />
