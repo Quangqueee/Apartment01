@@ -223,6 +223,7 @@ function ShareModal({
           {/* Nút Copy Link */}
           <button
             onClick={handleCopyLink}
+            aria-label="Sao chép liên kết căn hộ"
             className="flex items-center gap-4 p-3.5 rounded-[1.25rem] bg-white border border-gray-100 shadow-[0_2px_15px_rgba(0,0,0,0.03)] hover:border-gray-300 transition-all group"
           >
             <div
@@ -250,6 +251,7 @@ function ShareModal({
           {/* Nút Messenger */}
           <button
             onClick={handleMessengerShare}
+            aria-label="Chia sẻ qua Facebook Messenger"
             className="flex items-center gap-4 p-3.5 rounded-[1.25rem] bg-white border border-purple-100 shadow-[0_2px_15px_rgba(160,51,255,0.06)] hover:border-purple-300 transition-all"
           >
             <div className="p-1 rounded-full bg-white text-white shrink-0">
@@ -268,6 +270,7 @@ function ShareModal({
           {/* Nút Zalo */}
           <button
             onClick={handleZaloShare}
+            aria-label="Chia sẻ qua Zalo"
             className="flex items-center gap-4 p-3.5 rounded-[1.25rem] bg-white border border-[#0068FF]/20 shadow-[0_2px_15px_rgba(0,104,255,0.05)] hover:border-[#0068FF]/40 transition-all"
           >
             <div className="p-1 rounded-full bg-white text-white">

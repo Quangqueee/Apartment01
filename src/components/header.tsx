@@ -147,7 +147,7 @@ export default function Header() {
                 </Link>
                 <Link
                   href="/signup"
-                  className="bg-[#1a1a1a] text-white px-6 py-2.5 rounded-lg text-[13px] font-bold uppercase tracking-wider hover:bg-[#cda533] transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+                  className="bg-[#1a1a1a] text-white px-6 py-2.5 rounded-lg text-[13px] font-bold uppercase tracking-wider hover:bg-primary hover:shadow-lg transition-all duration-300 shadow-md active:scale-95 flex items-center gap-1.5"
                 >
                   <UserPlus className="h-4 w-4" /> Đăng ký
                 </Link>

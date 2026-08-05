@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false, // Có thể chuyển thành true nếu muốn bỏ qua lỗi TypeScript trong quá trình build
   },
   experimental: {
     serverActions: {

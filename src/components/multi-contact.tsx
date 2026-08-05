@@ -80,6 +80,7 @@ export default function MultiContact() {
             href="https://m.me/hanoiiresidence"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="Truy cập trang Facebook của chúng tôi"
             className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors group"
           >
             <div className="w-7 h-7 flex items-center justify-center shrink-0">

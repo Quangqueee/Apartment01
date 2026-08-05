@@ -12,7 +12,7 @@ import {
     updatePassword,
     confirmPasswordReset as firebaseConfirmPasswordReset
 } from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { notifyAdmins } from "@/lib/notifications";
 import { ADMIN_PATH } from "@/lib/constants";
 
@@ -75,4 +75,22 @@ export const logout = () => signOut(auth);
 
 export const confirmResetPassword = async (oobCode: string, newPassword: string) => {
     return await firebaseConfirmPasswordReset(auth, oobCode, newPassword);
+};
+
+export const getCurrentUserRole = async (uid: string) => {
+    if (!uid) return null;
+    
+    try {
+        const userDocRef = doc(db, "users", uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (userDocSnap.exists()) {
+            return userDocSnap.data().role;
+        }
+        
+        return null;
+    } catch (error) {
+        console.error("Lỗi khi truy xuất phân quyền người dùng:", error);
+        return null;
+    }
 };

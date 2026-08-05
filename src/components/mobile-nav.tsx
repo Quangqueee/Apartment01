@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Heart, Search, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/firebase/provider";
-import { ADMIN_PATH } from "@/lib/constants"; // Import path admin
+import { ADMIN_PATH } from "@/lib/constants";
 
 const navItems = [
   { href: "/", label: "Khám phá", icon: Search },
@@ -17,7 +17,6 @@ export default function MobileNav() {
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
 
-  // FIX: Nếu đường dẫn bắt đầu bằng "/admin_path_của_bạn", return null luôn
   if (pathname.startsWith(`/${ADMIN_PATH}`)) return null;
 
   return (
@@ -27,9 +26,12 @@ export default function MobileNav() {
           const targetHref =
             user && item.loggedInHref ? item.loggedInHref : item.href;
 
+          // FIX: Tránh hiện chớp chữ "Đăng nhập" khi auth đang trong trạng thái loading
           const label =
-            item.label === "Tài khoản" && !user && !isUserLoading
-              ? "Đăng nhập"
+            item.label === "Tài khoản" && !isUserLoading
+              ? user
+                ? "Tài khoản"
+                : "Đăng nhập"
               : item.label;
 
           let isActive = false;
@@ -45,15 +47,16 @@ export default function MobileNav() {
             <Link
               key={item.label}
               href={targetHref}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 text-[10px] font-black uppercase tracking-widest w-20 transition-all",
-                isActive ? "text-[#cda533]" : "text-gray-400"
+                isActive ? "text-[#cda533]" : "text-gray-400",
               )}
             >
               <item.icon
                 className={cn(
                   "h-6 w-6 transition-transform",
-                  isActive && "scale-110"
+                  isActive && "scale-110",
                 )}
                 strokeWidth={isActive ? 2.5 : 2}
               />
