@@ -12,7 +12,7 @@ const DISTRICT_IMAGES: Record<string, string> = {
   "Tây Hồ": "/images/photo-1741776326857-0f5859c55370.webp",
   "Ba Đình": "/images/lotte-lieu-giai.webp",
   "Đống Đa": "/images/van-mieu-quoc-tu-giam-9.webp",
-  "Cầu Giấy": "images/Discovery_Cầu_Giấy.webp",
+  "Cầu Giấy": "images/CauGiay.webp",
 };
 
 export default function FeaturedDistricts({
