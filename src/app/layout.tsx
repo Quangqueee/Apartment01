@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Be_Vietnam_Pro, Playfair_Display } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 // BƯỚC 1: Import AuthProvider vào đây
@@ -52,26 +53,30 @@ export const metadata: Metadata = {
   icons: { icon: "/favicon.ico" },
 };
 
+const beVietnamPro = Be_Vietnam_Pro({
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-body",
+});
+
+const playfairDisplay = Playfair_Display({
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "700", "900"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-headline",
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="vi" suppressHydrationWarning>
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap"
-          rel="stylesheet"
-        />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=PT+Sans:wght@400;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html
+      lang="vi"
+      suppressHydrationWarning
+      className={`${beVietnamPro.variable} ${playfairDisplay.variable}`}
+    >
       <body className="font-body bg-background text-foreground antialiased overflow-x-hidden">
         <FirebaseClientProvider>
           {/* BƯỚC 2: Bọc AuthProvider ôm trọn ứng dụng (nằm ngay dưới Firebase Provider) */}

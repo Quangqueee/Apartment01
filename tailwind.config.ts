@@ -11,7 +11,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         body: [
-          "Be Vietnam Pro",
+          "var(--font-body)",
           "Inter",
           "system-ui",
           "-apple-system",
@@ -21,7 +21,7 @@ const config: Config = {
           "sans-serif",
         ],
         airbnb: ["Inter", "Helvetica Neue", "Helvetica", "Arial", "sans-serif"],
-        headline: ["Playfair Display", "serif"],
+        headline: ["var(--font-headline)", "serif"],
       },
       colors: {
         background: "hsl(var(--background))",
