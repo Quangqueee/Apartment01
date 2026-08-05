@@ -60,7 +60,7 @@ YÊU CẦU ĐỊNH DẠNG BẮT BUỘC (MARKDOWN):
 - Phải xuống dòng (dùng ký tự \\n\\n) giữa các phần.
 
 CẤU TRÚC GỢI Ý CỦA BÀI VIẾT:
-1. Mở bài: Dẫn dắt hấp dẫn về không gian sống (1-2 câu).
+1. Dẫn dắt hấp dẫn về không gian sống (1-2 câu).
 2. **THÔNG TIN CĂN HỘ:** Gạch đầu dòng rõ vị trí, diện tích, loại phòng.
 3. **TIỆN ÍCH & NỘI THẤT:** Liệt kê các điểm nhấn.
 4. **CHI PHÍ & DỊCH VỤ:** Liệt kê rõ ràng giá thuê và các phụ phí.
