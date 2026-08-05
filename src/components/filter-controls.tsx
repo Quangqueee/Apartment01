@@ -3,12 +3,10 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { HANOI_DISTRICTS, ROOM_TYPES } from "@/lib/constants";
 import { Button } from "./ui/button";
 import {
@@ -18,6 +16,8 @@ import {
   RotateCcw,
   Loader2,
   Search,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import {
   parsePriceRange,
@@ -28,18 +28,18 @@ import {
 
 type FilterState = {
   query: string;
-  district: string;
-  roomType: string;
+  district: string[];
+  roomType: string[];
   priceMinInput: string;
   priceMaxInput: string;
 };
 
 const DEFAULT_FILTERS: FilterState = {
   query: "",
-  district: "",
-  roomType: "",
-  priceMinInput: String(PRICE_FILTER_MIN),
-  priceMaxInput: String(PRICE_FILTER_MAX),
+  district: [],
+  roomType: [],
+  priceMinInput: "", // Để trống để không hiển thị thô số mặc định
+  priceMaxInput: "", // Để trống để người dùng tự chủ động nhập
 };
 
 const parsePriceInput = (value: string, fallback: number) => {
@@ -59,21 +59,26 @@ export default function FilterControls() {
 
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
 
-  // --- LOGIC: KHÔNG THAY ĐỔI ---
+  // Đọc từ URL gán vào State
   useEffect(() => {
     const urlPriceRange = parsePriceRange(searchParams.get("price") || "");
+
+    // Nếu trên URL là giá trị mặc định hệ thống, ta để trống ô input cho sạch giao diện
+    const isDefaultMin = urlPriceRange.min === PRICE_FILTER_MIN;
+    const isDefaultMax =
+      urlPriceRange.max === null || urlPriceRange.max === PRICE_FILTER_MAX;
+
     setFilters({
       query: searchParams.get("query") || "",
-      district: searchParams.get("district") || "",
-      roomType: searchParams.get("roomType") || "",
-      priceMinInput: String(Math.max(PRICE_FILTER_MIN, urlPriceRange.min)),
-      priceMaxInput: String(
-        Math.min(PRICE_FILTER_MAX, urlPriceRange.max ?? PRICE_FILTER_MAX),
-      ),
+      district: searchParams.get("district")?.split(",").filter(Boolean) || [],
+      roomType: searchParams.get("roomType")?.split(",").filter(Boolean) || [],
+      priceMinInput: isDefaultMin ? "" : String(urlPriceRange.min),
+      priceMaxInput: isDefaultMax ? "" : String(urlPriceRange.max),
     });
     setMounted(true);
   }, [searchParams]);
 
+  // Cuộn mượt
   useEffect(() => {
     if (!isPending && shouldScroll) {
       const element = document.getElementById("apartments-list");
@@ -84,8 +89,11 @@ export default function FilterControls() {
     }
   }, [isPending, shouldScroll]);
 
+  // Áp dụng bộ lọc (Ghi từ State lên URL)
   const handleApply = () => {
     const params = new URLSearchParams(searchParams.toString());
+
+    // Nếu ô input trống thì lấy giá trị biên cực hạn (Min/Max) để query không bị lỗi
     const minValue = parsePriceInput(filters.priceMinInput, PRICE_FILTER_MIN);
     const maxValue = parsePriceInput(filters.priceMaxInput, PRICE_FILTER_MAX);
     const normalizedMin = Math.min(minValue, maxValue);
@@ -99,15 +107,22 @@ export default function FilterControls() {
     if (filters.query.trim()) params.set("query", filters.query.trim());
     else params.delete("query");
 
-    if (filters.district) params.set("district", filters.district);
+    if (filters.district.length > 0)
+      params.set("district", filters.district.join(","));
     else params.delete("district");
 
-    if (filters.roomType) params.set("roomType", filters.roomType);
+    if (filters.roomType.length > 0)
+      params.set("roomType", filters.roomType.join(","));
     else params.delete("roomType");
 
+    // Nếu người dùng không nhập gì ở cả 2 ô giá thì xóa param price khỏi URL
+    const isNoPriceInput =
+      filters.priceMinInput.trim() === "" &&
+      filters.priceMaxInput.trim() === "";
     const isDefaultPrice =
       normalizedMin === PRICE_FILTER_MIN && normalizedMax === PRICE_FILTER_MAX;
-    if (isDefaultPrice) params.delete("price");
+
+    if (isNoPriceInput || isDefaultPrice) params.delete("price");
     else params.set("price", serializedPrice);
 
     params.set("page", "1");
@@ -126,14 +141,18 @@ export default function FilterControls() {
 
   const hasActiveFilters =
     filters.query !== "" ||
-    filters.district !== "" ||
-    filters.roomType !== "" ||
-    parsePriceInput(filters.priceMinInput, PRICE_FILTER_MIN) !==
-      PRICE_FILTER_MIN ||
-    parsePriceInput(filters.priceMaxInput, PRICE_FILTER_MAX) !==
-      PRICE_FILTER_MAX;
+    filters.district.length > 0 ||
+    filters.roomType.length > 0 ||
+    filters.priceMinInput.trim() !== "" ||
+    filters.priceMaxInput.trim() !== "";
 
-  const selectFields = [
+  const selectFields: {
+    id: "district" | "roomType";
+    label: string;
+    icon: any;
+    placeholder: string;
+    items: { label: string; value: string }[];
+  }[] = [
     {
       id: "district",
       label: "Khu vực",
@@ -148,10 +167,9 @@ export default function FilterControls() {
       placeholder: "Loại căn hộ",
       items: ROOM_TYPES,
     },
-  ] as const;
+  ];
 
   return (
-    // Tối ưu Padding (p-6 cho mobile, p-10 cho tablet/desktop) và Radius
     <div className="bg-white/90 backdrop-blur-2xl rounded-3xl md:rounded-[2.5rem] p-6 md:p-10 shadow-[0_20px_80px_rgba(0,0,0,0.12)] border border-white w-full max-w-[900px] mx-auto select-none relative z-10">
       <div className="mb-8 flex justify-center text-center">
         <div className="inline-flex flex-col items-center">
@@ -174,53 +192,91 @@ export default function FilterControls() {
             value={filters.query}
             onChange={(e) => setFilters({ ...filters, query: e.target.value })}
             onKeyDown={(e) => e.key === "Enter" && handleApply()}
-            // Tối ưu height từ h-16 xuống h-12 (Mobile) / h-14 (Desktop)
             className="h-12 md:h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 text-sm md:text-base font-semibold pl-12 pr-5 shadow-sm transition-all font-body text-gray-900 focus:ring-2 focus:ring-[#cda533]/30 focus:border-[#cda533] focus:bg-white placeholder:text-gray-400 outline-none"
           />
         </div>
 
-        {/* Dropdowns */}
-        {/* Sửa grid-cols-1 sm:grid-cols-2 thành grid-cols-2 trên mọi thiết bị. Giảm gap trên mobile xuống gap-3 */}
+        {/* Dropdowns (Đã tinh chỉnh CSS lại Popover cho sang trọng, mượt mà) */}
         <div className="grid grid-cols-2 gap-3 md:gap-5">
-          {selectFields.map((field) => (
-            // Thêm min-w-0 cực kỳ quan trọng để Grid không bị phá vỡ nội dung bên trong quá dài
-            <div key={field.id} className="w-full space-y-1.5 min-w-0">
-              <label className="flex items-center gap-1 text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-gray-500 font-body ml-1 cursor-default truncate">
-                <field.icon className="h-3 w-3 md:h-3.5 md:w-3.5 text-[#cda533] shrink-0" />{" "}
-                <span className="truncate">{field.label}</span>
-              </label>
-              <Select
-                value={filters[field.id]}
-                onValueChange={(value) =>
-                  setFilters({ ...filters, [field.id]: value })
-                }
-              >
-                {/* 
-                  1. h-11 trên mobile để thanh thoát hơn. 
-                  2. px-3 để lấy thêm không gian cho chữ. 
-                  3. [&>span]:truncate để text hiển thị bên trong SelectValue tự động biến thành "Quận Nam T..." nếu quá dài 
-                */}
-                <SelectTrigger className="h-11 md:h-14 w-full rounded-xl md:rounded-2xl border-gray-200 bg-white text-[12px] md:text-sm font-bold px-3 md:px-5 hover:border-[#cda533]/50 hover:bg-gray-50 transition-all font-body text-gray-800 focus:ring-2 focus:ring-[#cda533]/20 shadow-sm [&>span]:truncate">
-                  <SelectValue placeholder={field.placeholder} />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl border-gray-100 bg-white shadow-xl z-[150] p-1.5 max-h-[280px]">
-                  {field.items.map((item) => (
-                    <SelectItem
-                      key={item.value}
-                      value={item.value}
-                      className="py-2.5 pl-8 pr-4 text-xs md:text-sm font-medium cursor-pointer font-body rounded-lg focus:bg-[#cda533]/10 focus:text-[#cda533] transition-colors data-[state=checked]:bg-[#cda533]/10 data-[state=checked]:text-[#cda533]"
+          {selectFields.map((field) => {
+            const selectedItems = filters[field.id];
+            const displayText =
+              selectedItems.length === 0
+                ? field.placeholder
+                : selectedItems.length <= 2
+                  ? selectedItems.join(", ")
+                  : `${selectedItems.length} ${
+                      field.id === "district" ? "quận" : "loại phòng"
+                    } đã chọn`;
+
+            return (
+              <div key={field.id} className="w-full space-y-1.5 min-w-0">
+                <label className="flex items-center gap-1 text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-gray-500 font-body ml-1 cursor-default truncate">
+                  <field.icon className="h-3 w-3 md:h-3.5 md:w-3.5 text-[#cda533] shrink-0" />
+                  <span className="truncate">{field.label}</span>
+                </label>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="h-11 md:h-14 w-full rounded-xl md:rounded-2xl border border-gray-200 bg-white text-[12px] md:text-sm font-bold px-3 md:px-5 flex items-center justify-between hover:border-[#cda533]/50 hover:bg-gray-50/80 transition-all font-body text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 shadow-sm"
                     >
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ))}
+                      <span className="truncate mr-2 text-gray-700">
+                        {displayText}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] rounded-2xl border-gray-100 bg-white/95 backdrop-blur-lg shadow-2xl z-[150] p-2 max-h-[280px] overflow-y-auto"
+                    align="start"
+                  >
+                    <div className="flex flex-col gap-1">
+                      {field.items.map((item) => {
+                        const isChecked = selectedItems.includes(item.value);
+                        return (
+                          <div
+                            key={item.value}
+                            onClick={() => {
+                              const currentArray = filters[field.id];
+                              let newArray = [];
+                              if (isChecked) {
+                                newArray = currentArray.filter(
+                                  (val) => val !== item.value,
+                                );
+                              } else {
+                                newArray = [...currentArray, item.value];
+                              }
+                              setFilters({ ...filters, [field.id]: newArray });
+                            }}
+                            className={`flex items-center justify-between py-2.5 px-3 text-xs md:text-sm font-semibold cursor-pointer font-body rounded-xl transition-all ${
+                              isChecked
+                                ? "bg-[#cda533]/10 text-[#cda533]"
+                                : "hover:bg-gray-50 text-gray-600 hover:text-gray-900"
+                            }`}
+                          >
+                            <span>{item.label}</span>
+                            {/* Dấu tích tinh tế thay vì checkbox thô */}
+                            <div
+                              className={`w-4 h-4 rounded-md flex items-center justify-center border transition-colors ${isChecked ? "bg-[#cda533] border-[#cda533] text-white" : "border-gray-300 bg-white"}`}
+                            >
+                              {isChecked && (
+                                <Check className="w-3 h-3 stroke-[3]" />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Ngân sách */}
-        {/* Đổi border-gray-100 bg-white sang bg-gray-50 để tạo phân tầng thị giác (Visual Hierarchy) */}
+        {/* Ngân sách (Đã xóa giá trị mặc định thô, dùng placeholder để trống chủ động) */}
         <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 md:p-5 space-y-3">
           <label className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500 font-body ml-1 cursor-default">
             <Banknote className="h-4 w-4 text-[#cda533]" /> Ngân sách (Triệu
@@ -236,12 +292,12 @@ export default function FilterControls() {
                 type="number"
                 inputMode="decimal"
                 step={0.5}
-                placeholder="VD: 8"
+                placeholder="Tối thiểu"
                 value={filters.priceMinInput}
                 onChange={(event) =>
                   setFilters({ ...filters, priceMinInput: event.target.value })
                 }
-                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
+                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
               />
             </div>
             <div className="space-y-1.5">
@@ -252,12 +308,12 @@ export default function FilterControls() {
                 type="number"
                 inputMode="decimal"
                 step={0.5}
-                placeholder="VD: 15"
+                placeholder="Tối đa"
                 value={filters.priceMaxInput}
                 onChange={(event) =>
                   setFilters({ ...filters, priceMaxInput: event.target.value })
                 }
-                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
+                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
               />
             </div>
           </div>

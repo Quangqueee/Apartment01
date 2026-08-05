@@ -23,7 +23,7 @@ function generateCacheKey(input: any): string {
 
 // --- CẤU HÌNH RATE LIMITER ---
 const TPM_LIMIT = 12000;
-const SAFETY_MARGIN = 0.85; 
+const SAFETY_MARGIN = 0.85;
 const EFFECTIVE_LIMIT = TPM_LIMIT * SAFETY_MARGIN;
 
 let tokenWindow: { tokens: number; timestamp: number }[] = [];
@@ -38,7 +38,7 @@ async function waitForTokenBudget(estimatedTokens: number) {
     if (usedTokens + estimatedTokens <= EFFECTIVE_LIMIT) {
       const newEntry = { tokens: estimatedTokens, timestamp: now };
       tokenWindow.push(newEntry);
-      return newEntry; 
+      return newEntry;
     }
 
     const oldestEntry = tokenWindow[0];
@@ -58,10 +58,10 @@ export async function generateListingSummary(input: {
   detailedInformation: string;
   forceRefresh?: boolean; // Thêm cờ này để cho phép người dùng ép AI viết lại bài mới
 }) {
-  
+
   // 1. KIỂM TRA BỘ NHỚ ĐỆM (CACHE)
   const cacheKey = generateCacheKey(input);
-  
+
   // Nếu không ép buộc làm mới (forceRefresh = false/undefined), thử lấy từ Cache
   if (!input.forceRefresh) {
     const cachedData = cache.get(cacheKey);
@@ -86,12 +86,13 @@ YÊU CẦU ĐỊNH DẠNG BẮT BUỘC (MARKDOWN):
 CẤU TRÚC GỢI Ý:
 1. Dẫn dắt hấp dẫn (1-2 câu).
 2. **THÔNG TIN CĂN HỘ:** Vị trí, diện tích, loại phòng.
-3. **TIỆN ÍCH & NỘI THẤT:** Các điểm nhấn.
-4. **CHI PHÍ & DỊCH VỤ:** Giá thuê và phụ phí.
+3. **TIỆN ÍCH & NỘI THẤT:** Không đề cập đến phí dịch vụ ở đây.
+4. **CHI PHÍ & DỊCH VỤ:** Giá thuê và các phí đi kèm như Tiền Điện, Tiền Nước, Tiền dịch vụ, ... Nếu không có phí dịch vụ, hãy ghi rõ "Miễn phí dịch vụ". Nếu các giá, phí có chữ k đằng sau, tự động hiểu thành đơn vị nghìn VNĐ - viết thành dạng số
+5. **TIỆN ÍCH XUNG QUANH:** Gợi ý các tuyến đường lớn, trường đại học, tiện ích xung quanh - nêu cụ thể. 
 
 Yêu cầu trả về JSON thuần túy (strict JSON object) theo format:
 {
-  "seoTitle": "Tiêu đề chuẩn SEO, có chữ 'cho thuê' và tên quận, tối đa 60 ký tự",
+  "seoTitle": "Tiêu đề chuẩn SEO, có chữ 'cho thuê', địa chỉ và tên quận",
   "description": "Nội dung Markdown",
   "highlights": ["Điểm nhấn 1", "Điểm nhấn 2"]
 }`;
@@ -130,7 +131,7 @@ Yêu cầu trả về JSON thuần túy (strict JSON object) theo format:
       }
 
       const content = response.choices[0].message.content || "{}";
-      
+
       // Bắt lỗi JSON parse
       let parsedData;
       try {
@@ -146,7 +147,7 @@ Yêu cầu trả về JSON thuần túy (strict JSON object) theo format:
 
       // 5. LƯU KẾT QUẢ VÀO CACHE ĐỂ DÙNG CHO CÁC LẦN SAU
       cache.set(cacheKey, parsedData);
-      
+
       return parsedData;
 
     } catch (error: any) {
@@ -166,7 +167,7 @@ Yêu cầu trả về JSON thuần túy (strict JSON object) theo format:
         continue;
       }
 
-      throw error; 
+      throw error;
     }
   }
 

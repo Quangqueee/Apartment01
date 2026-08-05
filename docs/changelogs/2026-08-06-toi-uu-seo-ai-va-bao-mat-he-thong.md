@@ -14,6 +14,11 @@ Trong đợt cập nhật này, hệ thống tập trung giải quyết 4 nhóm 
 3. **Trải nghiệm người dùng (UX) & Khả năng tiếp cận (Accessibility):** Tối ưu giao diện trang 404 căn hộ, bổ sung `aria-label`, đồng bộ hiệu ứng chuyển màu thương hiệu (`hover:bg-primary`).
 4. **Hệ thống AI Tạo Nội Dung:** Hoàn thiện cơ chế chống vỡ giao diện (Sanitize), quản lý Token thực tế, Cache thông minh và xử lý lỗi JSON an toàn.
 
+Bổ sung thêm 3 hạng mục tối ưu PageSpeed & backend filter:
+5. **Tối ưu PageSpeed (Font Loading):** Loại bỏ render-blocking request tới `fonts.googleapis.com`/`fonts.gstatic.com`, chuyển sang `next/font/google` tự host.
+6. **Sitemap Động:** Hoàn thiện `app/sitemap.ts` để lấy danh sách căn hộ thật từ Firestore thay vì placeholder rỗng.
+7. **Multi-Select Filter (Backend Query):** Chuyển query Firestore cho `district`/`roomType` từ so khớp tuyệt đối (`==`) sang `in` để hỗ trợ chọn nhiều giá trị cùng lúc trên URL.
+
 ---
 
 ## 🛠️ Chi Tiết Kỹ Thuật Các Tính Năng Đã Thực Hiện
@@ -38,9 +43,28 @@ Trong đợt cập nhật này, hệ thống tập trung giải quyết 4 nhóm 
 * **Rate Limiter & Quản Lý Token Thực Tế:** Cập nhật cơ chế tính toán hạn mức (TPM) dựa trên dữ liệu tiêu thụ thực tế từ `response.usage.total_tokens` thay vì dùng con số ước tính, giúp hàm `waitForTokenBudget` kiểm soát chính xác giới hạn của Groq API.
 * **In-Memory Caching & `forceRefresh`:** Tích hợp bộ nhớ đệm (node-cache/Redis) kết hợp mã băm MD5 cho Cache Key. Bổ sung tham số `forceRefresh` (boolean) để linh hoạt cho phép ép hệ thống tạo mới dữ liệu khi cần thiết, triệt tiêu lỗi 429 Rate Limit và tăng tốc độ phản hồi đáng kể.
 
+### 5. Tối Ưu PageSpeed Insights (Font Loading)
+* **Loại Bỏ Render-Blocking Request:** Xóa các thẻ `<link>` gọi trực tiếp `fonts.googleapis.com`/`fonts.gstatic.com` trong `<head>` (`app/layout.tsx`) và dòng `@import` trùng lặp trong `globals.css` (trước đó Playfair Display bị tải **2 lần** từ 2 nguồn khác nhau).
+* **Chuyển Sang `next/font/google`:** Tự host font `Be_Vietnam_Pro` (400/500/600/700) và `Playfair_Display` (400/700/900, normal + italic) với `subsets: ['latin', 'vietnamese']` và `display: 'swap'`, xuất ra CSS variable (`--font-body`, `--font-headline`) gắn vào `<html>`.
+* **Đồng Bộ Cấu Hình Font:** `globals.css` và `tailwind.config.ts` được cập nhật để `font-body`/`font-headline` trỏ đúng vào các biến CSS mới, khắc phục luôn bug cũ (`body` set cứng `'PT Sans'` trong khi class Tailwind lại dùng `Be Vietnam Pro`).
+
+### 6. Sitemap Động (Dynamic Sitemap từ Firestore)
+* **Hoàn Thiện `app/sitemap.ts`:** Thay phần placeholder rỗng bằng truy vấn Firestore thật (`collection(firestore, 'apartments')` từ `@/firebase/server-init`), tạo URL `/apartments/{id}` cho từng căn hộ.
+* **`lastModified` Ưu Tiên Dữ Liệu Thật:** Lấy theo thứ tự `updatedAt.toDate()` → `createdAt.toDate()` → `new Date()` (fallback an toàn nếu field bị thiếu).
+
+### 7. Nâng Cấp Bộ Lọc Multi-Select (`district`/`roomType`)
+* **Bối Cảnh:** Frontend (`filter-controls.tsx`) đã hỗ trợ chọn nhiều quận/loại phòng cùng lúc, ghi vào URL dạng chuỗi phân tách dấu phẩy (vd: `district=Ba+Đình,Tây+Hồ`), nhưng backend (`lib/data.ts`) vẫn so khớp tuyệt đối (`==`) nên không trả kết quả nào khi có nhiều giá trị.
+* **Parse Chuỗi Thành Mảng:** `getApartments()` tách `district`/`roomType` bằng dấu phẩy, `trim()` khoảng trắng thừa và loại bỏ phần tử rỗng trước khi đưa vào query; mảng rỗng vẫn giữ nguyên hành vi cũ (lấy tất cả).
+* **Đổi Toán Tử Query:** Chuyển `where(field, '==', value)` sang `where(field, 'in', arrayValue)`, có chặn sớm (throw Error) nếu mảng vượt quá giới hạn 30 giá trị của Firestore.
+* **Tiêu Đề Kết Quả Tìm Kiếm:** `app/page.tsx` khi chọn nhiều hơn 1 quận sẽ hiển thị tiêu đề chung "KẾT QUẢ TÌM KIẾM" thay vì liệt kê tên quận lỗi định dạng (vd: "CĂN HỘ TẠI BA ĐÌNH,TÂY HỒ"); giữ nguyên format "CĂN HỘ TẠI {TÊN QUẬN}" khi chỉ chọn 1 quận.
+* **Lưu Ý Composite Index:** Khi `district` và `roomType` cùng active (2 mệnh đề `in` trên 2 field khác nhau), Firestore có thể yêu cầu composite index mới — index chưa được tạo sẵn (repo không quản lý `firestore.indexes.json`), cần theo dõi lỗi runtime kèm link tạo index trong Firebase Console khi triển khai.
+
 ---
 
 ## 📌 Hướng Dẫn Bảo Trì Sau Cập Nhật
 1. **Kiểm tra Build:** Khi thực hiện các lệnh triển khai (deployment), hãy chắc chắn lệnh `npm run build` không bị báo lỗi TypeScript (`ignoreBuildErrors: false`).
 2. **Quản lý Cache:** Nếu gặp lỗi lạ liên quan đến `_buildManifest` trong quá trình dev local, thực hiện xóa thư mục `.next` (`rd /s /q .next` trên Windows).
 3. **Mở rộng AI Prompt:** Khi điều chỉnh câu lệnh AI, luôn duy trì cấu trúc tách biệt System/User Role để đảm bảo tính ổn định của cấu trúc dữ liệu JSON trả về.
+4. **Thêm/Đổi Font:** Nếu cần thêm font mới, khai báo qua `next/font/google` trong `app/layout.tsx` (không quay lại dùng thẻ `<link>`/`@import` trỏ Google Fonts trực tiếp) và trỏ CSS variable tương ứng trong `tailwind.config.ts`.
+5. **Sitemap Phụ Thuộc Firestore:** `sitemap.ts` gọi Firestore ngay tại thời điểm build/revalidate — nếu Firestore lỗi hoặc chậm lúc build, sitemap sẽ log lỗi và trả về mảng rỗng cho phần căn hộ (không làm sập toàn bộ sitemap) chứ không tự retry.
+6. **Composite Index Cho Multi-Select Filter:** Khi bổ sung thêm field lọc dùng toán tử `in` kết hợp với `district`/`roomType` hiện có, kiểm tra Firebase Console xem có yêu cầu composite index mới không trước khi deploy lên production.

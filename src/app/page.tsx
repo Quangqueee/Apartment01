@@ -39,11 +39,23 @@ export default async function Home({ searchParams }: any) {
     }),
   );
 
+  // Multi-select: "district" trên URL có thể là nhiều quận phân tách bằng dấu phẩy
+  // -> parse thành mảng để quyết định cách hiển thị tiêu đề bên dưới.
+  const districtArray: string[] = sParams.district
+    ? sParams.district
+        .split(",")
+        .map((d: string) => d.trim())
+        .filter(Boolean)
+    : [];
+
   let sectionTitle = "CĂN HỘ NỔI BẬT";
   if (sParams.query) {
     sectionTitle = `KẾT QUẢ TÌM KIẾM: "${sParams.query}"`;
-  } else if (sParams.district) {
-    sectionTitle = `CĂN HỘ TẠI ${sParams.district.toUpperCase()}`;
+  } else if (districtArray.length > 1) {
+    // Chọn nhiều quận cùng lúc -> không liệt kê tên (tránh tiêu đề bị lỗi), dùng tiêu đề chung
+    sectionTitle = "KẾT QUẢ TÌM KIẾM";
+  } else if (districtArray.length === 1) {
+    sectionTitle = `CĂN HỘ TẠI ${districtArray[0].toUpperCase()}`;
   }
 
   return (

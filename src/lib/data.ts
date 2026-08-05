@@ -94,12 +94,34 @@ export async function getApartments(
   let baseQuery: Query = apartmentsCollection;
   let whereClauses: any[] = [];
 
-  if (district && district !== "all") {
-    whereClauses.push(where("district", "==", district));
+  // Multi-select filter: "district"/"roomType" trên URL có thể là chuỗi nhiều giá trị
+  // phân tách bằng dấu phẩy (vd: "Ba Đình,Tây Hồ") -> parse thành mảng, trim khoảng
+  // trắng thừa và loại bỏ phần tử rỗng trước khi đưa vào query.
+  const districtArray =
+    district && district !== "all"
+      ? district.split(",").map((d) => d.trim()).filter(Boolean)
+      : [];
+  const roomTypeArray =
+    roomType && roomType !== "all"
+      ? roomType.split(",").map((r) => r.trim()).filter(Boolean)
+      : [];
+
+  // Firestore giới hạn toán tử 'in' tối đa 30 giá trị/query — chặn sớm thay vì
+  // tự ý chia nhỏ thành nhiều query (cần bàn thêm nếu gặp trường hợp này).
+  if (districtArray.length > 30 || roomTypeArray.length > 30) {
+    throw new Error(
+      "Số lượng giá trị lọc (district/roomType) vượt quá giới hạn 30 của toán tử Firestore 'in'. Cần thiết kế lại truy vấn (ví dụ chia nhỏ thành nhiều query) trước khi tiếp tục.",
+    );
   }
 
-  if (roomType && roomType !== "all") {
-    whereClauses.push(where("roomType", "==", roomType));
+  // Đổi so khớp tuyệt đối (==) sang "nằm trong mảng" (in) để hỗ trợ multi-select.
+  // Mảng rỗng (không lọc) -> không thêm whereClause, giữ nguyên hành vi lấy tất cả.
+  if (districtArray.length > 0) {
+    whereClauses.push(where("district", "in", districtArray));
+  }
+
+  if (roomTypeArray.length > 0) {
+    whereClauses.push(where("roomType", "in", roomTypeArray));
   }
 
   if (searchQuery && searchQuery.trim() !== "") {
