@@ -6,13 +6,11 @@ export default function Hero() {
   return (
     <section className="relative min-h-[90vh] w-full flex items-center overflow-hidden">
       <div className="absolute inset-0 z-0">
-        {/* 2. Thay <img> bằng <Image /> với các cờ tối ưu */}
         <Image
-          src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750"
+          src="/images/hero-bg.webp"
           alt="Hanoi Residences Hero"
           fill // Tự động lấp đầy thẻ div cha
           priority // QUAN TRỌNG NHẤT: Ép trình duyệt tải ảnh này đầu tiên, không được delay!
-          quality={90} // Đẩy chất lượng lên 90 để ảnh nền nhìn sang trọng hơn
           sizes="100vw" // Khẳng định ảnh này luôn chiếm 100% chiều rộng màn hình
           className="object-cover"
         />
