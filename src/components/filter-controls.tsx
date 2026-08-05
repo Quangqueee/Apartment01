@@ -38,8 +38,8 @@ const DEFAULT_FILTERS: FilterState = {
   query: "",
   district: [],
   roomType: [],
-  priceMinInput: "", // Để trống để không hiển thị thô số mặc định
-  priceMaxInput: "", // Để trống để người dùng tự chủ động nhập
+  priceMinInput: "",
+  priceMaxInput: "",
 };
 
 const parsePriceInput = (value: string, fallback: number) => {
@@ -59,11 +59,9 @@ export default function FilterControls() {
 
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
 
-  // Đọc từ URL gán vào State
   useEffect(() => {
     const urlPriceRange = parsePriceRange(searchParams.get("price") || "");
 
-    // Nếu trên URL là giá trị mặc định hệ thống, ta để trống ô input cho sạch giao diện
     const isDefaultMin = urlPriceRange.min === PRICE_FILTER_MIN;
     const isDefaultMax =
       urlPriceRange.max === null || urlPriceRange.max === PRICE_FILTER_MAX;
@@ -78,7 +76,6 @@ export default function FilterControls() {
     setMounted(true);
   }, [searchParams]);
 
-  // Cuộn mượt
   useEffect(() => {
     if (!isPending && shouldScroll) {
       const element = document.getElementById("apartments-list");
@@ -89,11 +86,9 @@ export default function FilterControls() {
     }
   }, [isPending, shouldScroll]);
 
-  // Áp dụng bộ lọc (Ghi từ State lên URL)
   const handleApply = () => {
     const params = new URLSearchParams(searchParams.toString());
 
-    // Nếu ô input trống thì lấy giá trị biên cực hạn (Min/Max) để query không bị lỗi
     const minValue = parsePriceInput(filters.priceMinInput, PRICE_FILTER_MIN);
     const maxValue = parsePriceInput(filters.priceMaxInput, PRICE_FILTER_MAX);
     const normalizedMin = Math.min(minValue, maxValue);
@@ -115,7 +110,6 @@ export default function FilterControls() {
       params.set("roomType", filters.roomType.join(","));
     else params.delete("roomType");
 
-    // Nếu người dùng không nhập gì ở cả 2 ô giá thì xóa param price khỏi URL
     const isNoPriceInput =
       filters.priceMinInput.trim() === "" &&
       filters.priceMaxInput.trim() === "";
@@ -181,7 +175,6 @@ export default function FilterControls() {
       </div>
 
       <div className="flex flex-col gap-5 md:gap-6">
-        {/* Thanh tìm kiếm */}
         <div className="relative group w-full">
           <div className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none">
             <Search className="h-5 w-5 text-gray-400 group-focus-within:text-[#cda533] transition-colors" />
@@ -196,7 +189,6 @@ export default function FilterControls() {
           />
         </div>
 
-        {/* Dropdowns (Đã tinh chỉnh CSS lại Popover cho sang trọng, mượt mà) */}
         <div className="grid grid-cols-2 gap-3 md:gap-5">
           {selectFields.map((field) => {
             const selectedItems = filters[field.id];
@@ -209,10 +201,12 @@ export default function FilterControls() {
                       field.id === "district" ? "quận" : "loại phòng"
                     } đã chọn`;
 
+            const Icon = field.icon;
+
             return (
               <div key={field.id} className="w-full space-y-1.5 min-w-0">
                 <label className="flex items-center gap-1 text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-gray-500 font-body ml-1 cursor-default truncate">
-                  <field.icon className="h-3 w-3 md:h-3.5 md:w-3.5 text-[#cda533] shrink-0" />
+                  <Icon className="h-3 w-3 md:h-3.5 md:w-3.5 text-[#cda533] shrink-0" />
                   <span className="truncate">{field.label}</span>
                 </label>
 
@@ -229,7 +223,7 @@ export default function FilterControls() {
                     </button>
                   </PopoverTrigger>
                   <PopoverContent
-                    className="w-[var(--radix-popover-trigger-width)] rounded-2xl border-gray-100 bg-white/95 backdrop-blur-lg shadow-2xl z-[150] p-2 max-h-[280px] overflow-y-auto"
+                    className="w-[155px] md:w-[var(--radix-popover-trigger-width)] rounded-2xl border-gray-100 bg-white/95 backdrop-blur-lg shadow-2xl z-[150] p-2 max-h-[280px] overflow-y-auto"
                     align="start"
                   >
                     <div className="flex flex-col gap-1">
@@ -250,21 +244,26 @@ export default function FilterControls() {
                               }
                               setFilters({ ...filters, [field.id]: newArray });
                             }}
-                            className={`flex items-center justify-between py-2.5 px-3 text-xs md:text-sm font-semibold cursor-pointer font-body rounded-xl transition-all ${
+                            className={`flex items-center justify-start gap-3 py-2.5 px-3 text-xs md:text-sm font-semibold cursor-pointer font-body rounded-xl transition-all ${
                               isChecked
                                 ? "bg-[#cda533]/10 text-[#cda533]"
                                 : "hover:bg-gray-50 text-gray-600 hover:text-gray-900"
                             }`}
                           >
-                            <span>{item.label}</span>
-                            {/* Dấu tích tinh tế thay vì checkbox thô */}
                             <div
-                              className={`w-4 h-4 rounded-md flex items-center justify-center border transition-colors ${isChecked ? "bg-[#cda533] border-[#cda533] text-white" : "border-gray-300 bg-white"}`}
+                              className={`w-4 h-4 rounded-md shrink-0 flex items-center justify-center border transition-colors ${
+                                isChecked
+                                  ? "bg-[#cda533] border-[#cda533] text-white"
+                                  : "border-gray-300 bg-white"
+                              }`}
                             >
                               {isChecked && (
                                 <Check className="w-3 h-3 stroke-[3]" />
                               )}
                             </div>
+                            <span className="whitespace-nowrap">
+                              {item.label}
+                            </span>
                           </div>
                         );
                       })}
@@ -276,7 +275,6 @@ export default function FilterControls() {
           })}
         </div>
 
-        {/* Ngân sách (Đã xóa giá trị mặc định thô, dùng placeholder để trống chủ động) */}
         <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 md:p-5 space-y-3">
           <label className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500 font-body ml-1 cursor-default">
             <Banknote className="h-4 w-4 text-[#cda533]" /> Ngân sách (Triệu
@@ -285,14 +283,14 @@ export default function FilterControls() {
 
           <div className="grid grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block ml-1">
-                Từ (Min)
+              <label className="text-[12px] font-bold uppercase tracking-wider text-gray-400 block ml-1">
+                Tối thiểu
               </label>
               <input
                 type="number"
                 inputMode="decimal"
                 step={0.5}
-                placeholder="Tối thiểu"
+                placeholder="Min"
                 value={filters.priceMinInput}
                 onChange={(event) =>
                   setFilters({ ...filters, priceMinInput: event.target.value })
@@ -301,14 +299,14 @@ export default function FilterControls() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block ml-1">
-                Đến (Max)
+              <label className="text-[12px] font-bold uppercase tracking-wider text-gray-400 block ml-1">
+                Tối đa
               </label>
               <input
                 type="number"
                 inputMode="decimal"
                 step={0.5}
-                placeholder="Tối đa"
+                placeholder="Max"
                 value={filters.priceMaxInput}
                 onChange={(event) =>
                   setFilters({ ...filters, priceMaxInput: event.target.value })
@@ -319,8 +317,8 @@ export default function FilterControls() {
           </div>
         </div>
 
-        {/* Nút hành động */}
         <div className="pt-2 flex flex-col gap-3">
+          {/* Đã sửa onClick và disabled thành JS Expression */}
           <Button
             onClick={handleApply}
             disabled={isPending}
@@ -347,6 +345,7 @@ export default function FilterControls() {
               }
             `}
           >
+            {/* Đã sửa lại cú pháp truyền className của thẻ RotateCcw */}
             <RotateCcw
               className={`h-3 w-3 md:h-3.5 md:w-3.5 transition-transform duration-500 ${
                 hasActiveFilters ? "group-hover:-rotate-180" : ""

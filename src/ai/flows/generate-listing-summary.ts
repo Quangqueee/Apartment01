@@ -1,6 +1,4 @@
 import OpenAI from "openai";
-import crypto from "crypto";
-import NodeCache from "node-cache";
 
 // Khởi tạo client Groq
 const groq = new OpenAI({
@@ -8,17 +6,17 @@ const groq = new OpenAI({
   baseURL: "https://api.groq.com/openai/v1",
 });
 
-// --- CẤU HÌNH CACHE ---
-// Lưu cache trong 7 ngày (7 * 24 * 60 * 60 = 604800 giây)
-const cache = new NodeCache({ stdTTL: 604800 });
-
-// Hàm băm object đầu vào thành một chuỗi Key ngắn gọn và duy nhất
-function generateCacheKey(input: any): string {
-  // Loại bỏ thuộc tính forceRefresh ra khỏi quá trình băm key (nếu có)
-  const { forceRefresh, ...cacheInput } = input;
-  const stringifiedInput = JSON.stringify(cacheInput);
-  const hash = crypto.createHash("md5").update(stringifiedInput).digest("hex");
-  return `ai_listing_${hash}`;
+// Hàm tạo Slug tự động bằng Code (Chống lỗi font tiếng Việt)
+function generateSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD") // Chuẩn hóa unicode
+    .replace(/[\u0300-\u036f]/g, "") // Xóa dấu
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9\s-]/g, "") // Xóa ký tự đặc biệt
+    .replace(/\s+/g, "-") // Thay khoảng trắng bằng dấu gạch ngang
+    .replace(/-+/g, "-") // Xóa các dấu gạch ngang thừa
+    .replace(/^-+|-+$/g, ""); // Trim dấu gạch ngang ở hai đầu
 }
 
 // --- CẤU HÌNH RATE LIMITER ---
@@ -56,65 +54,92 @@ export async function generateListingSummary(input: {
   price: number;
   area: number;
   detailedInformation: string;
-  forceRefresh?: boolean; // Thêm cờ này để cho phép người dùng ép AI viết lại bài mới
 }) {
 
-  // 1. KIỂM TRA BỘ NHỚ ĐỆM (CACHE)
-  const cacheKey = generateCacheKey(input);
+  console.log(`Đang gọi Groq AI để tạo bài viết mới...`);
 
-  // Nếu không ép buộc làm mới (forceRefresh = false/undefined), thử lấy từ Cache
-  if (!input.forceRefresh) {
-    const cachedData = cache.get(cacheKey);
-    if (cachedData) {
-      console.log(`[Cache Hit] Lấy bài viết từ bộ nhớ đệm (Key: ${cacheKey}) - Siêu tốc & Miễn phí`);
-      return cachedData;
-    }
-  }
+  // System Prompt giữ nguyên theo cấu trúc SEO
+  const systemPrompt = `Bạn là chuyên gia SEO bất động sản cho thuê tại Hà Nội.
 
-  console.log(`[Cache Miss] Đang gọi Groq AI để tạo bài viết mới...`);
+Mục tiêu:
+- Viết bài chuẩn SEO Google.
+- Nội dung tự nhiên, không nhồi nhét từ khóa.
+- Tối ưu cho người thuê căn hộ và công cụ tìm kiếm.
 
-  // 2. CHUẨN BỊ PROMPT CHO AI
-  const systemPrompt = `Bạn là chuyên gia marketing bất động sản cho thuê tại Hà Nội. 
-Nhiệm vụ: Viết bài mô tả căn hộ hấp dẫn, chuyên nghiệp bằng tiếng Việt để thuyết phục khách hàng B2C. 
+QUY TẮC BẮT BUỘC:
+1. Trả về JSON hợp lệ.
+2. description phải là Markdown hợp lệ.
+3. Cấu trúc Markdown:
 
-YÊU CẦU ĐỊNH DẠNG BẮT BUỘC (MARKDOWN):
-- Chia thành các đoạn văn ngắn gọn, dùng Markdown in đậm (**text**) từ khóa và tiêu đề mục.
-- Dùng gạch đầu dòng (-) cho danh sách.
-- KHÔNG ĐƯỢC thụt lề, không để lại khoảng trắng (dấu cách/tab) ở đầu bất kỳ dòng nào.
-- Dùng ký tự \\n để xuống dòng trong chuỗi JSON.
 
-CẤU TRÚC GỢI Ý:
-1. Dẫn dắt hấp dẫn (1-2 câu).
-2. **THÔNG TIN CĂN HỘ:** Vị trí, diện tích, loại phòng.
-3. **TIỆN ÍCH & NỘI THẤT:** Không đề cập đến phí dịch vụ ở đây.
-4. **CHI PHÍ & DỊCH VỤ:** Giá thuê và các phí đi kèm như Tiền Điện, Tiền Nước, Tiền dịch vụ, ... Nếu không có phí dịch vụ, hãy ghi rõ "Miễn phí dịch vụ". Nếu các giá, phí có chữ k đằng sau, tự động hiểu thành đơn vị nghìn VNĐ - viết thành dạng số
-5. **TIỆN ÍCH XUNG QUANH:** Gợi ý các tuyến đường lớn, trường đại học, tiện ích xung quanh - nêu cụ thể. 
+Đoạn mô tả ngắn 2-3 câu.
 
-Yêu cầu trả về JSON thuần túy (strict JSON object) theo format:
+## Thông tin căn hộ
+- Địa chỉ
+- Quận
+- Diện tích
+- Loại phòng
+
+## Chi phí & dịch vụ
+- Giá thuê
+- Điện
+- Nước (Nếu có thì ghi rõ giá tiền, nếu không có thì bỏ qua)
+- Internet (Nếu có thì ghi rõ giá tiền, nếu không có thì bỏ qua)
+- Dịch vụ (Nếu có thì ghi rõ giá tiền, nếu không có thì ghi miễn phí dịch vụ)
+- Gửi xe (Nếu có thì ghi rõ giá tiền, nếu không có thì bỏ qua không ghi vào)
+
+(LƯU Ý QUAN TRỌNG VỀ ĐỊNH DẠNG SỐ: Nếu không có phí thì ghi "Miễn phí dịch vụ" và bỏ qua các phần phí còn thiếu. Ví dụ: Không có internet - bỏ qua và không đề cập; không có tiền nước - bỏ qua và không đề cập, không có tiền gửi xe - bỏ qua và không đề cập thì bỏ qua. Mọi loại giá tiền và chi phí khác BẮT BUỘC phải sử dụng dấu chấm "." để phân cách hàng nghìn. Tuyệt đối không viết số liền nhau. Ví dụ ĐÚNG: 4.000 VNĐ, 120.000 VNĐ, 5.800.000 VNĐ).
+
+## Vị trí & kết nối giao thông
+Phân tích vị trí thực tế.
+Đề cập cụ thể: Tuyến đường lớn, Khu văn phòng, Trường đại học, tiện ích xung quanh (nếu phù hợp với vị trí).
+
+## Vì sao nên thuê căn hộ này?
+Viết 4-6 bullet nổi bật.
+
+## Từ khóa liên quan
+Liệt kê 8-12 từ khóa SEO liên quan.
+
+YÊU CẦU SEO:
+- Xuất hiện từ khóa chính 3-5 lần.
+- Có tên quận trong tiêu đề.
+- Có địa chỉ trong bài viết.
+- Có giá thuê trong bài viết (Hiển thị đầy đủ số VNĐ).
+- Có diện tích trong bài viết.
+- Tiêu đề phải theo cấu trúc: Cho thuê căn hộ [loại phòng] tại [Địa chỉ], [Quận] - [Giá thuê triệu VNĐ/tháng]
+
+KHÔNG:
+- Không dùng icon.
+- Không dùng emoji.
+- Không viết hoa toàn bộ.
+- Không bịa thông tin.
+
+Format JSON trả về thuần túy:
 {
-  "seoTitle": "Tiêu đề chuẩn SEO, có chữ 'cho thuê', địa chỉ và tên quận",
-  "description": "Nội dung Markdown",
-  "highlights": ["Điểm nhấn 1", "Điểm nhấn 2"]
+  "seoTitle": "",
+  "seoDescription": "",
+  "description": "",
+  "highlights": []
 }`;
+
+  const formattedPrice = (input.price * 1000000).toLocaleString('de-DE');
 
   const userPrompt = `Hãy viết mô tả dựa trên dữ liệu sau:
 - Tiêu đề gốc: ${input.title}
 - Loại phòng: ${input.roomType}
 - Quận: ${input.district}
 - Địa chỉ: ${input.address}
-- Giá thuê: ${input.price} triệu/tháng
-- Diện tích: ${input.area} m2
+- Giá thuê: ${input.price} triệu/tháng (Tự động quy đổi thành số VNĐ và BẮT BUỘC dùng dấu chấm ngăn cách hàng nghìn. Ví dụ: ${formattedPrice} VNĐ/tháng).- Diện tích: ${input.area} m2
 - Thông tin thô/Chi phí: ${input.detailedInformation}`;
 
   const estimatedInputTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 2.5);
-  const estimatedTokens = estimatedInputTokens + 500;
+  const estimatedTokens = estimatedInputTokens + 800;
   const MAX_RETRIES = 5;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const tokenEntry = await waitForTokenBudget(estimatedTokens);
 
     try {
-      // 3. GỌI API GROQ
       const response = await groq.chat.completions.create({
         model: "llama-3.3-70b-versatile",
         messages: [
@@ -125,28 +150,30 @@ Yêu cầu trả về JSON thuần túy (strict JSON object) theo format:
         temperature: 0.7,
       });
 
-      // Cập nhật lại số token thực tế vào hàm chặn tốc độ
       if (response.usage?.total_tokens) {
         tokenEntry.tokens = response.usage.total_tokens;
       }
 
       const content = response.choices[0].message.content || "{}";
 
-      // Bắt lỗi JSON parse
-      let parsedData;
+      let parsedData: any;
       try {
         parsedData = JSON.parse(content);
       } catch (parseError) {
         throw new Error("AI trả về định dạng JSON không hợp lệ.");
       }
 
-      // 4. SANITIZE OUTPUT: Chống vỡ giao diện (Xóa toàn bộ dấu cách đầu dòng)
+      // Loại bỏ khoảng trắng đầu dòng tránh lỗi giao diện
       if (parsedData.description) {
         parsedData.description = parsedData.description.replace(/^[ \t]+/gm, "");
       }
 
-      // 5. LƯU KẾT QUẢ VÀO CACHE ĐỂ DÙNG CHO CÁC LẦN SAU
-      cache.set(cacheKey, parsedData);
+      // Bổ sung Slug được tạo bằng code vào Data Object cuối cùng
+      if (parsedData.seoTitle) {
+        parsedData.slug = generateSlug(parsedData.seoTitle);
+      } else {
+        parsedData.slug = generateSlug(input.title);
+      }
 
       return parsedData;
 
