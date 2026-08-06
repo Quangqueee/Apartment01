@@ -10,6 +10,7 @@ import {
   approveLandlord,
   rejectLandlord,
   getLandlordApartmentStats,
+  terminatePartnershipAction,
 } from "@/app/landlord-actions";
 import {
   Table,
@@ -26,8 +27,17 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   CheckCircle2,
   XCircle,
@@ -36,6 +46,8 @@ import {
   Eye,
   Building2,
   BarChart2,
+  UserX,
+  AlertTriangle,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -45,7 +57,10 @@ export default function AdminPartnersPage() {
   const [partners, setPartners] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
-  const [activeTab, setActiveTab] = useState<"pending" | "approved">("pending");
+
+  const [activeTab, setActiveTab] = useState<"pending" | "approved">(
+    "approved",
+  );
 
   // Modal States
   const [selectedPartner, setSelectedPartner] = useState<any>(null);
@@ -53,6 +68,9 @@ export default function AdminPartnersPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [partnerStats, setPartnerStats] = useState<any>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
+
+  // State cho Popup xác nhận ngưng hợp tác chuyên nghiệp
+  const [terminateDialogOpen, setTerminateDialogOpen] = useState(false);
 
   const fetchPartners = useCallback(async () => {
     if (!user) return;
@@ -80,7 +98,6 @@ export default function AdminPartnersPage() {
     setPartnerStats(null);
     setDetailsModalOpen(true);
 
-    // Fetch stats
     setIsLoadingStats(true);
     const res = await getLandlordApartmentStats(user!.uid, partner.id);
     if (res.stats) {
@@ -124,6 +141,35 @@ export default function AdminPartnersPage() {
     });
   };
 
+  // Kích hoạt mở Popup xác nhận ngưng hợp tác thay vì dùng window.confirm cũ
+  const handleTerminatePartnership = () => {
+    if (!user || !selectedPartner) return;
+    setTerminateDialogOpen(true);
+  };
+
+  // Thực hiện gọi API xử lý ngưng hợp tác và xóa toàn bộ dữ liệu liên quan
+  const handleConfirmTerminate = () => {
+    if (!user || !selectedPartner) return;
+
+    startTransition(async () => {
+      const res = await terminatePartnershipAction(
+        user.uid,
+        selectedPartner.id,
+      );
+      if (res?.error) {
+        toast({ variant: "destructive", title: "Lỗi", description: res.error });
+      } else {
+        toast({
+          title: "Đã ngưng hợp tác thành công",
+          description: `Đã thu hồi quyền, xóa tài khoản chủ nhà và gỡ bỏ toàn bộ căn hộ của ${selectedPartner.displayName}.`,
+        });
+        setTerminateDialogOpen(false);
+        setDetailsModalOpen(false);
+        fetchPartners();
+      }
+    });
+  };
+
   const filteredPartners = partners.filter((p) => p.status === activeTab);
 
   if (loading || isLoading)
@@ -153,14 +199,7 @@ export default function AdminPartnersPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab("pending")}
-          className={`pb-3 text-sm font-bold transition-colors ${activeTab === "pending" ? "border-b-2 border-[#cda533] text-[#cda533]" : "text-gray-500 hover:text-gray-700"}`}
-        >
-          Yêu cầu chờ duyệt (
-          {partners.filter((p) => p.status === "pending").length})
-        </button>
+      <div className="flex justify-start gap-6 border-b border-gray-200">
         <button
           onClick={() => setActiveTab("approved")}
           className={`pb-3 text-sm font-bold transition-colors ${activeTab === "approved" ? "border-b-2 border-[#cda533] text-[#cda533]" : "text-gray-500 hover:text-gray-700"}`}
@@ -168,13 +207,20 @@ export default function AdminPartnersPage() {
           Đối tác đang hoạt động (
           {partners.filter((p) => p.status === "approved").length})
         </button>
+        <button
+          onClick={() => setActiveTab("pending")}
+          className={`pb-3 text-sm font-bold transition-colors ${activeTab === "pending" ? "border-b-2 border-[#cda533] text-[#cda533]" : "text-gray-500 hover:text-gray-700"}`}
+        >
+          Yêu cầu chờ duyệt (
+          {partners.filter((p) => p.status === "pending").length})
+        </button>
       </div>
 
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/50">
-              <TableHead>Họ tên</TableHead>
+              <TableHead>Tên đơn vị / Họ tên</TableHead>
               <TableHead>Số điện thoại</TableHead>
               <TableHead>Khu vực</TableHead>
               <TableHead>Ngày hợp tác</TableHead>
@@ -221,11 +267,11 @@ export default function AdminPartnersPage() {
 
       {/* Modal Chi tiết & Thống kê */}
       <Dialog open={detailsModalOpen} onOpenChange={setDetailsModalOpen}>
-        <DialogContent className="bg-white max-w-2xl">
+        <DialogContent className="bg-white max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <Users className="h-5 w-5 text-[#cda533]" />
-              Hồ sơ Đối tác: {selectedPartner?.displayName}
+              Chi tiết Hồ sơ Đối tác
             </DialogTitle>
           </DialogHeader>
 
@@ -237,6 +283,12 @@ export default function AdminPartnersPage() {
                   <h3 className="font-bold text-gray-900 uppercase text-xs mb-3">
                     Thông tin đăng ký
                   </h3>
+                  <p>
+                    <strong className="text-gray-600">Tên đơn vị:</strong>{" "}
+                    <span className="font-bold text-gray-900">
+                      {selectedPartner.displayName}
+                    </span>
+                  </p>
                   <p>
                     <strong className="text-gray-600">Email:</strong>{" "}
                     {selectedPartner.email}
@@ -315,7 +367,8 @@ export default function AdminPartnersPage() {
                   )}
                 </div>
               </div>
-              {/* BỔ SUNG: Nút truy cập trang chi tiết Căn hộ */}
+
+              {/* Nút truy cập trang chi tiết Căn hộ */}
               <div className="col-span-1 md:col-span-2 pt-2">
                 <Button
                   asChild
@@ -329,6 +382,22 @@ export default function AdminPartnersPage() {
                   </Link>
                 </Button>
               </div>
+
+              {/* Phần xử lý: Ngưng hợp tác */}
+              {selectedPartner.status === "approved" && (
+                <div className="col-span-1 md:col-span-2 pt-4 border-t flex justify-end">
+                  <Button
+                    variant="destructive"
+                    onClick={handleTerminatePartnership}
+                    disabled={isPending}
+                    className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                  >
+                    <UserX className="h-4 w-4 mr-2" /> Ngưng hợp tác & Xóa tài
+                    khoản / Căn hộ
+                  </Button>
+                </div>
+              )}
+
               {/* Phần xử lý (Chỉ hiện nếu đang chờ duyệt) */}
               {selectedPartner.status === "pending" && (
                 <div className="col-span-1 md:col-span-2 pt-4 border-t space-y-3">
@@ -364,6 +433,44 @@ export default function AdminPartnersPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* POPUP XÁC NHẬN NGƯNG HỢP TÁC CHUYÊN NGHIỆP */}
+      <AlertDialog
+        open={terminateDialogOpen}
+        onOpenChange={setTerminateDialogOpen}
+      >
+        <AlertDialogContent className="bg-white z-[200] max-w-md rounded-2xl shadow-2xl p-6">
+          <AlertDialogHeader className="space-y-3 text-center sm:text-left">
+            <div className="mx-auto sm:mx-0 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-xl font-bold text-gray-900">
+              Xác nhận ngưng hợp tác?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-gray-500 leading-relaxed">
+              Bạn có chắc chắn muốn ngưng hợp tác với đối tác{" "}
+              <strong className="text-gray-800">
+                {selectedPartner?.displayName}
+              </strong>
+              ? Hành động này sẽ thu hồi quyền đăng tin và tiến hành xóa toàn bộ
+              dữ liệu tài khoản cũng như căn hộ của đối tác này khỏi hệ thống.
+              Thao tác không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 flex flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto rounded-xl border-gray-200 text-gray-700 hover:bg-gray-100 font-semibold">
+              Hủy bỏ
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmTerminate}
+              disabled={isPending}
+              className="w-full sm:w-auto rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold border-none"
+            >
+              {isPending ? "Đang xử lý..." : "Xác nhận ngưng hợp tác"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

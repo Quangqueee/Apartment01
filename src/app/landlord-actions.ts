@@ -13,6 +13,7 @@ import {
   collection,
   where,
   getDocs,
+  deleteDoc,
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
 import { createApartment, updateApartment, getApartmentById } from "@/lib/data";
@@ -148,7 +149,6 @@ const landlordSubmissionSchema = z.object({
   area: z.coerce.number().min(1, "Diện tích phải lớn hơn 0."),
   price: z.coerce.number().min(0),
   details: z.string().min(20),
-  buildingNotes: z.string().optional(),
   commission: z.string().optional(),
   contactPhone: z.string().min(8, "Số điện thoại không hợp lệ."),
   status: z.enum(["available", "rented"]).optional(), // Đã bổ sung status
@@ -195,7 +195,6 @@ export async function submitApartmentByLandlord(
         area: data.area,
         price: data.price,
         details: data.details,
-        buildingNotes: data.buildingNotes || "",
         commission: data.commission || "",
         contactPhone: data.contactPhone || "",
         status: data.status || "available",
@@ -229,7 +228,7 @@ export async function submitApartmentByLandlord(
 
     await notifyAdminsServer({
       title: "Tin đăng mới cần duyệt",
-      message: `Chủ nhà vừa gửi tin đăng "${data.title}" (${data.district}) chờ duyệt.`,
+      message: `Chủ nhà vừa gửi tin đăng "${data.title}" - ${data.district} chờ duyệt.`,
       type: "new_submission",
       link: `/${ADMIN_PATH}/submissions`,
     });
@@ -522,7 +521,7 @@ export async function clearPushRequestAction(adminUid: string, apartmentId: stri
 export async function approveAndResolvePushAction(adminUid: string, apartmentId: string) {
   const isAdmin = await assertIsAdmin(adminUid);
   if (!isAdmin) return { error: "Không có quyền quản trị." };
-  
+
   try {
     const docRef = doc(firestore, "apartments", apartmentId);
     await updateDoc(docRef, {
@@ -535,5 +534,54 @@ export async function approveAndResolvePushAction(adminUid: string, apartmentId:
   } catch (error) {
     console.error("Error approving push:", error);
     return { error: "Lỗi khi phê duyệt đẩy tin." };
+  }
+}
+
+// --- 13. Ngưng hợp tác: Xóa toàn bộ căn hộ của đối tác và hạ quyền tài khoản về user ---
+export async function terminatePartnershipAction(adminUid: string, targetUid: string) {
+  const isAdmin = await assertIsAdmin(adminUid);
+  if (!isAdmin) return { error: "Không có quyền quản trị." };
+  if (!targetUid) return { error: "Thiếu ID đối tác." };
+
+  try {
+    // 1. Tìm và xóa toàn bộ căn hộ do landlord này đã đăng trong Firestore
+    const apartmentsQuery = query(
+      collection(firestore, "apartments"),
+      where("landlordId", "==", targetUid)
+    );
+    const snapshot = await getDocs(apartmentsQuery);
+
+    const deletePromises = snapshot.docs.map(async (aptDoc) => {
+      await deleteDoc(doc(firestore, "apartments", aptDoc.id));
+    });
+    await Promise.all(deletePromises);
+
+    // 2. Cập nhật lại thông tin user: hạ quyền về "user", reset trạng thái và xóa dữ liệu đăng ký cũ
+    const userRef = doc(firestore, "users", targetUid);
+    await updateDoc(userRef, {
+      role: "user",
+      landlordApprovalStatus: "rejected",
+      landlordRejectionReason: "Hợp tác đã bị chấm dứt và thu hồi bởi Quản trị viên.",
+      landlordRequestData: deleteField(),
+      landlordRequestSubmittedAt: deleteField(),
+    });
+
+    // 3. Gửi thông báo cho người dùng
+    await createNotificationServer({
+      recipientId: targetUid,
+      title: "Hợp tác đã bị chấm dứt",
+      message: "Tư cách chủ nhà của bạn đã bị thu hồi và toàn bộ tin đăng căn hộ đã được gỡ bỏ bởi quản trị viên.",
+      type: "landlord_rejected",
+      link: "/",
+    });
+
+    revalidatePath(`/${ADMIN_PATH}/partners`);
+    revalidatePath(`/${ADMIN_PATH}`);
+    revalidatePath("/");
+
+    return { success: true, deletedApartmentsCount: snapshot.size };
+  } catch (error) {
+    console.error("Failed to terminate partnership:", error);
+    return { error: "Không thể ngưng hợp tác và xóa dữ liệu đối tác. Vui lòng thử lại." };
   }
 }

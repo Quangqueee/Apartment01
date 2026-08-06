@@ -43,10 +43,11 @@ import Link from "next/link";
 import {
   deleteApartmentAction,
   pushApartmentAction,
-  getUnmigratedApartmentsAction,
-  migrateApartmentsBatchAction,
+  // getUnmigratedApartmentsAction,
+  // migrateApartmentsBatchAction,
   getUnmigratedAiApartmentsAction,
   migrateAiApartmentsBatchAction,
+  backfillSubmissionStatusAction, // <--- Thêm dòng này vào
 } from "../../actions";
 import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -224,23 +225,22 @@ export default function ApartmentsPage() {
     });
   };
 
-  // -------------------------------------------------------------------
-  // KHÔI PHỤC: CÁC HÀM ĐỒNG BỘ TỪ KHÓA CŨ VÀ TỐI ƯU AI CỦA BẠN
-  // -------------------------------------------------------------------
   const handleMigrate = async () => {
     const confirm = window.confirm(
-      "Đồng bộ từ khóa cho tất cả căn hộ cũ? Quá trình này sẽ mất vài giây.",
+      "Đồng bộ trạng thái Published cho tất cả căn hộ cũ? Quá trình này sẽ giúp các căn hộ cũ hiển thị công khai trên hệ thống.",
     );
     if (!confirm) return;
 
     const { id, update } = toast({
-      title: "Đang quét dữ liệu...",
-      description: "Đang kiểm tra các căn hộ cần đồng bộ.",
+      title: "Đang kiểm tra căn hộ cũ...",
+      description: "Đang quét các căn hộ thiếu trạng thái hiển thị.",
       duration: 100000,
     });
-    const res = await getUnmigratedApartmentsAction();
 
-    if (res?.error || !res.data) {
+    // Gọi trực tiếp server action backfillSubmissionStatusAction có sẵn trong actions.ts
+    const res = await backfillSubmissionStatusAction();
+
+    if (res?.error) {
       update({
         id,
         variant: "destructive",
@@ -250,74 +250,16 @@ export default function ApartmentsPage() {
       return;
     }
 
-    const unmigrated = res.data;
-    const total = unmigrated.length;
-
-    if (total === 0) {
-      update({
-        id,
-        title: "Hoàn tất!",
-        description:
-          "Tất cả căn hộ của bạn đã được chuẩn hóa, không cần đồng bộ thêm.",
-        duration: 3000,
-      });
-      return;
-    }
-
-    const BATCH_SIZE = 20;
-    let processed = 0;
-
-    const updateProgressToast = (current: number) => {
-      const percentage = Math.round((current / total) * 100);
-      update({
-        id,
-        title: "Đang đồng bộ dữ liệu...",
-        description: (
-          <div className="space-y-2 mt-2 w-full pr-4">
-            <div className="flex justify-between text-xs font-medium text-gray-500">
-              <span>
-                {current} / {total} căn
-              </span>
-              <span>{percentage}%</span>
-            </div>
-            <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-              <div
-                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
-                style={{ width: `${percentage}%` }}
-              ></div>
-            </div>
-          </div>
-        ),
-        duration: 100000,
-      });
-    };
-
-    updateProgressToast(0);
-
-    for (let i = 0; i < total; i += BATCH_SIZE) {
-      const batch = unmigrated.slice(i, i + BATCH_SIZE);
-      const batchRes = await migrateApartmentsBatchAction(batch);
-
-      if (batchRes?.error) {
-        update({
-          id,
-          variant: "destructive",
-          title: "Lỗi",
-          description: "Tiến trình bị gián đoạn.",
-        });
-        return;
-      }
-      processed += batch.length;
-      updateProgressToast(processed);
-    }
+    const updatedCount = res.updatedCount || 0;
 
     setTimeout(() => {
       update({
         id,
-        title: "Đồng bộ hoàn tất! 🎉",
-        description: `Đã đồng bộ ${total} căn hộ.`,
+        title: "Đồng bộ trạng thái thành công! 🎉",
+        description: `Đã cập nhật trạng thái Published cho ${updatedCount} căn hộ cũ.`,
         duration: 4000,
       });
+      router.refresh();
     }, 500);
   };
 
@@ -438,9 +380,9 @@ export default function ApartmentsPage() {
           <Button
             onClick={handleMigrate}
             variant="outline"
-            className="text-blue-600 border-blue-600"
+            className="text-blue-600 border-blue-600 hover:bg-blue-50"
           >
-            Đồng bộ Từ khóa Cũ
+            Đồng bộ Trạng thái Published
           </Button>
           <Button
             onClick={handleAiMigrate}
@@ -542,7 +484,7 @@ export default function ApartmentsPage() {
                       className="text-center py-8 text-gray-500"
                     >
                       {activeTab === "push_requests"
-                        ? "Không có yêu cầu push nào đang chờ."
+                        ? "Không có yêu cầu nào đang chờ."
                         : "Không tìm thấy căn hộ nào."}
                     </TableCell>
                   </TableRow>
@@ -675,7 +617,7 @@ export default function ApartmentsPage() {
           {currentApartments.length === 0 ? (
             <div className="text-center py-8 text-gray-500 border rounded-lg bg-gray-50">
               {activeTab === "push_requests"
-                ? "Không có yêu cầu push nào đang chờ."
+                ? "Không có yêu cầu nào đang chờ."
                 : "Không tìm thấy căn hộ nào."}
             </div>
           ) : (

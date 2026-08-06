@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { ADMIN_PATH } from "@/lib/constants";
+import { useState, useEffect, useTransition, useCallback } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useParams, useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
@@ -8,8 +10,6 @@ import {
   getPartnerByIdAction,
   getLandlordApartmentsAction,
 } from "@/app/landlord-actions";
-import { ADMIN_PATH } from "@/lib/constants";
-import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,6 @@ export default function PartnerDetailPage() {
     if (!user) return;
     setIsLoading(true);
 
-    // Gọi song song 2 API lấy thông tin chủ nhà & danh sách căn hộ
     const [partnerRes, aptsRes] = await Promise.all([
       getPartnerByIdAction(user.uid, partnerId),
       getLandlordApartmentsAction(user.uid, partnerId),
@@ -99,8 +98,9 @@ export default function PartnerDetailPage() {
           </Link>
         </Button>
         <div>
+          {/* Đã lược bỏ tên đối tác ở tiêu đề */}
           <h2 className="font-headline text-2xl md:text-3xl font-bold tracking-tight text-gray-900">
-            Hồ sơ chi tiết: {partner.displayName}
+            Hồ sơ chi tiết đối tác
           </h2>
           <p className="text-gray-500">
             Quản lý các thông tin và bài đăng của đối tác.
@@ -108,9 +108,13 @@ export default function PartnerDetailPage() {
         </div>
       </div>
 
-      {/* Thẻ Thông tin Đối tác */}
+      {/* Thẻ Thông tin Đối tác (Đã đưa tên đơn vị vào trong form) */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-6 md:items-center justify-between">
         <div className="space-y-3">
+          <div className="flex items-center gap-2 text-gray-900 font-bold">
+            <Building2 className="h-4 w-4 text-[#cda533]" />
+            <span>Tên đơn vị: {partner.displayName}</span>
+          </div>
           <div className="flex items-center gap-2 text-gray-700">
             <Mail className="h-4 w-4 text-gray-400" />
             <span className="font-medium">{partner.email}</span>
@@ -148,7 +152,7 @@ export default function PartnerDetailPage() {
       {/* Bảng Danh sách Căn hộ */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-lg font-bold flex items-center gap-2">
+          <h3 className="text-lg font-airbnb font-bold flex items-center gap-2">
             <Building2 className="h-5 w-5 text-[#cda533]" />
             Danh sách Căn hộ đã đăng ({apartments.length})
           </h3>
@@ -227,9 +231,8 @@ export default function PartnerDetailPage() {
                       asChild
                       className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                     >
-                      <Link
-                        href={`/${ADMIN_PATH}/${apt.submissionStatus === "pending" ? "submissions" : "apartments"}`}
-                      >
+                      {/* LƯU Ý: Chỗ này đang cần xác định đúng đường dẫn trang edit căn hộ của bạn */}
+                      <Link href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}>
                         Chi tiết <ExternalLink className="w-3 h-3 ml-1.5" />
                       </Link>
                     </Button>

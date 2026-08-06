@@ -16,6 +16,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -31,20 +36,34 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Loader2, Building, Clock, CheckCircle2 } from "lucide-react";
+  Loader2,
+  Building,
+  Clock,
+  CheckCircle2,
+  ChevronDown,
+  Check,
+} from "lucide-react";
 import Link from "next/link";
 
+// 4. Cập nhật schema:
+// - Đổi tên field displayName thành operatorName (hoặc giữ tên tùy ý bạn)
+// - District đổi từ string sang mảng string (string[]) để hỗ trợ chọn nhiều
+// - Message chuyển thành bắt buộc (.min(1)
+
 const formSchema = z.object({
-  displayName: z.string().min(1, "Vui lòng nhập họ tên của bạn."),
-  phoneNumber: z.string().min(8, "Số điện thoại không hợp lệ."),
-  district: z.string().min(1, "Vui lòng chọn khu vực bạn có phòng."),
-  message: z.string().optional(),
+  displayName: z.string().min(1, "Vui lòng nhập tên đơn vị vận hành."),
+  phoneNumber: z
+    .string()
+    .min(1, "Vui lòng nhập số điện thoại.")
+    .min(8, "Số điện thoại không hợp lệ."),
+
+  district: z
+    .array(z.string())
+    .min(1, "Vui lòng chọn ít nhất một khu vực có phòng."),
+
+  message: z
+    .string()
+    .min(1, "Vui lòng nhập lời nhắn để chúng tôi hỗ trợ tốt nhất."),
 });
 
 export default function PartnerRegisterPage() {
@@ -53,12 +72,18 @@ export default function PartnerRegisterPage() {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
+  const defaultPhoneNumber =
+    (userData as any)?.phoneNumber ||
+    (userData as any)?.phone ||
+    user?.phoneNumber ||
+    "";
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      displayName: user?.displayName || "",
-      phoneNumber: "",
-      district: "",
+      displayName: user?.displayName || "", // Đã sửa từ operatorName thành displayName
+      phoneNumber: defaultPhoneNumber,
+      district: [], // Đảm bảo là mảng rỗng
       message: "",
     },
   });
@@ -138,10 +163,16 @@ export default function PartnerRegisterPage() {
     );
   }
 
-  // 4. Form đăng ký
+  // Form đăng ký
   function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(async () => {
-      const res = await createLandlordRequest(user!.uid, values);
+      // Chuyển mảng khu vực thành chuỗi ngăn cách bằng dấu phẩy để khớp với kiểu dữ liệu backend mong đợi
+      const payload = {
+        ...values,
+        district: values.district.join(", "),
+      };
+
+      const res = await createLandlordRequest(user!.uid, payload);
       if (res.error) {
         toast({ variant: "destructive", title: "Lỗi", description: res.error });
       } else {
@@ -149,7 +180,7 @@ export default function PartnerRegisterPage() {
           title: "Thành công!",
           description: "Đã gửi yêu cầu đăng ký. Vui lòng chờ admin xét duyệt.",
         });
-        window.location.reload(); // Refresh để load lại trạng thái "pending"
+        window.location.reload();
       }
     });
   }
@@ -184,27 +215,35 @@ export default function PartnerRegisterPage() {
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-5"
               >
+                {/* Đổi nhãn hiển thị thành "Tên đơn vị vận hành" nhưng giữ nguyên name="displayName" */}
                 <FormField
                   control={form.control}
                   name="displayName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Họ và Tên</FormLabel>
+                      <FormLabel>Tên đơn vị vận hành</FormLabel>
                       <FormControl>
-                        <Input placeholder="VD. Nguyễn Văn A" {...field} />
+                        <Input
+                          placeholder="VD. Hanoi Housing / Cty Bất Động Sản ABC"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Thêm items-start để cố định 2 cột luôn thẳng hàng phía trên */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  {/* 2. Số điện thoại */}
                   <FormField
                     control={form.control}
                     name="phoneNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Số điện thoại</FormLabel>
+                        <FormLabel>
+                          Số điện thoại liên hệ{" "}
+                          <span className="text-red-500">*</span>
+                        </FormLabel>
                         <FormControl>
                           <Input placeholder="VD. 0912345678" {...field} />
                         </FormControl>
@@ -212,41 +251,104 @@ export default function PartnerRegisterPage() {
                       </FormItem>
                     )}
                   />
+
+                  {/* 3. Khu vực có phòng (Đã bỏ flex flex-col ở FormItem) */}
                   <FormField
                     control={form.control}
                     name="district"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Khu vực có phòng</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Chọn quận..." />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {HANOI_DISTRICTS.map((d) => (
-                              <SelectItem key={d} value={d}>
-                                {d}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const selectedDistricts = field.value || [];
+                      const displayText =
+                        selectedDistricts.length === 0
+                          ? "Chọn quận..."
+                          : selectedDistricts.length <= 2
+                            ? selectedDistricts.join(", ")
+                            : `${selectedDistricts.length} quận đã chọn`;
+
+                      return (
+                        <FormItem>
+                          <FormLabel>
+                            Khu vực có phòng{" "}
+                            <span className="text-red-500">*</span>
+                          </FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <button
+                                  type="button"
+                                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 text-gray-800 font-normal"
+                                >
+                                  <span className="truncate mr-2">
+                                    {displayText}
+                                  </span>
+                                  <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                                </button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-[var(--radix-popover-trigger-width)] rounded-xl border bg-white shadow-xl z-[150] p-1.5 max-h-[200px] overflow-y-auto"
+                              align="start"
+                            >
+                              <div className="flex flex-col gap-0.5">
+                                {HANOI_DISTRICTS.map((districtName) => {
+                                  const isChecked =
+                                    selectedDistricts.includes(districtName);
+                                  return (
+                                    <div
+                                      key={districtName}
+                                      onClick={() => {
+                                        let newArray = [...selectedDistricts];
+                                        if (isChecked) {
+                                          newArray = newArray.filter(
+                                            (d) => d !== districtName,
+                                          );
+                                        } else {
+                                          newArray.push(districtName);
+                                        }
+                                        field.onChange(newArray);
+                                      }}
+                                      className={`flex items-center gap-2.5 py-1.5 px-2.5 text-xs md:text-sm font-semibold cursor-pointer rounded-lg transition-all ${
+                                        isChecked
+                                          ? "bg-[#cda533]/10 text-[#cda533]"
+                                          : "hover:bg-gray-50 text-gray-600 hover:text-gray-900"
+                                      }`}
+                                    >
+                                      <div
+                                        className={`w-3.5 h-3.5 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
+                                          isChecked
+                                            ? "bg-[#cda533] border-[#cda533] text-white"
+                                            : "border-gray-300 bg-white"
+                                        }`}
+                                      >
+                                        {isChecked && (
+                                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                                        )}
+                                      </div>
+                                      <span className="truncate">
+                                        {districtName}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                 </div>
 
+                {/* 4. Lời nhắn chuyển thành bắt buộc */}
                 <FormField
                   control={form.control}
                   name="message"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Lời nhắn (Không bắt buộc)</FormLabel>
+                      <FormLabel>
+                        Lời nhắn <span className="text-red-500">*</span>
+                      </FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder="Mô tả qua về số lượng phòng, phân khúc phòng bạn đang quản lý..."

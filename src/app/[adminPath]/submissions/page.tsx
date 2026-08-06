@@ -199,9 +199,6 @@ export default function AdminSubmissionsPage() {
                 <p><strong className="text-gray-700">Dạng phòng:</strong> {selectedSubmission.roomType} | <strong className="text-gray-700">Quận:</strong> {selectedSubmission.district} | <strong className="text-gray-700">Diện tích:</strong> {selectedSubmission.area} m²</p>
                 <p><strong className="text-gray-700">Giá:</strong> {selectedSubmission.price} triệu/tháng | <strong className="text-gray-700">Hoa hồng:</strong> {selectedSubmission.commission || "N/A"}</p>
                 <p><strong className="text-gray-700">Thông tin chi tiết:</strong> {selectedSubmission.details}</p>
-                {selectedSubmission.buildingNotes && (
-                  <p><strong className="text-gray-700">Ghi chú tòa nhà:</strong> {selectedSubmission.buildingNotes}</p>
-                )}
                 <div className="pt-2">
                   <p className="font-semibold text-gray-700 mb-1">Hình ảnh căn hộ:</p>
                   <div className="grid grid-cols-4 gap-2">
@@ -217,7 +214,7 @@ export default function AdminSubmissionsPage() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase text-gray-600">Mã ID nội bộ (Source Code)</label>
+                    <label className="text-xs font-bold uppercase text-gray-600">Mã nguồn</label>
                     <Input
                       placeholder="VD. TH0123"
                       value={sourceCode}
@@ -244,7 +241,7 @@ export default function AdminSubmissionsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-gray-600">Ghi chú / Lý do (Gửi cho chủ nhà nếu từ chối hoặc lưu ý)</label>
+                  <label className="text-xs font-bold uppercase text-gray-600">Ghi chú</label>
                   <Textarea
                     placeholder="Nhập ghi chú hoặc lý do từ chối..."
                     value={adminNotes}

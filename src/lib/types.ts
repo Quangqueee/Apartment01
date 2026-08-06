@@ -33,7 +33,6 @@ export interface Apartment {
   adminNotes?: string; // Admin feedback, shown to landlord on rejection/edit
   design?: string; // Thiết kế
   serviceFees?: string; // Phí dịch vụ
-  buildingNotes?: string; // Ghi chú toà nhà
   contactPhone?: string; // Landlord-facing contact phone (distinct from admin-only landlordPhoneNumber)
 
   // Sửa: Cho phép aiContent nhận kiểu object, undefined hoặc null

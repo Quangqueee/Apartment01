@@ -116,7 +116,6 @@ const formSchema = z
     status: z.enum(["available", "rented"]).optional(),
     tags: z.array(z.enum(["pet_friendly", "lake_view"])).optional(),
     serviceFees: z.string().optional(),
-    buildingNotes: z.string().optional(),
     contactPhone: z.string().optional(),
   })
   .superRefine((data, ctx) => {
@@ -352,7 +351,6 @@ export default function ApartmentForm({
       tags: apartment?.tags || [],
       imageUrls: apartment?.imageUrls || [],
       serviceFees: apartment?.serviceFees || "",
-      buildingNotes: apartment?.buildingNotes || "",
       contactPhone: apartment?.contactPhone || "",
     },
   });
@@ -407,7 +405,6 @@ export default function ApartmentForm({
         tags: apartment.tags || [],
         imageUrls: apartment.imageUrls || [],
         serviceFees: apartment.serviceFees || "",
-        buildingNotes: apartment.buildingNotes || "",
         contactPhone: apartment.contactPhone || "",
       });
 
@@ -642,7 +639,6 @@ export default function ApartmentForm({
                 area: values.area,
                 price: values.price,
                 details: values.details,
-                buildingNotes: values.buildingNotes,
                 commission: values.commission,
                 contactPhone: values.contactPhone || "",
                 status: values.status || "available",
@@ -738,7 +734,7 @@ export default function ApartmentForm({
                       <FormLabel>Địa chỉ hiển thị</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Địa chỉ chi tiết. VD: 123 Nguyễn Trãi, Thanh Xuân"
+                          placeholder="VD: 123 Nguyễn Trãi, Thanh Xuân"
                           {...field}
                         />
                       </FormControl>
@@ -752,7 +748,7 @@ export default function ApartmentForm({
                   name="details"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Thông tin căn hộ (Thô)</FormLabel>
+                      <FormLabel>Thông tin căn hộ</FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder="Nhập thông số điện nước, phí dịch vụ, giờ giấc, nội thất thô..."
@@ -766,144 +762,128 @@ export default function ApartmentForm({
                 />
 
                 {/* NÚT BẬT TẮT VÀ GỌI AI SEO */}
-                <div className="flex items-center gap-2 pt-2 border-t mt-6">
-                  <input
-                    type="checkbox"
-                    id="toggleSeo"
-                    checked={isSeoEnabled}
-                    onChange={(e) => setIsSeoEnabled(e.target.checked)}
-                    className="h-4 w-4 rounded border-primary text-primary focus:ring-primary cursor-pointer"
-                  />
-                  <label
-                    htmlFor="toggleSeo"
-                    className="text-sm font-semibold cursor-pointer select-none text-gray-700"
-                  >
-                    Bật cấu hình tạo SEO AI (Dành cho khách thuê)
-                  </label>
-                </div>
-
-                {isSeoEnabled && (
-                  <div className="p-4 border rounded-md bg-purple-50/50 transition-all mt-4 space-y-4 shadow-inner">
-                    <div className="flex items-center justify-between border-b border-purple-100 pb-3 mb-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleGenerateAi}
-                        disabled={isGeneratingAi}
-                        className="text-purple-600 border-purple-200 hover:bg-purple-100 gap-1.5 h-8 text-xs font-semibold cursor-pointer shadow-sm bg-white ml-auto"
+                {mode === "admin" && (
+                  <>
+                    <div className="flex items-center gap-2 pt-2 border-t mt-6">
+                      <input
+                        type="checkbox"
+                        id="toggleSeo"
+                        checked={isSeoEnabled}
+                        onChange={(e) => setIsSeoEnabled(e.target.checked)}
+                        className="h-4 w-4 rounded border-primary text-primary focus:ring-primary cursor-pointer"
+                      />
+                      <label
+                        htmlFor="toggleSeo"
+                        className="text-sm font-semibold cursor-pointer select-none text-gray-700"
                       >
-                        {isGeneratingAi ? (
-                          <>
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}
-                            Đang xử lý...
-                          </>
-                        ) : (
-                          <>✨ Tối ưu bằng AI</>
-                        )}
-                      </Button>
+                        Bật cấu hình tạo SEO AI (Dành cho khách thuê)
+                      </label>
                     </div>
 
-                    <FormField
-                      control={form.control}
-                      name="seoTitle"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-purple-700 font-semibold">
-                            Tiêu đề bài đăng (B2C)
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="VD: Căn hộ Studio view hồ cực chill, full nội thất..."
-                              className="bg-white font-medium"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {isSeoEnabled && (
+                      <div className="p-4 border rounded-md bg-purple-50/50 transition-all mt-4 space-y-4 shadow-inner">
+                        <div className="flex items-center justify-between border-b border-purple-100 pb-3 mb-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleGenerateAi}
+                            disabled={isGeneratingAi}
+                            className="text-purple-600 border-purple-200 hover:bg-purple-100 gap-1.5 h-8 text-xs font-semibold cursor-pointer shadow-sm bg-white ml-auto"
+                          >
+                            {isGeneratingAi ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}
+                                Đang xử lý...
+                              </>
+                            ) : (
+                              <>✨ Tối ưu bằng AI</>
+                            )}
+                          </Button>
+                        </div>
 
-                    <FormField
-                      control={form.control}
-                      name="seoDescription"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-purple-700 font-semibold">
-                            Mô tả SEO (Meta Description)
-                          </FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Đoạn mô tả ngắn 2-3 câu..."
-                              className="bg-white min-h-[60px]"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                        <FormField
+                          control={form.control}
+                          name="seoTitle"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-purple-700 font-semibold">
+                                Tiêu đề bài đăng (B2C)
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="VD: Căn hộ Studio view hồ cực chill, full nội thất..."
+                                  className="bg-white font-medium"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-                    <FormField
-                      control={form.control}
-                      name="listingSummary"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-purple-700 font-semibold">
-                            Nội dung chi tiết (Mô tả dài)
-                          </FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Nội dung bài viết sẽ hiển thị ở đây. Bạn cũng có thể tự do chỉnh sửa..."
-                              className="min-h-[250px] md:min-h-[300px] text-base md:text-sm bg-white"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                        <FormField
+                          control={form.control}
+                          name="seoDescription"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-purple-700 font-semibold">
+                                Mô tả SEO (Meta Description)
+                              </FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Đoạn mô tả ngắn 2-3 câu..."
+                                  className="bg-white min-h-[60px]"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-                    <FormField
-                      control={form.control}
-                      name="highlights"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-purple-700 font-semibold">
-                            Điểm nổi bật (Mỗi dòng 1 ý)
-                          </FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Điểm nổi bật 1&#10;Điểm nổi bật 2&#10;..."
-                              className="bg-white min-h-[120px]"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
+                        <FormField
+                          control={form.control}
+                          name="listingSummary"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-purple-700 font-semibold">
+                                Nội dung chi tiết (Mô tả dài)
+                              </FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Nội dung bài viết sẽ hiển thị ở đây. Bạn cũng có thể tự do chỉnh sửa..."
+                                  className="min-h-[250px] md:min-h-[300px] text-base md:text-sm bg-white"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-                {mode === "landlord" && (
-                  <FormField
-                    control={form.control}
-                    name="buildingNotes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Ghi chú tòa nhà</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Nhập các lưu ý về tòa nhà (vân tay, giờ giấc, chỗ để xe...)"
-                            className="min-h-[100px]"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                        <FormField
+                          control={form.control}
+                          name="highlights"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-purple-700 font-semibold">
+                                Điểm nổi bật (Mỗi dòng 1 ý)
+                              </FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Điểm nổi bật 1&#10;Điểm nổi bật 2&#10;..."
+                                  className="bg-white min-h-[120px]"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     )}
-                  />
+                  </>
                 )}
               </CardContent>
             </Card>

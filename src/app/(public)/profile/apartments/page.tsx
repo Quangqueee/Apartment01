@@ -236,7 +236,7 @@ export default function LandlordApartmentsPage() {
                     <TableRow className="bg-gray-50/50">
                       <TableHead>Địa chỉ</TableHead>
                       <TableHead>Mã ID</TableHead>
-                      <TableHead>Trạng thái duyệt</TableHead>
+                      <TableHead>Trạng thái</TableHead>
                       <TableHead>Giá</TableHead>
                       <TableHead>Cập nhật</TableHead>
                       <TableHead className="text-center">Hành động</TableHead>
@@ -317,7 +317,7 @@ export default function LandlordApartmentsPage() {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent className="bg-white z-[100] border shadow-md">
-                                  <p>Đẩy lên đầu</p>
+                                  <p>Yêu cầu đẩy lên đầu</p>
                                 </TooltipContent>
                               </Tooltip>
 
