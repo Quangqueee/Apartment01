@@ -37,6 +37,7 @@ import {
   ChevronRight,
   ArrowUpCircle,
   Building,
+  Loader2,
 } from "lucide-react";
 import { getApartments } from "@/lib/data-client";
 import Link from "next/link";
@@ -49,6 +50,7 @@ import {
   useTransition,
   FormEvent,
   useCallback,
+  Suspense,
 } from "react";
 import { Apartment } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
@@ -64,7 +66,7 @@ import Header from "@/components/header";
 import Footer from "@/components/footer";
 import { requestPushApartmentAction } from "@/app/landlord-actions";
 
-export default function LandlordApartmentsPage() {
+function LandlordApartmentsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -88,7 +90,6 @@ export default function LandlordApartmentsPage() {
   const fetchApartments = useCallback(() => {
     if (!user) return;
     startTransition(async () => {
-      // Gọi getApartments và lọc theo landlordId của user hiện tại
       const result = await getApartments({
         query: searchParams.get("q") || undefined,
         page: currentPage,
@@ -96,7 +97,6 @@ export default function LandlordApartmentsPage() {
         searchBy: "sourceCodeOrAddress",
       });
 
-      // Lọc danh sách chỉ lấy căn hộ của chính landlord này đăng
       const myApartments = result.apartments.filter(
         (apt: any) => apt.landlordId === user.uid,
       );
@@ -173,7 +173,7 @@ export default function LandlordApartmentsPage() {
           title: "Đã gửi yêu cầu!",
           description: "Yêu cầu đẩy tin đã được gửi đến Admin để xét duyệt.",
         });
-        fetchApartments(); // Tải lại danh sách để cập nhật trạng thái nút
+        fetchApartments();
       }
     });
   };
@@ -478,5 +478,19 @@ export default function LandlordApartmentsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+export default function LandlordApartmentsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-[#cda533]" />
+        </div>
+      }
+    >
+      <LandlordApartmentsContent />
+    </Suspense>
   );
 }
