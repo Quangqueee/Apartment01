@@ -46,9 +46,10 @@ const apartmentBaseSchema = z.object({
   details: z.string().min(20),
   listingSummary: z.string().optional(),
   seoTitle: z.string().optional(),
+  seoDescription: z.string().optional(), // BỔ SUNG TRƯỜNG NÀY
+  highlights: z.array(z.string()).optional(), // BỔ SUNG TRƯỜNG NÀY
   address: z.string().min(1),
   landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
-  // BỔ SUNG 2 TRƯỜNG STATUS VÀ TAGS Ở ĐÂY ĐỂ ĐỒNG BỘ VỚI FRONTEND
   status: z.enum(["available", "rented"]).optional().default("available"),
   tags: z.array(z.enum(["pet_friendly", "lake_view"])).optional().default([]),
 });
@@ -185,11 +186,12 @@ export async function createOrUpdateApartmentAction(
     let aiOptimizedContent = undefined;
 
     // Nếu trên giao diện có gửi kèm nội dung bài viết (do AI tạo trước đó hoặc do bạn tự viết)
-    if (data.listingSummary || data.seoTitle) {
+    if (data.listingSummary || data.seoTitle || data.seoDescription || (data.highlights && data.highlights.length > 0)) {
       aiOptimizedContent = {
         seoTitle: data.seoTitle || existingApartment?.aiContent?.seoTitle || data.title,
+        seoDescription: data.seoDescription || existingApartment?.aiContent?.seoDescription || "",
         b2cDescription: data.listingSummary || existingApartment?.aiContent?.b2cDescription || "",
-        highlights: existingApartment?.aiContent?.highlights || [],
+        highlights: data.highlights || existingApartment?.aiContent?.highlights || [],
         updatedAt: Timestamp.now(),
       };
     } else if (existingApartment && existingApartment.aiContent) {
@@ -210,6 +212,8 @@ export async function createOrUpdateApartmentAction(
     } else {
       const newApartmentData = {
         ...apartmentDataWithTimestamp,
+        // Apartments created directly by admin need no approval workflow.
+        submissionStatus: "published" as const,
         createdAt: Timestamp.now(),
       };
       const newApartment = await createApartment(newApartmentData as Omit<Apartment, "id">);
@@ -289,9 +293,14 @@ export async function generateSummaryAction(
       area: validatedInput.data.area || 0,        // Thêm area (mặc định 0 nếu chưa nhập)
       detailedInformation: validatedInput.data.detailedInformation || "",
     });
-
-    // SỬA: Trả về nội dung mô tả VÀ tiêu đề do AI viết
-    return { summary: result.description, seoTitle: result.seoTitle };
+    // SỬA: Trả về đầy đủ tất cả các trường do AI viết
+    return {
+      summary: result.description, // Giữ nguyên tên biến cũ phòng ngừa lỗi ở nơi khác
+      description: result.description, // Map đúng tên key từ AI
+      seoTitle: result.seoTitle,
+      seoDescription: result.seoDescription,
+      highlights: result.highlights
+    };
   } catch (error) {
     console.error("AI summary generation failed:", error);
     return { error: "Failed to generate summary from AI." };
@@ -559,14 +568,11 @@ export async function pushApartmentAction(id: string) {
     // Cập nhật lại thời gian để căn hộ trồi lên đầu
     await updateDoc(docRef, {
       updatedAt: Timestamp.now(),
-      // Ghi đè createdAt để bộ lọc "Mới nhất" đẩy căn hộ lên vị trí đầu tiên
       createdAt: Timestamp.now(),
     });
 
-    // Xóa cache chủ động (On-demand Revalidation)
-    // Ngay sau lệnh này, các trang public sẽ được Next.js tự động fetch lại dữ liệu mới nhất 
-    // và lưu thành một bản cache cứng mới, tối ưu chi phí reads.
-    revalidatePath("/");
+    // ÉP LÀM MỚI BỘ NHỚ ĐỆM CỦA TRANG CHỦ NGAY LẬP TỨC
+    revalidatePath("/", "layout"); // Thêm "layout" để force clear toàn bộ
     revalidatePath(`/${ADMIN_PATH}`);
     revalidatePath("/apartments");
 
@@ -574,5 +580,33 @@ export async function pushApartmentAction(id: string) {
   } catch (error) {
     console.error("Database error on push:", error);
     return { error: "Database error. Failed to push apartment." };
+  }
+}
+
+// One-off migration: apartments created before the landlord-submission workflow
+// existed have no submissionStatus field. Firestore equality/inequality filters
+// exclude documents missing the filtered field entirely, so getApartments()'s
+// new `where("submissionStatus", "==", "published")` filter would otherwise
+// hide every pre-existing listing. Run this once after deploying that filter.
+export async function backfillSubmissionStatusAction() {
+  try {
+    const apartmentsCol = collection(firestore, "apartments");
+    const querySnapshot = await getDocs(apartmentsCol);
+    const toBackfill = querySnapshot.docs.filter(
+      (docSnap) => !docSnap.data().submissionStatus,
+    );
+
+    await Promise.all(
+      toBackfill.map((docSnap) =>
+        updateDoc(doc(firestore, "apartments", docSnap.id), {
+          submissionStatus: "published",
+        }),
+      ),
+    );
+
+    return { success: true, updatedCount: toBackfill.length };
+  } catch (error) {
+    console.error("Lỗi khi backfill submissionStatus:", error);
+    return { error: "Không thể backfill trạng thái tin đăng." };
   }
 }

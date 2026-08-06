@@ -18,7 +18,7 @@ import {
   Phone,
   CheckCircle2,
   Loader2,
-  Trash2, // <-- Thêm icon Trash2
+  Trash2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo } from "react";
@@ -37,7 +37,7 @@ import {
   doc,
   onSnapshot,
   updateDoc,
-  deleteDoc, // <-- Thêm hàm deleteDoc
+  deleteDoc,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -60,9 +60,9 @@ interface UserData {
   gender?: string;
   interests?: string;
   ctvIntroduction?: string;
-  role?: "user" | "collaborator" | "admin";
+  role?: "user" | "collaborator" | "admin" | "landlord";
   requestStatus?: "pending" | string;
-  createdAt?: any; // <-- Khai báo thêm trường createdAt
+  createdAt?: any;
 }
 
 type ManageableRole = "user" | "collaborator";
@@ -107,7 +107,7 @@ export default function UsersPage() {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [toast]);
 
   const filteredUsers = useMemo(() => {
     const q = query.toLowerCase();
@@ -130,6 +130,7 @@ export default function UsersPage() {
   const getRoleLabel = (role: UserData["role"]) => {
     if (role === "admin") return "Admin";
     if (role === "collaborator") return "CTV";
+    if (role === "landlord") return "Chủ nhà";
     return "Người dùng";
   };
 
@@ -139,6 +140,9 @@ export default function UsersPage() {
     }
     if (role === "collaborator") {
       return "bg-blue-50 text-blue-700 border-blue-200";
+    }
+    if (role === "landlord") {
+      return "bg-amber-50 text-amber-700 border-amber-200";
     }
     return "bg-gray-50 text-gray-700 border-gray-200";
   };
@@ -223,7 +227,6 @@ export default function UsersPage() {
     }
   };
 
-  // HÀM XÓA NGƯỜI DÙNG KHỎI FIRESTORE
   const handleDeleteUser = async (targetUser: UserData) => {
     const confirmDelete = window.confirm(
       `Bạn có chắc chắn muốn xóa hồ sơ của ${targetUser.email}? Hành động này sẽ xóa dữ liệu hiển thị (không xóa tài khoản Auth).`,
@@ -234,7 +237,6 @@ export default function UsersPage() {
     try {
       await deleteDoc(doc(db, "users", targetUser.uid));
 
-      // Xóa khỏi UI
       setUsers((prev) => prev.filter((u) => u.uid !== targetUser.uid));
 
       toast({
@@ -254,15 +256,22 @@ export default function UsersPage() {
   };
 
   const renderRoleControl = (u: UserData) => {
-    if (u.role === "admin") {
+    // SỬA Ở ĐÂY: Quản lý riêng hiển thị của admin và landlord
+    if (u.role === "admin" || u.role === "landlord") {
       return (
         <div className="space-y-1">
           <Badge variant="outline" className={getRoleBadgeClass(u.role)}>
             {getRoleLabel(u.role)}
           </Badge>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">
-            Tài khoản quản trị
-          </p>
+          {u.role === "admin" ? (
+            <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">
+              Tài khoản quản trị
+            </p>
+          ) : (
+            <p className="text-[10px] font-medium text-amber-600">
+              Quản lý tại tab Đối tác
+            </p>
+          )}
         </div>
       );
     }

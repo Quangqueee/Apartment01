@@ -1,12 +1,12 @@
 # Graph Report - Apartment01  (2026-08-06)
 
 ## Corpus Check
-- 154 files · ~191,625 words
+- 152 files · ~190,102 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 989 nodes · 1903 edges · 112 communities (53 shown, 59 thin omitted)
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 4 edges (avg confidence: 0.65)
+- 971 nodes · 1854 edges · 106 communities (46 shown, 60 thin omitted)
+- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 3 edges (avg confidence: 0.6)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
@@ -19,21 +19,21 @@
 - index.ts
 - apartment-form.tsx
 - sidebar.tsx
-- apartment-details-page-client.tsx
+- rbac.ts
 - devDependencies
 - errors.ts
 - compilerOptions
 - actions.ts
 - cn
 - card.tsx
-- image-lightbox.tsx
+- apartment-details-page-client.tsx
 - data-client.ts
 - components.json
 - use-toast.ts
-- auth-service.ts
+- signup/page.tsx
 - menubar.tsx
 - chart.tsx
-- users/page.tsx
+- apartments/page.tsx
 - react
 - 🛠️ Chi Tiết Kỹ Thuật Các Tính Năng Đã Thực Hiện
 - dependencies
@@ -44,12 +44,12 @@
 - 🚀 Nâng Cấp Toàn Diện Hệ Thống Đặt Lịch & Quản Lý Khách Hàng (CRM)
 - What You Must Do When Invoked
 - sheet.tsx
-- data.ts
+- notification-bell.tsx
 - Cập Nhật & Tối Ưu Giao Diện Chi Tiết Căn Hộ
 - @radix-ui/react-toast
 - class-variance-authority
 - clsx
-- landlord-actions.ts
+- date-fns
 - date-fns-tz
 - @dnd-kit/core
 - @dnd-kit/sortable
@@ -70,17 +70,17 @@
 - @radix-ui/react-accordion
 - @radix-ui/react-alert-dialog
 - @radix-ui/react-avatar
-- apartments/page.tsx
+- @radix-ui/react-checkbox
 - @radix-ui/react-collapsible
 - @radix-ui/react-dialog
-- types.ts
+- @radix-ui/react-dropdown-menu
 - @radix-ui/react-label
 - @radix-ui/react-menubar
-- Button
+- @radix-ui/react-popover
 - @radix-ui/react-progress
 - @radix-ui/react-radio-group
 - 📂 Lịch Sử Cập Nhật Hệ Thống (Changelogs)
-- generate-listing-summary.ts
+- @radix-ui/react-select
 - @radix-ui/react-separator
 - @radix-ui/react-slider
 - @radix-ui/react-slot
@@ -97,7 +97,7 @@
 - genkit.ts
 - global.d.ts
 - tailwind.config.ts
-- [id]/edit/page.tsx
+- badge.tsx
 - graphify reference: extra exports and benchmark
 - graphify reference: query, path, explain
 - graphify reference: add a URL and watch a folder
@@ -109,19 +109,12 @@
 - .claude/CLAUDE.md
 - extraction-spec.md
 - copilot-instructions.md
-- server-init.ts
 - @genkit-ai/google-genai
 - openai
 - react-dom
 - react-hook-form
 - zod
-- alert.tsx
-- huong-dan-cong-viec/page.tsx
-- @genkit-ai/next
-- jszip
-- node-cache
-- @radix-ui/react-scroll-area
-- @radix-ui/react-switch
+- separator.tsx
 
 ## God Nodes (most connected - your core abstractions)
 1. `react` - 77 edges
@@ -132,45 +125,45 @@
 6. `Button` - 17 edges
 7. `compilerOptions` - 17 edges
 8. `useUser()` - 16 edges
-9. `Apartment` - 15 edges
+9. `Apartment` - 14 edges
 10. `Header()` - 12 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `ApartmentDetailsPageClient()` --references--> `jszip`  [EXTRACTED]
   src/components/apartment-details-page-client.tsx → package.json
-- `ImageLightbox()` --references--> `jszip`  [EXTRACTED]
-  src/components/image-lightbox.tsx → package.json
 - `useCarousel()` --references--> `react`  [EXTRACTED]
   src/components/ui/carousel.tsx → package.json
 - `useChart()` --references--> `react`  [EXTRACTED]
   src/components/ui/chart.tsx → package.json
 - `useFormField()` --references--> `react`  [EXTRACTED]
   src/components/ui/form.tsx → package.json
+- `useSidebar()` --references--> `react`  [EXTRACTED]
+  src/components/ui/sidebar.tsx → package.json
 
 ## Import Cycles
 - 3-file cycle: `src/context/auth-context.tsx -> src/firebase/index.ts -> src/firebase/client-provider.tsx -> src/context/auth-context.tsx`
 
-## Communities (112 total, 59 thin omitted)
+## Communities (106 total, 60 thin omitted)
 
 ### Community 0 - "provider.tsx"
-Cohesion: 0.07
-Nodes (31): AboutSection(), AdminLayoutContent(), revalidate, FavoritesPage(), ProfileEditPage(), DISTRICT_IMAGES, DistrictStat, FeaturedDistricts() (+23 more)
+Cohesion: 0.21
+Nodes (11): AdminLayoutContent(), FirebaseContext, FirebaseContextState, FirebaseProviderProps, FirebaseServicesAndUser, useAuth(), useFirebase(), useFirebaseApp() (+3 more)
 
 ### Community 1 - "index.ts"
 Cohesion: 0.06
-Nodes (48): AddBookingModal(), removeVietnameseTones(), CancelConfirmModal(), DeleteConfirmModal(), DetailsModal(), formatBookingTime(), formatCreationDate(), NoteModal() (+40 more)
+Nodes (57): AboutSection(), AddBookingModal(), removeVietnameseTones(), CancelConfirmModal(), DeleteConfirmModal(), DetailsModal(), formatBookingTime(), formatCreationDate() (+49 more)
 
 ### Community 2 - "apartment-form.tsx"
 Cohesion: 0.07
 Nodes (40): generateSummaryAction(), getRoomTypeLabel(), ACCEPTED_IMAGE_TYPES, ApartmentForm(), ApartmentFormProps, compressImage(), createInitialPreviewItems(), createPreviewId() (+32 more)
 
 ### Community 3 - "sidebar.tsx"
-Cohesion: 0.08
-Nodes (32): Home(), formatNotificationTime(), NOTIFICATION_ICONS, NotificationBell(), PopoverContent, Separator, Sidebar, SidebarContent (+24 more)
-
-### Community 4 - "apartment-details-page-client.tsx"
 Cohesion: 0.11
-Nodes (7): PageProps, montserrat, ShareModal(), titleFont, ClientFormattedDate(), ClientFormattedDateProps, Progress
+Nodes (25): Sidebar, SidebarContent, SidebarContext, SidebarFooter, SidebarGroup, SidebarGroupAction, SidebarGroupContent, SidebarGroupLabel (+17 more)
+
+### Community 4 - "rbac.ts"
+Cohesion: 0.12
+Nodes (5): useUserRole(), getCurrentUserRole(), Permission, ROLE_PERMISSIONS, UserRole
 
 ### Community 5 - "devDependencies"
 Cohesion: 0.05
@@ -185,60 +178,60 @@ Cohesion: 0.07
 Nodes (29): dom, dom.iterable, esnext, next-env.d.ts, .next/types/**/*.ts, node, node_modules, react-dom (+21 more)
 
 ### Community 8 - "actions.ts"
-Cohesion: 0.14
-Nodes (18): apartmentActionSchema, apartmentBaseSchema, checkFavoriteStatusAction(), createOrUpdateApartmentAction(), createUserDocument(), flattenImageUrls(), generateSummarySchema, imageUrlsSchema (+10 more)
+Cohesion: 0.06
+Nodes (51): generateListingSummary(), generateSlug(), groq, tokenWindow, waitForTokenBudget(), apartmentActionSchema, apartmentBaseSchema, checkFavoriteStatusAction() (+43 more)
 
 ### Community 9 - "cn"
-Cohesion: 0.21
-Nodes (14): ApartmentImageGallery(), ButtonProps, buttonVariants, Calendar(), CalendarProps, Pagination(), PaginationContent, PaginationEllipsis() (+6 more)
+Cohesion: 0.15
+Nodes (19): DocNode, docsTree, SOPDocsPage(), NavLink(), Button, ButtonProps, buttonVariants, Calendar() (+11 more)
 
 ### Community 10 - "card.tsx"
 Cohesion: 0.27
 Nodes (8): PENDING_BOOKING_COLLECTIONS, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Skeleton()
 
-### Community 11 - "image-lightbox.tsx"
-Cohesion: 0.17
-Nodes (16): ApartmentImageGalleryProps, ImageLightbox(), ImageLightboxProps, Carousel, CarouselApi, CarouselContent, CarouselContext, CarouselContextProps (+8 more)
+### Community 11 - "apartment-details-page-client.tsx"
+Cohesion: 0.07
+Nodes (31): jszip, jszip, react, react, montserrat, ShareModal(), titleFont, ApartmentImageGallery() (+23 more)
 
 ### Community 12 - "data-client.ts"
-Cohesion: 0.15
-Nodes (21): FavoritesListClient(), FavoritesListClientProps, DEFAULT_FILTERS, FilterControls(), FilterState, parsePriceInput(), apartmentsCollection, { firestore } (+13 more)
+Cohesion: 0.06
+Nodes (42): fetchApartmentsAction(), ApartmentForm, EditApartmentPageProps, ApartmentForm, montserrat, titleFont, ApartmentFormSkeleton(), ApartmentList() (+34 more)
 
 ### Community 13 - "components.json"
 Cohesion: 0.11
 Nodes (17): aliases, components, hooks, lib, ui, utils, iconLibrary, rsc (+9 more)
 
 ### Community 14 - "use-toast.ts"
-Cohesion: 0.12
-Nodes (22): Toast, ToastAction, ToastActionElement, ToastClose, ToastDescription, ToastProps, ToastTitle, toastVariants (+14 more)
+Cohesion: 0.07
+Nodes (32): beVietnamPro, metadata, playfairDisplay, MultiContact(), Toast, ToastAction, ToastActionElement, ToastClose (+24 more)
 
-### Community 15 - "auth-service.ts"
-Cohesion: 0.08
-Nodes (21): ForgotPasswordPage(), LoginContent(), SettingsPage(), ResetPasswordContent(), SignupContent(), useUserRole(), changePassword(), confirmResetPassword() (+13 more)
+### Community 15 - "signup/page.tsx"
+Cohesion: 0.20
+Nodes (12): LoginContent(), ResetPasswordContent(), SignupContent(), confirmResetPassword(), login(), loginWithGoogle(), signup(), checkPasswordMatch() (+4 more)
 
 ### Community 16 - "menubar.tsx"
 Cohesion: 0.12
 Nodes (11): Menubar, MenubarCheckboxItem, MenubarContent, MenubarItem, MenubarLabel, MenubarRadioItem, MenubarSeparator, MenubarShortcut() (+3 more)
 
 ### Community 17 - "chart.tsx"
-Cohesion: 0.12
-Nodes (13): react, react, useCarousel(), ChartConfig, ChartContainer, ChartContext, ChartContextProps, ChartLegendContent (+5 more)
+Cohesion: 0.20
+Nodes (7): ChartConfig, ChartContainer, ChartContext, ChartContextProps, ChartLegendContent, ChartTooltipContent, THEMES
 
-### Community 18 - "users/page.tsx"
-Cohesion: 0.18
-Nodes (14): ManageableRole, UserData, UsersPage(), Badge(), BadgeProps, badgeVariants, Table, TableBody (+6 more)
+### Community 18 - "apartments/page.tsx"
+Cohesion: 0.16
+Nodes (19): ManageableRole, UserData, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter(), AlertDialogHeader() (+11 more)
 
 ### Community 19 - "react"
-Cohesion: 0.09
-Nodes (19): react, montserrat, titleFont, AuthModal(), AccordionContent, AccordionItem, AccordionTrigger, Checkbox (+11 more)
+Cohesion: 0.08
+Nodes (19): react, AccordionContent, AccordionItem, AccordionTrigger, Alert, AlertDescription, AlertTitle, alertVariants (+11 more)
 
 ### Community 20 - "🛠️ Chi Tiết Kỹ Thuật Các Tính Năng Đã Thực Hiện"
 Cohesion: 0.17
 Nodes (11): 1. Tối Ưu Hóa Technical SEO & Dữ Liệu Có Cấu Trúc (Schema Markup), 2. Tăng Cường Bảo Mật & Quản Lý Mã Nguồn (Next.js & TS), 3. Cải Tiến Trải Nghiệm Người Dùng (UX) & Accessibility, 4. Nâng Cấp Hệ Thống AI Tạo Nội Dung (Content Generation Engine), 5. Tối Ưu PageSpeed Insights (Font Loading), 6. Sitemap Động (Dynamic Sitemap từ Firestore), 7. Nâng Cấp Bộ Lọc Multi-Select (`district`/`roomType`), 🚀 Báo Cáo Kỹ Thuật: Tối Ưu SEO Toàn Diện, Bảo Mật Next.js, UX & Hệ Thống AI (+3 more)
 
 ### Community 21 - "dependencies"
-Cohesion: 0.13
-Nodes (15): date-fns, @genkit-ai/googleai, dependencies, date-fns, @genkit-ai/googleai, @radix-ui/react-checkbox, @radix-ui/react-dropdown-menu, @radix-ui/react-popover (+7 more)
+Cohesion: 0.15
+Nodes (13): @genkit-ai/googleai, @genkit-ai/next, node-cache, dependencies, @genkit-ai/googleai, @genkit-ai/next, node-cache, @radix-ui/react-scroll-area (+5 more)
 
 ### Community 22 - "3. Tổng Hợp Các File & Phương Thức Đã Chỉnh Sửa"
 Cohesion: 0.20
@@ -253,8 +246,8 @@ Cohesion: 0.20
 Nodes (9): 1. Hệ Thống Thông Báo & Triggers Đa Luồng (`src/lib/notifications.ts`, `booking-widget.tsx`, `auth-service.ts`), 2. Chuẩn Hóa Câu Chữ (Wording) Trong Thông Báo, 3. Nâng Cấp Giao Diện Popover Chuông Thông Báo (`notification-bell.tsx`, `use-notifications.ts`), 4. Tối Ưu Trang Tổng Quan Admin (`[adminPath]/page.tsx`), 5. Bộ Lọc Trạng Thái Tại Trang Quản Lý Lịch Hẹn Admin (`[adminPath]/bookings/page.tsx`), 6. Vá Lỗi & Dọn Dẹp Giao Diện Profile User (`profile/page.tsx`), 🛠️ Chi Tiết Các Tính Năng & Thay Đổi Kỹ Thuật, 🚀 Nâng Cấp Hệ Thống Thông Báo Toàn Diện & Quản Lý Admin (+1 more)
 
 ### Community 25 - "user-nav.tsx"
-Cohesion: 0.25
-Nodes (9): DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut(), DropdownMenuSubContent (+1 more)
+Cohesion: 0.15
+Nodes (14): ContactCardProps, Avatar, AvatarFallback, AvatarImage, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel (+6 more)
 
 ### Community 26 - "🚀 Nâng Cấp Toàn Diện Hệ Thống Đặt Lịch & Quản Lý Khách Hàng (CRM)"
 Cohesion: 0.22
@@ -268,17 +261,13 @@ Nodes (26): For /graphify add and --watch, For /graphify query, For the commit h
 Cohesion: 0.22
 Nodes (8): SheetContent, SheetContentProps, SheetDescription, SheetFooter(), SheetHeader(), SheetOverlay, SheetTitle, sheetVariants
 
-### Community 29 - "data.ts"
-Cohesion: 0.19
-Nodes (14): ApartmentPage(), generateMetadata(), PageProps, revalidate, apartmentsCollection, deleteApartment(), getApartmentById(), getFavoriteApartments() (+6 more)
+### Community 29 - "notification-bell.tsx"
+Cohesion: 0.43
+Nodes (6): formatNotificationTime(), NOTIFICATION_ICONS, NotificationBell(), AppNotification, useNotifications(), NotificationType
 
 ### Community 30 - "Cập Nhật & Tối Ưu Giao Diện Chi Tiết Căn Hộ"
 Cohesion: 0.29
 Nodes (6): 🎯 1. Phân Quyền & Bổ Sung Tính Năng Tải Ảnh (B2B), 📱 2. Tái Cấu Trúc Nút Tương Tác Trên Mobile (Floating UI), 🚀 3. Nâng Cấp Share Modal (Bottom Sheet & Messenger), 📖 4. Tùy Chỉnh Hiển Thị "Thông Tin Chi Tiết", 🛠️ 5. Nhận Diện Lỗi Kỹ Thuật Next.js Image, Cập Nhật & Tối Ưu Giao Diện Chi Tiết Căn Hộ
-
-### Community 34 - "landlord-actions.ts"
-Cohesion: 0.23
-Nodes (15): approveLandlord(), approveOrRejectLandlord(), assertIsAdmin(), createLandlordRequest(), landlordRequestSchema, landlordSubmissionSchema, rejectLandlord(), reviewApartmentSubmission() (+7 more)
 
 ### Community 44 - "APARTMENT01_CONTEXT.md"
 Cohesion: 0.33
@@ -288,29 +277,13 @@ Nodes (5): 📊 COMMUNITIES & MODULES, 🔝 GOD NODES (Most Connected Concepts),
 Cohesion: 0.50
 Nodes (3): **App Name**: Hanoi Residences, Core Features:, Style Guidelines:
 
-### Community 55 - "apartments/page.tsx"
-Cohesion: 0.23
-Nodes (14): deleteApartmentAction(), getUnmigratedAiApartmentsAction(), getUnmigratedApartmentsAction(), pushApartmentAction(), ApartmentsPage(), AlertDialogAction, AlertDialogCancel, AlertDialogContent (+6 more)
-
-### Community 58 - "types.ts"
-Cohesion: 0.18
-Nodes (11): fetchApartmentsAction(), ApartmentList(), ApartmentListProps, BookingWidgetProps, Apartment, ApartmentStatus, Favorite, FeatureTag (+3 more)
-
-### Community 61 - "Button"
-Cohesion: 0.25
-Nodes (6): ContactCardProps, Avatar, AvatarFallback, AvatarImage, Button, TooltipContent
-
 ### Community 64 - "📂 Lịch Sử Cập Nhật Hệ Thống (Changelogs)"
 Cohesion: 0.50
 Nodes (3): 📋 Bảng Mục Lục Cập Nhật, 📂 Lịch Sử Cập Nhật Hệ Thống (Changelogs), 📌 Quy Tắc Đặt Tên File Tài Liệu Mới
 
-### Community 65 - "generate-listing-summary.ts"
-Cohesion: 0.32
-Nodes (6): generateListingSummary(), generateSlug(), groq, tokenWindow, waitForTokenBudget(), migrateAiApartmentsBatchAction()
-
-### Community 87 - "[id]/edit/page.tsx"
-Cohesion: 0.25
-Nodes (4): ApartmentForm, EditApartmentPageProps, ApartmentForm, ApartmentFormSkeleton()
+### Community 87 - "badge.tsx"
+Cohesion: 0.67
+Nodes (3): Badge(), BadgeProps, badgeVariants
 
 ### Community 88 - "graphify reference: extra exports and benchmark"
 Cohesion: 0.22
@@ -332,37 +305,25 @@ Nodes (3): For git commit hook, For native CLAUDE.md integration, graphify refer
 Cohesion: 0.50
 Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphify reference: incremental update and cluster-only
 
-### Community 99 - "server-init.ts"
-Cohesion: 0.38
-Nodes (4): getApartmentEntries(), sitemap(), firebaseConfig, auth
-
-### Community 105 - "alert.tsx"
-Cohesion: 0.40
-Nodes (4): Alert, AlertDescription, AlertTitle, alertVariants
-
-### Community 106 - "huong-dan-cong-viec/page.tsx"
-Cohesion: 0.50
-Nodes (3): DocNode, docsTree, SOPDocsPage()
-
 ## Knowledge Gaps
-- **393 isolated node(s):** `$schema`, `style`, `rsc`, `tsx`, `config` (+388 more)
+- **389 isolated node(s):** `$schema`, `style`, `rsc`, `tsx`, `config` (+384 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **59 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **60 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `dependencies` connect `dependencies` to `devDependencies`, `chart.tsx`, `@radix-ui/react-toast`, `class-variance-authority`, `clsx`, `date-fns-tz`, `@dnd-kit/core`, `@dnd-kit/sortable`, `dotenv`, `embla-carousel-react`, `firebase`, `firebase-admin`, `framer-motion`, `genkit`, `hono`, `@hookform/resolvers`, `lucide-react`, `next`, `@opentelemetry/exporter-jaeger`, `@radix-ui/react-accordion`, `@radix-ui/react-alert-dialog`, `@radix-ui/react-avatar`, `@radix-ui/react-collapsible`, `@radix-ui/react-dialog`, `@radix-ui/react-label`, `@radix-ui/react-menubar`, `@radix-ui/react-progress`, `@radix-ui/react-radio-group`, `@radix-ui/react-separator`, `@radix-ui/react-slider`, `@radix-ui/react-slot`, `@radix-ui/react-tooltip`, `react-day-picker`, `react-markdown`, `react-phone-number-input`, `recharts`, `sharp`, `tailwind-merge`, `tailwindcss-animate`, `uuid`, `@genkit-ai/google-genai`, `openai`, `react-dom`, `react-hook-form`, `zod`, `@genkit-ai/next`, `jszip`, `node-cache`, `@radix-ui/react-scroll-area`, `@radix-ui/react-switch`?**
-  _High betweenness centrality (0.221) - this node is a cross-community bridge._
-- **Why does `react` connect `react` to `provider.tsx`, `index.ts`, `apartment-form.tsx`, `sidebar.tsx`, `apartment-details-page-client.tsx`, `errors.ts`, `compilerOptions`, `cn`, `card.tsx`, `image-lightbox.tsx`, `data-client.ts`, `use-toast.ts`, `auth-service.ts`, `menubar.tsx`, `chart.tsx`, `users/page.tsx`, `user-nav.tsx`, `sheet.tsx`, `apartments/page.tsx`, `types.ts`, `Button`, `[id]/edit/page.tsx`, `alert.tsx`, `huong-dan-cong-viec/page.tsx`?**
-  _High betweenness centrality (0.192) - this node is a cross-community bridge._
-- **Why does `react` connect `chart.tsx` to `index.ts`, `image-lightbox.tsx`, `dependencies`?**
-  _High betweenness centrality (0.134) - this node is a cross-community bridge._
+- **Why does `dependencies` connect `dependencies` to `devDependencies`, `apartment-details-page-client.tsx`, `@radix-ui/react-toast`, `class-variance-authority`, `clsx`, `date-fns`, `date-fns-tz`, `@dnd-kit/core`, `@dnd-kit/sortable`, `dotenv`, `embla-carousel-react`, `firebase`, `firebase-admin`, `framer-motion`, `genkit`, `hono`, `@hookform/resolvers`, `lucide-react`, `next`, `@opentelemetry/exporter-jaeger`, `@radix-ui/react-accordion`, `@radix-ui/react-alert-dialog`, `@radix-ui/react-avatar`, `@radix-ui/react-checkbox`, `@radix-ui/react-collapsible`, `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-label`, `@radix-ui/react-menubar`, `@radix-ui/react-popover`, `@radix-ui/react-progress`, `@radix-ui/react-radio-group`, `@radix-ui/react-select`, `@radix-ui/react-separator`, `@radix-ui/react-slider`, `@radix-ui/react-slot`, `@radix-ui/react-tooltip`, `react-day-picker`, `react-markdown`, `react-phone-number-input`, `recharts`, `sharp`, `tailwind-merge`, `tailwindcss-animate`, `uuid`, `@genkit-ai/google-genai`, `openai`, `react-dom`, `react-hook-form`, `zod`?**
+  _High betweenness centrality (0.223) - this node is a cross-community bridge._
+- **Why does `react` connect `react` to `provider.tsx`, `index.ts`, `apartment-form.tsx`, `sidebar.tsx`, `rbac.ts`, `errors.ts`, `compilerOptions`, `actions.ts`, `cn`, `card.tsx`, `apartment-details-page-client.tsx`, `data-client.ts`, `use-toast.ts`, `signup/page.tsx`, `menubar.tsx`, `chart.tsx`, `apartments/page.tsx`, `user-nav.tsx`, `sheet.tsx`, `notification-bell.tsx`, `badge.tsx`, `separator.tsx`?**
+  _High betweenness centrality (0.195) - this node is a cross-community bridge._
+- **Why does `react` connect `apartment-details-page-client.tsx` to `index.ts`, `dependencies`?**
+  _High betweenness centrality (0.135) - this node is a cross-community bridge._
 - **What connects `$schema`, `style`, `rsc` to the rest of the system?**
-  _393 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `provider.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.07493061979648474 - nodes in this community are weakly interconnected._
+  _389 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `index.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.0639269406392694 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06374829001367989 - nodes in this community are weakly interconnected._
 - **Should `apartment-form.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.07092198581560284 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06845513413506013 - nodes in this community are weakly interconnected._
+- **Should `sidebar.tsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.10582010582010581 - nodes in this community are weakly interconnected._

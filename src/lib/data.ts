@@ -94,6 +94,12 @@ export async function getApartments(
   let baseQuery: Query = apartmentsCollection;
   let whereClauses: any[] = [];
 
+  // Chỉ hiển thị công khai các tin đã published. Yêu cầu chạy
+  // backfillSubmissionStatusAction() một lần trước khi filter này lên production,
+  // vì Firestore loại bỏ hẳn các document không có field submissionStatus khi
+  // dùng toán tử so sánh (==) trên field đó.
+  whereClauses.push(where("submissionStatus", "==", "published"));
+
   // Multi-select filter: "district"/"roomType" trên URL có thể là chuỗi nhiều giá trị
   // phân tách bằng dấu phẩy (vd: "Ba Đình,Tây Hồ") -> parse thành mảng, trim khoảng
   // trắng thừa và loại bỏ phần tử rỗng trước khi đưa vào query.

@@ -15,7 +15,6 @@ import {
   SidebarGroupContent,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-// Thêm icon mới: BarChart3 (Doanh thu), ShieldCheck (Phân quyền), BedDouble (Phòng)
 import {
   Home,
   LayoutGrid,
@@ -28,6 +27,8 @@ import {
   ShieldCheck,
   BedDouble,
   CalendarCheck,
+  CheckSquare, // Icon cho duyệt tin đăng
+  UserCheck, // BỔ SUNG: Icon cho quản lý đối tác
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth as useFirebaseAuth } from "@/firebase/provider";
@@ -152,7 +153,8 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                {/* 3.5 QUẢN LÝ LỊCH HẸN */}
+
+                {/* 4. QUẢN LÝ LỊCH HẸN */}
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -165,6 +167,34 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+
+                {/* 5. DUYỆT TIN ĐĂNG */}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Duyệt tin đăng"
+                    isActive={pathname.includes("/submissions")}
+                  >
+                    <Link href={`/${ADMIN_PATH}/submissions`}>
+                      <CheckSquare />
+                      <span>Duyệt tin đăng</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
+                {/* 6. QUẢN LÝ ĐỐI TÁC (BỔ SUNG) */}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Quản lý Đối tác"
+                    isActive={pathname.includes("/partners")}
+                  >
+                    <Link href={`/${ADMIN_PATH}/partners`}>
+                      <UserCheck />
+                      <span>Quản lý Đối tác</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -173,7 +203,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
             <SidebarGroupLabel>Báo cáo & Quản trị</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {/* 4. QUẢN LÝ PHÒNG (Demo) */}
+                {/* 7. QUẢN LÝ PHÒNG (Demo) */}
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild tooltip="Quản lý Phòng trống">
                     <Link href="#" className="opacity-70 cursor-not-allowed">
@@ -183,7 +213,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
-                {/* 5. DOANH THU (Demo) */}
+                {/* 8. DOANH THU (Demo) */}
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild tooltip="Doanh thu">
                     <Link href="#" className="opacity-70 cursor-not-allowed">
@@ -193,7 +223,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
-                {/* 6. PHÂN QUYỀN (Demo) */}
+                {/* 9. PHÂN QUYỀN (Demo) */}
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild tooltip="Phân quyền">
                     <Link href="#" className="opacity-70 cursor-not-allowed">
@@ -279,16 +309,13 @@ export default function AdminLayout({
   const userRole = (userData?.role || "").toLowerCase();
 
   useEffect(() => {
-    // 1. Đang tải hoặc chưa có trạng thái thì chờ
     if (loading) return;
 
-    // 2. Chưa đăng nhập -> về trang login
     if (!user) {
       router.replace("/login");
       return;
     }
 
-    // 3. Đã đăng nhập nhưng không phải admin -> về trang chủ
     if (user && userRole !== "admin") {
       router.replace("/");
     }

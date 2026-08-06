@@ -4,7 +4,7 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "@/firebase";
 
-export type UserRole = "user" | "collaborator" | "admin";
+export type UserRole = "user" | "collaborator" | "admin" | "landlord";
 
 export type UserData = {
   uid?: string;
@@ -18,6 +18,7 @@ export type UserData = {
   interests?: string;
   favorites?: string[];
   role?: UserRole;
+  landlordApprovalStatus?: "pending" | "approved" | "rejected";
 };
 
 type AuthContextValue = {

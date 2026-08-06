@@ -8,6 +8,8 @@ import {
   RefreshCw,
   Info,
   CheckCheck,
+  UserCheck,
+  Home,
   type LucideIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -28,6 +30,11 @@ const NOTIFICATION_ICONS: Record<AppNotification["type"], LucideIcon> = {
   new_booking: CalendarDays,
   status_update: RefreshCw,
   system: Info,
+  landlord_request: UserCheck,
+  landlord_approved: UserCheck,
+  landlord_rejected: UserCheck,
+  new_submission: Home,
+  submission_reviewed: Home,
 };
 
 const formatNotificationTime = (createdAt: any) => {

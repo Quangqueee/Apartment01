@@ -15,7 +15,8 @@ import {
   LogIn,
   UserPlus,
   CalendarDays,
-  BookOpen, // Thêm icon cho Hướng dẫn CTV
+  BookOpen,
+  Building, // Thêm icon cho Quản lý phòng
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ export default function Header() {
 
   const canSeeCollaboratorGuide =
     userRole === "collaborator" || userRole === "admin";
+  const isLandlord = userRole === "landlord";
 
   useEffect(() => {
     if (isMobileMenuOpen) {
@@ -101,8 +103,17 @@ export default function Header() {
           <NavLink href="/#apartments-list" label="Căn hộ" icon={Building2} />
           <NavLink href="/#about" label="Giới thiệu" icon={Info} />
 
-          {/* Lịch hẹn */}
-          {user && (
+          {/* Nếu là Landlord: Hiển thị Quản lý phòng trống */}
+          {user && isLandlord && (
+            <NavLink
+              href="/profile/apartments"
+              label="Quản lý phòng"
+              icon={Building}
+            />
+          )}
+
+          {/* Nếu là CTV / Admin: Hiển thị lịch hẹn */}
+          {user && !isLandlord && (
             <NavLink
               href="/profile/bookings"
               label={
@@ -121,7 +132,7 @@ export default function Header() {
             />
           )}
 
-          {/* Yêu thích (Đã chuyển ra ngoài cùng bên phải) */}
+          {/* Yêu thích */}
           {user && (
             <Link
               href="/favorites"
@@ -197,7 +208,16 @@ export default function Header() {
             onClick={() => setIsMobileMenuOpen(false)}
           />
 
-          {user && (
+          {user && isLandlord && (
+            <MobileNavLink
+              href="/profile/apartments"
+              icon={Building}
+              label="Quản lý phòng trống"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+          )}
+
+          {user && !isLandlord && (
             <MobileNavLink
               href="/profile/bookings"
               icon={CalendarDays}
@@ -256,7 +276,6 @@ export default function Header() {
   );
 }
 
-// Cập nhật NavLink hỗ trợ icon truyền vào
 const NavLink = ({
   href,
   label,
@@ -265,7 +284,7 @@ const NavLink = ({
 }: {
   href: string;
   label: string;
-  icon?: any; // Thêm prop icon
+  icon?: any;
   className?: string;
 }) => (
   <Link

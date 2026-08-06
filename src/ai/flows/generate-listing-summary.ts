@@ -119,7 +119,7 @@ Format JSON trả về thuần túy:
   "seoTitle": "",
   "seoDescription": "",
   "description": "",
-  "highlights": []
+  "highlights": ["Điểm nhấn 1", "Điểm nhấn 2"]
 }`;
 
   const formattedPrice = (input.price * 1000000).toLocaleString('de-DE');

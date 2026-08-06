@@ -35,28 +35,22 @@ import {
   Pencil,
   ChevronLeft,
   ChevronRight,
-  ArrowUpCircle, // BỔ SUNG: Import icon cho nút Push
+  ArrowUpCircle,
+  CheckCircle,
+  Loader2,
 } from "lucide-react";
-import { getApartments } from "@/lib/data-client";
 import Link from "next/link";
 import {
   deleteApartmentAction,
+  pushApartmentAction,
   getUnmigratedApartmentsAction,
   migrateApartmentsBatchAction,
   getUnmigratedAiApartmentsAction,
   migrateAiApartmentsBatchAction,
-  pushApartmentAction, // BỔ SUNG: Import action Push bạn vừa tạo ở Bước 1
 } from "../../actions";
 import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import {
-  useState,
-  useEffect,
-  useTransition,
-  FormEvent,
-  useCallback,
-} from "react";
-import { Apartment } from "@/lib/types";
+import { useState, useEffect, useTransition, FormEvent, useMemo } from "react";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -66,39 +60,86 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ADMIN_PATH } from "@/lib/constants";
+import { approveAndResolvePushAction } from "@/app/landlord-actions";
+import { useAuth as useAuthContext } from "@/context/auth-context";
+import { db } from "@/firebase";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 
 export default function ApartmentsPage() {
+  const { user: authUser } = useAuthContext();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
 
-  const [apartments, setApartments] = useState<Apartment[]>([]);
-  const [totalApartments, setTotalApartments] = useState(0);
+  const [apartments, setApartments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
-  const [query, setQuery] = useState(searchParams.get("q") || "");
+  const [queryVal, setQueryVal] = useState(searchParams.get("q") || "");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [apartmentToDelete, setApartmentToDelete] = useState<string | null>(
     null,
   );
 
+  // Quản lý Tab hiển thị ("all" hoặc "push_requests")
+  const [activeTab, setActiveTab] = useState<"all" | "push_requests">("all");
+
   const currentPage = searchParams.get("page")
     ? parseInt(searchParams.get("page")!)
     : 1;
-  const totalPages = Math.ceil(totalApartments / 10);
+  const itemsPerPage = 10;
 
-  const fetchApartments = useCallback(() => {
-    startTransition(async () => {
-      const result = await getApartments({
-        query: searchParams.get("q") || undefined,
-        page: currentPage,
-        limit: 10,
-        searchBy: "sourceCodeOrAddress",
-      });
-      setApartments(result.apartments);
-      setTotalApartments(result.totalResults);
+  // LẮNG NGHE REALTIME FIRESTORE
+  useEffect(() => {
+    setLoading(true);
+    const q = query(collection(db, "apartments"), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setApartments(data);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Lỗi realtime apartments:", error);
+        setLoading(false);
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Lọc danh sách theo Tab, Search
+  const filteredApartments = useMemo(() => {
+    return apartments.filter((apt: any) => {
+      if (activeTab === "push_requests") {
+        if (!apt.isPushRequested) return false;
+      } else {
+        if (apt.isPushRequested) return false;
+      }
+
+      const q = (searchParams.get("q") || "").toLowerCase().trim();
+      if (!q) return true;
+
+      const addressMatch = (apt.address || "").toLowerCase().includes(q);
+      const codeMatch = (apt.sourceCode || "").toLowerCase().includes(q);
+      return addressMatch || codeMatch;
     });
-  }, [searchParams, currentPage]);
+  }, [apartments, activeTab, searchParams]);
+
+  const pushRequestCount = useMemo(() => {
+    return apartments.filter((apt: any) => apt.isPushRequested === true).length;
+  }, [apartments]);
+
+  const totalPages = Math.ceil(filteredApartments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentApartments = filteredApartments.slice(
+    startIndex,
+    startIndex + itemsPerPage,
+  );
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
@@ -107,14 +148,10 @@ export default function ApartmentsPage() {
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  useEffect(() => {
-    fetchApartments();
-  }, [fetchApartments]);
-
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams(searchParams.toString());
-    if (query) params.set("q", query);
+    if (queryVal) params.set("q", queryVal);
     else params.delete("q");
     params.set("page", "1");
     router.push(`${pathname}?${params.toString()}`);
@@ -137,7 +174,6 @@ export default function ApartmentsPage() {
         });
       } else {
         toast({ title: "Thành công!", description: "Đã xóa căn hộ." });
-        fetchApartments();
       }
       setDialogOpen(false);
       setApartmentToDelete(null);
@@ -149,7 +185,7 @@ export default function ApartmentsPage() {
     toast({ title: "Đã sao chép!", description: "Đã lưu vào bộ nhớ tạm." });
   };
 
-  // BỔ SUNG: Hàm xử lý khi bấm nút Push Căn hộ
+  // Nút Push thủ công chuẩn của Admin
   const handlePushClick = async (id: string) => {
     startTransition(async () => {
       const result = await pushApartmentAction(id);
@@ -164,11 +200,33 @@ export default function ApartmentsPage() {
           title: "Thành công!",
           description: "Căn hộ đã được đẩy lên đầu trang.",
         });
-        fetchApartments(); // Tải lại danh sách để thấy căn hộ nhảy lên đầu
       }
     });
   };
 
+  // Admin bấm chấp nhận yêu cầu push từ chủ nhà
+  const handleAcceptPush = async (id: string) => {
+    if (!authUser) return;
+    startTransition(async () => {
+      const result = await approveAndResolvePushAction(authUser.uid, id);
+      if (result?.error) {
+        toast({
+          variant: "destructive",
+          title: "Lỗi",
+          description: result.error,
+        });
+      } else {
+        toast({
+          title: "Đã duyệt và đẩy top! 🚀",
+          description: "Căn hộ đã được chấp nhận đẩy lên đầu.",
+        });
+      }
+    });
+  };
+
+  // -------------------------------------------------------------------
+  // KHÔI PHỤC: CÁC HÀM ĐỒNG BỘ TỪ KHÓA CŨ VÀ TỐI ƯU AI CỦA BẠN
+  // -------------------------------------------------------------------
   const handleMigrate = async () => {
     const confirm = window.confirm(
       "Đồng bộ từ khóa cho tất cả căn hộ cũ? Quá trình này sẽ mất vài giây.",
@@ -180,7 +238,6 @@ export default function ApartmentsPage() {
       description: "Đang kiểm tra các căn hộ cần đồng bộ.",
       duration: 100000,
     });
-
     const res = await getUnmigratedApartmentsAction();
 
     if (res?.error || !res.data) {
@@ -250,7 +307,6 @@ export default function ApartmentsPage() {
         });
         return;
       }
-
       processed += batch.length;
       updateProgressToast(processed);
     }
@@ -259,10 +315,9 @@ export default function ApartmentsPage() {
       update({
         id,
         title: "Đồng bộ hoàn tất! 🎉",
-        description: `Đã đồng bộ ${total} căn hộ. `,
+        description: `Đã đồng bộ ${total} căn hộ.`,
         duration: 4000,
       });
-      fetchApartments();
     }, 500);
   };
 
@@ -277,7 +332,6 @@ export default function ApartmentsPage() {
       description: "Đang kiểm tra dữ liệu cũ.",
       duration: 100000,
     });
-
     const res = await getUnmigratedAiApartmentsAction();
 
     if (res?.error || !res.data) {
@@ -346,7 +400,6 @@ export default function ApartmentsPage() {
         });
         return;
       }
-
       processedAi += batch.length;
       updateAiProgressToast(processedAi);
     }
@@ -358,9 +411,17 @@ export default function ApartmentsPage() {
         description: `Đã tạo nội dung chuẩn SEO cho ${totalAi} căn hộ.`,
         duration: 4000,
       });
-      fetchApartments();
     }, 500);
   };
+  // -------------------------------------------------------------------
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-[#cda533]" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -370,7 +431,7 @@ export default function ApartmentsPage() {
             Quản lý Căn hộ
           </h2>
           <p className="text-gray-500">
-            Danh sách tất cả các căn hộ ({totalApartments}).
+            Danh sách tất cả các căn hộ ({apartments.length}).
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -381,7 +442,6 @@ export default function ApartmentsPage() {
           >
             Đồng bộ Từ khóa Cũ
           </Button>
-
           <Button
             onClick={handleAiMigrate}
             variant="outline"
@@ -389,7 +449,6 @@ export default function ApartmentsPage() {
           >
             ✨ Tối ưu SEO AI hàng loạt
           </Button>
-
           <Button
             asChild
             className="bg-[#1a1a1a] text-white hover:bg-[#cda533]"
@@ -401,6 +460,45 @@ export default function ApartmentsPage() {
         </div>
       </div>
 
+      {/* THANH TAB CHUYỂN ĐỔI */}
+      <div className="flex border-b border-gray-200 gap-6">
+        <button
+          onClick={() => {
+            setActiveTab("all");
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("page", "1");
+            router.push(`${pathname}?${params.toString()}`);
+          }}
+          className={`pb-3 font-bold text-sm border-b-2 transition-all ${
+            activeTab === "all"
+              ? "border-[#cda533] text-[#cda533]"
+              : "border-transparent text-gray-500 hover:text-gray-900"
+          }`}
+        >
+          Tất cả căn hộ ({apartments.filter((a) => !a.isPushRequested).length})
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("push_requests");
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("page", "1");
+            router.push(`${pathname}?${params.toString()}`);
+          }}
+          className={`pb-3 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === "push_requests"
+              ? "border-amber-500 text-amber-600"
+              : "border-transparent text-gray-500 hover:text-gray-900"
+          }`}
+        >
+          Yêu cầu chờ đẩy
+          {pushRequestCount > 0 && (
+            <span className="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">
+              {pushRequestCount}
+            </span>
+          )}
+        </button>
+      </div>
+
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <form
           onSubmit={handleSearch}
@@ -408,8 +506,8 @@ export default function ApartmentsPage() {
         >
           <Input
             placeholder="Tìm theo Mã ID hoặc Địa chỉ..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={queryVal}
+            onChange={(e) => setQueryVal(e.target.value)}
             className="pr-10 bg-gray-50 border-gray-200"
           />
           <Button
@@ -422,6 +520,7 @@ export default function ApartmentsPage() {
           </Button>
         </form>
 
+        {/* BẢNG DESKTOP */}
         <div className="hidden md:block rounded-lg border border-gray-100 overflow-hidden">
           <TooltipProvider>
             <Table>
@@ -436,17 +535,19 @@ export default function ApartmentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {apartments.length === 0 ? (
+                {currentApartments.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={6}
                       className="text-center py-8 text-gray-500"
                     >
-                      Không tìm thấy căn hộ nào.
+                      {activeTab === "push_requests"
+                        ? "Không có yêu cầu push nào đang chờ."
+                        : "Không tìm thấy căn hộ nào."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  apartments.map((apt) => (
+                  currentApartments.map((apt: any) => (
                     <TableRow key={apt.id} className="hover:bg-gray-50">
                       <TableCell className="font-medium">
                         <Link
@@ -456,7 +557,18 @@ export default function ApartmentsPage() {
                           {apt.address}
                         </Link>
                       </TableCell>
-                      <TableCell>{apt.sourceCode}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-bold">
+                            {apt.sourceCode || "N/A"}
+                          </span>
+                          {apt.isPushRequested && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-800 animate-pulse border border-amber-300 w-fit">
+                              🔥 Chủ nhà xin đẩy top
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span>{apt.landlordPhoneNumber}</span>
@@ -482,54 +594,72 @@ export default function ApartmentsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-1">
-                          {/* BỔ SUNG: Nút Push */}
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handlePushClick(apt.id)}
-                                disabled={isPending}
-                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                              >
-                                <ArrowUpCircle className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="bg-white z-[100] border shadow-md">
-                              <p>Đẩy lên đầu</p>
-                            </TooltipContent>
-                          </Tooltip>
-
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" asChild>
-                                <Link
-                                  href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
+                          {activeTab === "push_requests" ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAcceptPush(apt.id)}
+                                  disabled={isPending}
+                                  className="bg-green-600 hover:bg-green-700 text-white text-xs h-8 px-3 font-bold flex items-center gap-1"
                                 >
-                                  <Pencil className="h-4 w-4" />
-                                </Link>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="bg-white z-[100] border shadow-md">
-                              <p>Sửa</p>
-                            </TooltipContent>
-                          </Tooltip>
-
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteClick(apt.id)}
-                                className="text-destructive hover:text-destructive hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent className="bg-white z-[100] border shadow-md">
-                              <p>Xóa</p>
-                            </TooltipContent>
-                          </Tooltip>
+                                  <CheckCircle className="h-4 w-4" /> Chấp nhận
+                                  & Đẩy top
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent className="bg-white z-[100] border shadow-md">
+                                <p>Phê duyệt đẩy căn hộ</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handlePushClick(apt.id)}
+                                    disabled={isPending}
+                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  >
+                                    <ArrowUpCircle className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="bg-white z-[100] border shadow-md">
+                                  <p>Đẩy lên đầu (Push thủ công)</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="icon" asChild>
+                                    <Link
+                                      href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Link>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="bg-white z-[100] border shadow-md">
+                                  <p>Sửa</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteClick(apt.id)}
+                                    className="text-destructive hover:text-destructive hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent className="bg-white z-[100] border shadow-md">
+                                  <p>Xóa</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -540,21 +670,29 @@ export default function ApartmentsPage() {
           </TooltipProvider>
         </div>
 
+        {/* GIAO DIỆN MOBILE (CARD) */}
         <div className="space-y-4 md:hidden">
-          {apartments.length === 0 ? (
+          {currentApartments.length === 0 ? (
             <div className="text-center py-8 text-gray-500 border rounded-lg bg-gray-50">
-              Không tìm thấy căn hộ nào.
+              {activeTab === "push_requests"
+                ? "Không có yêu cầu push nào đang chờ."
+                : "Không tìm thấy căn hộ nào."}
             </div>
           ) : (
-            apartments.map((apt) => (
+            currentApartments.map((apt: any) => (
               <Card
                 key={apt.id}
                 className="relative bg-white border border-gray-200"
               >
                 <CardContent className="space-y-2 p-4">
+                  {apt.isPushRequested && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-800 animate-pulse border border-amber-300 mb-1">
+                      🔥 Chủ nhà xin đẩy top
+                    </span>
+                  )}
                   <Link
                     href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
-                    className="pr-10 font-bold text-primary hover:underline line-clamp-2 text-base"
+                    className="pr-10 font-bold text-primary hover:underline line-clamp-2 text-base block"
                   >
                     {apt.address}
                   </Link>
@@ -569,26 +707,37 @@ export default function ApartmentsPage() {
                         align="end"
                         className="bg-white z-[100] shadow-xl border-gray-200"
                       >
-                        {/* BỔ SUNG: Nút Push trên Mobile */}
-                        <DropdownMenuItem
-                          onClick={() => handlePushClick(apt.id)}
-                          disabled={isPending}
-                          className="text-blue-600 focus:text-blue-700"
-                        >
-                          <ArrowUpCircle className="mr-2 h-4 w-4" /> Đẩy lên đầu
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem asChild>
-                          <Link
-                            href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
+                        {activeTab === "push_requests" ? (
+                          <DropdownMenuItem
+                            onClick={() => handleAcceptPush(apt.id)}
+                            disabled={isPending}
+                            className="text-green-600 font-bold"
                           >
-                            <Pencil className="mr-2 h-4 w-4" /> Sửa
-                          </Link>
-                        </DropdownMenuItem>
-
+                            <CheckCircle className="mr-2 h-4 w-4" /> Chấp nhận &
+                            Đẩy top
+                          </DropdownMenuItem>
+                        ) : (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => handlePushClick(apt.id)}
+                              disabled={isPending}
+                              className="text-blue-600"
+                            >
+                              <ArrowUpCircle className="mr-2 h-4 w-4" /> Đẩy lên
+                              đầu
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
+                              >
+                                <Pencil className="mr-2 h-4 w-4" /> Sửa
+                              </Link>
+                            </DropdownMenuItem>
+                          </>
+                        )}
                         <DropdownMenuItem
                           onClick={() => handleDeleteClick(apt.id)}
-                          className="text-destructive focus:text-destructive"
+                          className="text-destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" /> Xóa
                         </DropdownMenuItem>
@@ -628,10 +777,13 @@ export default function ApartmentsPage() {
           )}
         </div>
       </div>
+
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-6 pb-2 border-t border-gray-100 mt-4">
           <span className="text-sm text-gray-500">
-            Trang {currentPage} / {totalPages}
+            Hiển thị {startIndex + 1} -{" "}
+            {Math.min(startIndex + itemsPerPage, filteredApartments.length)} /{" "}
+            {filteredApartments.length}
           </span>
           <div className="flex items-center space-x-2">
             <Button
@@ -640,8 +792,7 @@ export default function ApartmentsPage() {
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage <= 1 || isPending}
             >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Trước
+              <ChevronLeft className="h-4 w-4 mr-1" /> Trước
             </Button>
             <Button
               variant="outline"
@@ -649,12 +800,12 @@ export default function ApartmentsPage() {
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage >= totalPages || isPending}
             >
-              Sau
-              <ChevronRight className="h-4 w-4 ml-1" />
+              Sau <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
         </div>
       )}
+
       <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <AlertDialogContent className="bg-white z-[100] shadow-2xl">
           <AlertDialogHeader>
@@ -668,7 +819,7 @@ export default function ApartmentsPage() {
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               disabled={isPending}
-              className="bg-red-600 text-white hover:bg-red-700 border-none"
+              className="bg-red-600 hover:bg-red-700 text-white border-none"
             >
               {isPending ? "Đang xóa..." : "Xóa ngay"}
             </AlertDialogAction>

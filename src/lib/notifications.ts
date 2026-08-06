@@ -10,7 +10,15 @@ import {
   where,
 } from "firebase/firestore";
 
-export type NotificationType = "new_booking" | "status_update" | "system";
+export type NotificationType =
+  | "new_booking"
+  | "status_update"
+  | "system"
+  | "landlord_request"
+  | "landlord_approved"
+  | "landlord_rejected"
+  | "new_submission"
+  | "submission_reviewed";
 
 export interface CreateNotificationInput {
   recipientId: string;
