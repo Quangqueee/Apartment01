@@ -30,7 +30,7 @@ export interface Apartment {
   price: number; // in millions VND
   details: string;
 
-
+  listingSummary?: string;
   address: string; // For admin use
   landlordPhoneNumber: string; // For admin use
   commission?: number | string;
