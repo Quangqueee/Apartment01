@@ -55,6 +55,7 @@ export default function FeaturedDistricts({
                   src={imageUrl}
                   alt={`Căn hộ dịch vụ cao cấp cho thuê tại ${district.name}, Hà Nội`}
                   fill
+                  quality={60} // THÊM DÒNG NÀY: Ép hệ số nén ảnh mạnh hơn để tối ưu PageSpeed
                   // Tối ưu sizes chính xác theo layout 2 cột trên mobile và 4 cột trên desktop
                   sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 300px"
                   // Bật priority cho toàn bộ các ảnh khu vực tiêu biểu vì chúng đều nằm ở phần đầu trang (Above the fold)

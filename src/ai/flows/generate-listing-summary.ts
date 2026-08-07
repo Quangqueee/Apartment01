@@ -1,36 +1,52 @@
 import OpenAI from "openai";
 
-// Khởi tạo client Groq
-const groq = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: "https://api.groq.com/openai/v1",
-});
+// ==========================================
+// 1. CƠ CHẾ XOAY VÒNG API KEY (ROUND-ROBIN)
+// ==========================================
+// Lấy tất cả các key từ biến môi trường (bạn có thể cấu hình GROQ_API_KEY_2, GROQ_API_KEY_3... trong .env)
+const API_KEYS = [
+  process.env.GROQ_API_KEY,
+  process.env.GROQ_API_KEY_2,
+  process.env.GROQ_API_KEY_3,
+].filter(Boolean) as string[]; // Lọc bỏ các giá trị undefined/null
 
-// Hàm tạo Slug tự động bằng Code (Chống lỗi font tiếng Việt)
-function generateSlug(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD") // Chuẩn hóa unicode
-    .replace(/[\u0300-\u036f]/g, "") // Xóa dấu
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9\s-]/g, "") // Xóa ký tự đặc biệt
-    .replace(/\s+/g, "-") // Thay khoảng trắng bằng dấu gạch ngang
-    .replace(/-+/g, "-") // Xóa các dấu gạch ngang thừa
-    .replace(/^-+|-+$/g, ""); // Trim dấu gạch ngang ở hai đầu
+let currentKeyIndex = 0;
+
+// Hàm khởi tạo Client động, tự động lấy Key hiện tại
+function getGroqClient() {
+  if (API_KEYS.length === 0) {
+    throw new Error("Hệ thống chưa cấu hình GROQ_API_KEY.");
+  }
+  return new OpenAI({
+    apiKey: API_KEYS[currentKeyIndex],
+    baseURL: "https://api.groq.com/openai/v1",
+  });
 }
 
-// --- CẤU HÌNH RATE LIMITER ---
+// ==========================================
+// 2. UTILS & RATE LIMITER
+// ==========================================
+export function generateSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 const TPM_LIMIT = 12000;
 const SAFETY_MARGIN = 0.85;
 const EFFECTIVE_LIMIT = TPM_LIMIT * SAFETY_MARGIN;
-
 let tokenWindow: { tokens: number; timestamp: number }[] = [];
 
 async function waitForTokenBudget(estimatedTokens: number) {
   while (true) {
     const now = Date.now();
     tokenWindow = tokenWindow.filter((entry) => now - entry.timestamp < 60000);
-
     const usedTokens = tokenWindow.reduce((sum, entry) => sum + entry.tokens, 0);
 
     if (usedTokens + estimatedTokens <= EFFECTIVE_LIMIT) {
@@ -45,7 +61,17 @@ async function waitForTokenBudget(estimatedTokens: number) {
   }
 }
 
-// --- HÀM CHÍNH ---
+// ==========================================
+// 3. ĐỒNG BỘ LUỒNG DỮ LIỆU (DATA FLOW)
+// ==========================================
+export interface AiSummaryResponse {
+  seoTitle: string;
+  seoDescription: string;
+  description: string; // Trả đúng key description để nạp vào aiContent object
+  highlights: string[];
+  slug?: string;
+}
+
 export async function generateListingSummary(input: {
   title: string;
   roomType: string;
@@ -54,92 +80,45 @@ export async function generateListingSummary(input: {
   price: number;
   area: number;
   detailedInformation: string;
-}) {
+}): Promise<AiSummaryResponse> {
 
-  console.log(`Đang gọi Groq AI để tạo bài viết mới...`);
+  const formattedPrice = input.price > 0 ? `${(input.price * 1000000).toLocaleString('de-DE')} VNĐ/tháng` : "Thỏa thuận";
+  const formattedArea = input.area > 0 ? `${input.area} m2` : "Không cung cấp";
 
-  // System Prompt giữ nguyên theo cấu trúc SEO
-  const systemPrompt = `Bạn là chuyên gia SEO bất động sản cho thuê tại Hà Nội.
+  const systemPrompt = `Bạn là chuyên gia Content SEO Bất động sản cao cấp tại Hà Nội.
+MỤC TIÊU: Viết bài mô tả chuẩn SEO, TUYỆT ĐỐI tuân thủ cấu trúc Markdown (H2, Bullet points) bên trong trường "description". KHÔNG bịa thông tin.
 
-Mục tiêu:
-- Viết bài chuẩn SEO Google.
-- Nội dung tự nhiên, không nhồi nhét từ khóa.
-- Tối ưu cho người thuê căn hộ và công cụ tìm kiếm.
-
-QUY TẮC BẮT BUỘC:
-1. Trả về JSON hợp lệ.
-2. description phải là Markdown hợp lệ.
-3. Cấu trúc Markdown:
-
-
-Đoạn mô tả ngắn 2-3 câu.
-
-## Thông tin căn hộ
-- Địa chỉ
-- Quận
-- Diện tích
-- Loại phòng
-
-## Chi phí & dịch vụ
-- Giá thuê
-- Điện
-- Nước (Nếu có thì ghi rõ giá tiền, nếu không có thì bỏ qua)
-- Internet (Nếu có thì ghi rõ giá tiền, nếu không có thì bỏ qua)
-- Dịch vụ (Nếu có thì ghi rõ giá tiền, nếu không có thì ghi miễn phí dịch vụ)
-- Gửi xe (Nếu có thì ghi rõ giá tiền, nếu không có thì bỏ qua không ghi vào)
-
-(LƯU Ý QUAN TRỌNG VỀ ĐỊNH DẠNG SỐ: Nếu không có phí thì ghi "Miễn phí dịch vụ" và bỏ qua các phần phí còn thiếu. Ví dụ: Không có internet - bỏ qua và không đề cập; không có tiền nước - bỏ qua và không đề cập, không có tiền gửi xe - bỏ qua và không đề cập thì bỏ qua. Mọi loại giá tiền và chi phí khác BẮT BUỘC phải sử dụng dấu chấm "." để phân cách hàng nghìn. Tuyệt đối không viết số liền nhau. Ví dụ ĐÚNG: 4.000 VNĐ, 120.000 VNĐ, 5.800.000 VNĐ).
-
-## Vị trí & kết nối giao thông
-Phân tích vị trí thực tế.
-Đề cập cụ thể: Tuyến đường lớn, Khu văn phòng, Trường đại học, tiện ích xung quanh (nếu phù hợp với vị trí).
-
-## Vì sao nên thuê căn hộ này?
-Viết 4-6 bullet nổi bật.
-
-## Từ khóa liên quan
-Liệt kê 8-12 từ khóa SEO liên quan.
-
-YÊU CẦU SEO:
-- Xuất hiện từ khóa chính 3-5 lần.
-- Có tên quận trong tiêu đề.
-- Có địa chỉ trong bài viết.
-- Có giá thuê trong bài viết (Hiển thị đầy đủ số VNĐ).
-- Có diện tích trong bài viết.
-- Tiêu đề phải theo cấu trúc: Cho thuê căn hộ [loại phòng] tại [Địa chỉ], [Quận] - [Giá thuê triệu VNĐ/tháng]
-
-KHÔNG:
-- Không dùng icon.
-- Không dùng emoji.
-- Không viết hoa toàn bộ.
-- Không bịa thông tin.
-
-Format JSON trả về thuần túy:
+CẤU TRÚC JSON PHẢI TRẢ VỀ:
 {
-  "seoTitle": "",
-  "seoDescription": "",
-  "description": "",
+  "seoTitle": "Cho thuê căn hộ [Loại phòng] [Diện tích] tại [Đường], [Quận]",
+  "seoDescription": "Mô tả ngắn gọn, hấp dẫn khoảng 2-3 câu...",
+  "description": "Đoạn mở đầu.\\n\\n## Thông tin căn hộ\\n- Địa chỉ: ...\\n- Diện tích: ...\\n\\n## Chi phí & dịch vụ\\n- Giá thuê: ...\\n- (Liệt kê phí điện, nước, dịch vụ. KHÔNG tự bịa phí. Nếu miễn phí ghi 'Miễn phí').\\n\\n## Vị trí & kết nối\\n- Phân tích điểm mạnh...\\n\\n## Vì sao nên thuê?\\n- (4 bullet points)",
   "highlights": ["Điểm nhấn 1", "Điểm nhấn 2"]
 }`;
 
-  const formattedPrice = (input.price * 1000000).toLocaleString('de-DE');
-
-  const userPrompt = `Hãy viết mô tả dựa trên dữ liệu sau:
+  const userPrompt = `Hãy xử lý thông tin sau thành bài viết chuẩn JSON:
 - Tiêu đề gốc: ${input.title}
 - Loại phòng: ${input.roomType}
 - Quận: ${input.district}
 - Địa chỉ: ${input.address}
-- Giá thuê: ${input.price} triệu/tháng (Tự động quy đổi thành số VNĐ và BẮT BUỘC dùng dấu chấm ngăn cách hàng nghìn. Ví dụ: ${formattedPrice} VNĐ/tháng).- Diện tích: ${input.area} m2
-- Thông tin thô/Chi phí: ${input.detailedInformation}`;
+- Giá thuê: ${formattedPrice}
+- Diện tích: ${formattedArea}
+- Thông tin thô/Chi phí:
+"""
+${input.detailedInformation}
+"""`;
 
-  const estimatedInputTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 2.5);
-  const estimatedTokens = estimatedInputTokens + 800;
+  const estimatedTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 2.5) + 800;
   const MAX_RETRIES = 5;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const tokenEntry = await waitForTokenBudget(estimatedTokens);
 
     try {
+      // ✅ Lấy Groq client với API Key của vòng lặp hiện tại
+      const groq = getGroqClient();
+      console.log(`[Groq] Đang gọi AI (Key Index: ${currentKeyIndex})...`);
+
       const response = await groq.chat.completions.create({
         model: "llama-3.3-70b-versatile",
         messages: [
@@ -147,7 +126,7 @@ Format JSON trả về thuần túy:
           { role: "user", content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.7,
+        temperature: 0.3, // Ép chặt định dạng Markdown JSON
       });
 
       if (response.usage?.total_tokens) {
@@ -155,42 +134,35 @@ Format JSON trả về thuần túy:
       }
 
       const content = response.choices[0].message.content || "{}";
+      let parsedData: any = JSON.parse(content);
 
-      let parsedData: any;
-      try {
-        parsedData = JSON.parse(content);
-      } catch (parseError) {
-        throw new Error("AI trả về định dạng JSON không hợp lệ.");
-      }
-
-      // Loại bỏ khoảng trắng đầu dòng tránh lỗi giao diện
       if (parsedData.description) {
-        parsedData.description = parsedData.description.replace(/^[ \t]+/gm, "");
+        parsedData.description = parsedData.description.replace(/^[ \t]+/gm, "").trim();
       }
 
-      // Bổ sung Slug được tạo bằng code vào Data Object cuối cùng
-      if (parsedData.seoTitle) {
-        parsedData.slug = generateSlug(parsedData.seoTitle);
-      } else {
-        parsedData.slug = generateSlug(input.title);
-      }
-
-      return parsedData;
+      return {
+        seoTitle: parsedData.seoTitle || "",
+        seoDescription: parsedData.seoDescription || "",
+        description: parsedData.description || "",
+        highlights: parsedData.highlights || [],
+        slug: generateSlug(parsedData.seoTitle || input.title),
+      };
 
     } catch (error: any) {
+      // 🚀 BẮT LỖI RATE LIMIT (429) & QUOTA EXCEEDED (402) ĐỂ CHUYỂN API KEY
       const isRateLimit = error?.status === 429;
+      const isQuotaExceeded = error?.status === 402 || error?.error?.code === 'insufficient_quota';
 
-      if (isRateLimit && attempt < MAX_RETRIES) {
-        const retryAfterHeader = error?.headers?.get?.("retry-after");
-        const retryAfterSeconds = retryAfterHeader ? parseFloat(retryAfterHeader) : Math.pow(2, attempt);
+      if ((isRateLimit || isQuotaExceeded) && attempt < MAX_RETRIES) {
+        // Tự động xoay vòng sang API Key tiếp theo
+        currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
 
-        if (retryAfterSeconds > 15) {
-          throw new Error(`Hệ thống đang bận. Vui lòng thử lại sau ${Math.ceil(retryAfterSeconds)} giây.`);
-        }
+        console.warn(`⚠️ [Groq] Lỗi 429/402. Đang tự động chuyển sang API Key thứ ${currentKeyIndex + 1}...`);
 
-        const waitMs = Math.max(retryAfterSeconds * 1000, 1000) + Math.random() * 500;
-        console.warn(`[Groq] Rate limit, thử lại lần ${attempt + 1}/${MAX_RETRIES} sau ${Math.round(waitMs)}ms`);
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        // Reset cửa sổ token để Key mới chạy max công suất lập tức
+        tokenWindow = [];
+
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         continue;
       }
 
@@ -198,5 +170,5 @@ Format JSON trả về thuần túy:
     }
   }
 
-  throw new Error("Đã vượt quá số lần thử lại do rate limit từ hệ thống.");
+  throw new Error("Đã vượt quá số lần thử lại do rate limit hoặc các Key đều cạn kiệt.");
 }

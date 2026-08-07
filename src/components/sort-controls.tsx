@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Select,
@@ -16,6 +17,14 @@ export default function SortControls() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // 1. Thêm state kiểm tra trạng thái mount
+  const [isMounted, setIsMounted] = useState(false);
+
+  // 2. Chuyển sang true sau khi render trên client
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const currentSort = searchParams.get("sort") || "newest";
 
   const handleSortChange = (value: string) => {
@@ -25,6 +34,16 @@ export default function SortControls() {
     // Thêm { scroll: false } để ngăn trình duyệt giật lên đầu trang
     router.push(pathname + "?" + params.toString(), { scroll: false });
   };
+
+  // 3. Nếu chưa mount xong, hiển thị khung giữ chỗ (Skeleton) để tránh lỗi Hydration
+  if (!isMounted) {
+    return (
+      <div className="flex items-center gap-2">
+        <Label className="text-sm text-gray-500">Sắp xếp theo:</Label>
+        <div className="w-[180px] h-10 bg-gray-100 rounded-md animate-pulse"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-2">

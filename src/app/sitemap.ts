@@ -37,13 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: baseUrl, // Trang chủ
       lastModified: new Date(),
       changeFrequency: 'yearly',
-      priority: 1,
-    },
-    {
-      url: `${baseUrl}/about`, // Trang giới thiệu — xác nhận route này tồn tại thật
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
+      priority: 1, // Ưu tiên tuyệt đối
     },
     {
       url: `${baseUrl}/apartments`, // Trang danh sách căn hộ
@@ -52,12 +46,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/huong-dan-cong-viec`, // Trang hướng dẫn
+      url: `${baseUrl}/about`, // Trang giới thiệu
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/partner-register`, // Trang ký gửi/đăng tin căn hộ (SEO để hút chủ nhà)
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/huong-dan-cong-viec`, // Trang hướng dẫn công việc cho nhân viên (SEO để hút nhân viên)
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.5,
     },
-    // Đã bỏ /ctv-register khỏi sitemap để nhất quán với robots.ts (đã disallow route này)
   ]
 
   return [...staticEntries, ...apartmentEntries]

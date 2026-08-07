@@ -88,7 +88,7 @@ export default async function Home({ searchParams }: any) {
                   </Link>
                 )}
               </div>
-              <p className="text-xs md:text-sm font-bold text-primary uppercase tracking-[0.2em] italic">
+              <p className="text-sm font-bold text-amber-700 uppercase tracking-[0.2em] italic">
                 Tìm thấy {totalResults} căn hộ
               </p>
             </div>

@@ -66,6 +66,7 @@ const nextConfig = {
       },
     ],
     unoptimized: process.env.NODE_ENV !== 'production', // Disable image optimization in development mode
+    qualities: [25, 50, 60, 75, 90, 100],
   },
 };
 

@@ -26,9 +26,16 @@ export async function generateMetadata({
     };
   }
 
-  const title = `${apartment.title} - ${apartment.district} | Hanoi Residences`;
+  // Ưu tiên tuyệt đối cho tiêu đề và mô tả SEO do AI tạo, nếu không có mới dùng giá trị mặc định
+  const title =
+    apartment.seoTitle ||
+    `${apartment.title} - ${apartment.district} | Hanoi Residences`;
+
   const description =
-    apartment.listingSummary || apartment.details.substring(0, 155);
+    apartment.seoDescription ||
+    apartment.listingSummary ||
+    apartment.details.substring(0, 155);
+
   const primaryImage = apartment.imageUrls?.[0] || "/default-og-image.png";
 
   return {

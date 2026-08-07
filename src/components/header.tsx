@@ -172,6 +172,7 @@ export default function Header() {
           {user && <NotificationBell userId={user.uid} />}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label="Mở menu di động"
             className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
           >
             {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}

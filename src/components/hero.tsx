@@ -12,6 +12,7 @@ export default function Hero() {
           fill // Tự động lấp đầy thẻ div cha
           priority // QUAN TRỌNG NHẤT: Ép trình duyệt tải ảnh này đầu tiên, không được delay!
           fetchPriority="high" // THÊM DÒNG NÀY ĐỂ FIX LỖI PAGESPEED
+          quality={50} // Giảm chất lượng ảnh xuống 50% để tăng tốc độ tải trang
           sizes="100vw" // Khẳng định ảnh này luôn chiếm 100% chiều rộng màn hình
           className="object-cover"
         />

@@ -1,3 +1,5 @@
+// src/lib/types.ts
+
 export type RoomType = "studio" | "1n1k" | "2n1k" | "other";
 export type ApartmentStatus = "available" | "rented"; // "available": Còn trống, "rented": Đã cho thuê
 export type FeatureTag = "pet_friendly" | "lake_view";
@@ -5,6 +7,18 @@ export type FeatureTag = "pet_friendly" | "lake_view";
 // Workflow status for landlord-submitted apartments. Distinct from ApartmentStatus
 // (which tracks room occupancy) — this tracks admin review of the listing itself.
 export type SubmissionStatus = "pending" | "published" | "rejected";
+
+// Interface chuẩn hóa đóng gói toàn bộ dữ liệu AI & SEO
+export interface AiContent {
+  seoTitle?: string;
+  seoDescription?: string;
+  description?: string; // Đổi từ b2cDescription sang description cho đồng bộ Data Flow
+  highlights?: string[];
+  updatedAt?: {
+    seconds: number;
+    nanoseconds: number;
+  } | any;
+}
 
 export interface Apartment {
   id: string;
@@ -15,7 +29,8 @@ export interface Apartment {
   district: string;
   price: number; // in millions VND
   details: string;
-  listingSummary: string; // AI-generated
+
+
   address: string; // For admin use
   landlordPhoneNumber: string; // For admin use
   commission?: number | string;
@@ -23,7 +38,6 @@ export interface Apartment {
   imageUrls: string[];
   searchKeywords?: string[]; // Dùng để Firebase tìm kiếm
 
-  // Bổ sung thuộc tính mới:
   status?: ApartmentStatus;
   tags?: FeatureTag[];
 
@@ -35,13 +49,8 @@ export interface Apartment {
   serviceFees?: string; // Phí dịch vụ
   contactPhone?: string; // Landlord-facing contact phone (distinct from admin-only landlordPhoneNumber)
 
-  // Sửa: Cho phép aiContent nhận kiểu object, undefined hoặc null
-  aiContent?: {
-    seoTitle: string;
-    b2cDescription: string;
-    highlights: string[];
-    updatedAt?: any;
-  } | null;
+  // SỬA: Ép kiểu chặt chẽ toàn bộ nội dung SEO/AI vào object này
+  aiContent?: AiContent | null;
 
   createdAt: {
     seconds: number;
@@ -61,10 +70,10 @@ export interface UserProfile {
   phoneNumber?: string;
   address?: string;
 
-  // BỔ SUNG: Quyền của người dùng
+  // Quyền của người dùng
   role?: "user" | "collaborator" | "landlord" | "admin" | string;
 
-  // BỔ SUNG: Các trường phục vụ quy trình đăng ký và duyệt Chủ nhà (Landlord Workflow)
+  // Các trường phục vụ quy trình đăng ký và duyệt Chủ nhà (Landlord Workflow)
   landlordApprovalStatus?: "pending" | "approved" | "rejected";
   landlordRejectionReason?: string;
   landlordRequestData?: {
@@ -81,7 +90,7 @@ export interface UserProfile {
   };
 }
 
-// BỔ SUNG: Bí danh UserData ánh xạ từ UserProfile để sửa lỗi định nghĩa kiểu trong auth-context
+// Bí danh UserData ánh xạ từ UserProfile
 export type UserData = UserProfile;
 
 export type UploadedImage = {

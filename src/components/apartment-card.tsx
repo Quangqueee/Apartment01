@@ -22,19 +22,6 @@ import {
   Waves,
 } from "lucide-react";
 import { formatRelativeTime, formatPrice } from "@/lib/utils";
-import { Montserrat, Be_Vietnam_Pro } from "next/font/google";
-
-const titleFont = Be_Vietnam_Pro({
-  subsets: ["vietnamese"],
-  weight: ["700"],
-  display: "swap",
-});
-
-const montserrat = Montserrat({
-  subsets: ["vietnamese"],
-  weight: ["700"],
-  display: "swap",
-});
 
 export default memo(function ApartmentCard({
   apartment,
@@ -53,12 +40,13 @@ export default memo(function ApartmentCard({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const [isHovered, setIsHovered] = useState(false);
+
   const [isMouseDragging, setIsMouseDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [hasDragged, setHasDragged] = useState(false);
 
-  // Phân quyền
   const isCollaborator =
     userData?.role === "collaborator" || userData?.role === "admin";
   const canViewCommission = isCollaborator;
@@ -199,12 +187,10 @@ export default memo(function ApartmentCard({
   };
 
   const displayCommission = formatCommission(apartment.commission);
-  const fullPrice = apartment.price * 1000000;
   const timeToDisplay = apartment.updatedAt?.seconds
     ? apartment.updatedAt
     : apartment.createdAt;
 
-  // LOGIC HIỂN THỊ TAG TRẠNG THÁI & MARKETING TRÊN CARD
   let tagLabel = null;
   let tagBgClass = "";
   let TagIcon = null;
@@ -219,7 +205,6 @@ export default memo(function ApartmentCard({
   const isOldListing = daysPassed >= 14;
 
   if (isCollaborator) {
-    // Trạng thái hiển thị cho CTV/Admin (Dạt góc trái dưới)
     if (isRented) {
       tagLabel = "Tạm hết";
       tagBgClass = "bg-gray-500";
@@ -228,10 +213,9 @@ export default memo(function ApartmentCard({
       tagBgClass = "bg-amber-500";
     } else {
       tagLabel = "Còn trống";
-      tagBgClass = "bg-green-500";
+      tagBgClass = "bg-[#5cb85c]";
     }
   } else {
-    // Trạng thái & Marketing hiển thị cho Khách B2C (Góc trái trên)
     const hasPetFriendly = apartment.tags?.includes("pet_friendly");
     const hasLakeView = apartment.tags?.includes("lake_view");
 
@@ -260,21 +244,25 @@ export default memo(function ApartmentCard({
       tagBgClass = B2C_TAGS[tagIndex].bg;
       TagIcon = B2C_TAGS[tagIndex].icon;
     } else {
-      // Mặc định: Căn mới đăng dưới 5 ngày và đang trống
       tagLabel = "Available";
       tagBgClass = "bg-green-500";
       TagIcon = CheckCircle2;
     }
   }
 
+  // Loại bỏ hoàn toàn tiêu đề chuẩn SEO trên UI để trả lại sự tối giản, ngắn gọn
+  const displayTitle = apartment.title;
+
   return (
     <>
-      <div className="group/slider relative flex flex-col h-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1.5 hover:scale-[1.015]">
+      <div
+        onMouseEnter={() => setIsHovered(true)}
+        className="group/slider relative flex flex-col h-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] will-change-transform  hover:-translate-y-1.5 hover:scale-[1.015]"
+      >
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
-          {/* GÓC TRÁI TRÊN: Hiển thị Hoa hồng (Cho CTV) & Tag Marketing (Cho Khách) */}
           <div className="absolute top-3 left-0 z-20 flex flex-col gap-2 pointer-events-none items-start">
             {canViewCommission && displayCommission && (
-              <div className="bg-[#5cb85c] text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm ml-3">
+              <div className="bg-[#5cb85c] text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm ml-3 truncate">
                 HH: {displayCommission}
               </div>
             )}
@@ -293,7 +281,6 @@ export default memo(function ApartmentCard({
             )}
           </div>
 
-          {/* GÓC TRÁI DƯỚI: Trạng thái phòng hiển thị riêng cho CTV/Admin */}
           {isCollaborator && tagLabel && (
             <div className="absolute bottom-6 left-0 z-20 pointer-events-none">
               <div
@@ -304,7 +291,6 @@ export default memo(function ApartmentCard({
             </div>
           )}
 
-          {/* GÓC PHẢI TRÊN: ID Căn hộ */}
           <div className="absolute top-3 right-3 z-20 bg-black/60 backdrop-blur-md text-white text-xs font-bold px-2 py-1 rounded shadow-sm pointer-events-none">
             ID: {apartment.sourceCode}
           </div>
@@ -328,23 +314,34 @@ export default memo(function ApartmentCard({
                   : "snap-x snap-mandatory scroll-smooth"
               }`}
             >
-              {apartment.imageUrls.map((url, idx) => (
-                <div
-                  key={idx}
-                  // QUAN TRỌNG: Phải có 'relative' để thuộc tính 'fill' của Image hoạt động
-                  className="relative h-full w-full flex-shrink-0 snap-center"
-                >
-                  <Image
-                    src={url}
-                    alt={`${apartment.title} - ảnh ${idx + 1}`}
-                    fill // Thay thế cho height/width 100%
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Giúp trình duyệt biết nên tải size ảnh nào
-                    priority={idx === 0} // Chỉ load eager (priority) cho ảnh đầu tiên
-                    draggable={false}
-                    className="object-cover pointer-events-none select-none"
-                  />
-                </div>
-              ))}
+              {apartment.imageUrls.map((url, idx) => {
+                if (idx > 0 && !isHovered) {
+                  return (
+                    <div
+                      key={idx}
+                      className="relative h-full w-full flex-shrink-0 snap-center bg-gray-100"
+                    />
+                  );
+                }
+
+                return (
+                  <div
+                    key={idx}
+                    className="relative h-full w-full flex-shrink-0 snap-center"
+                  >
+                    <Image
+                      src={url}
+                      alt={`${displayTitle} - ảnh ${idx + 1}`}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      priority={idx === 0}
+                      loading={idx === 0 ? "eager" : "lazy"}
+                      draggable={false}
+                      className="object-cover pointer-events-none select-none"
+                    />
+                  </div>
+                );
+              })}
             </div>
           </Link>
 
@@ -387,12 +384,15 @@ export default memo(function ApartmentCard({
           className="flex flex-1 flex-col p-4 sm:p-5"
         >
           <div className="relative w-full">
-            <h3
-              className={`${titleFont.className} pr-8 text-[1.1rem] sm:text-lg font-bold text-gray-900 line-clamp-1`}
-              title={apartment.title}
+            {/* Sử dụng font-body không chân, nét đậm vừa (semibold) đảm bảo tính hiện đại */}
+            <div
+              role="heading"
+              aria-level={3}
+              className="font-body pr-8 text-[1.1rem] sm:text-[1.15rem] font-semibold text-[#222222] line-clamp-1 leading-snug tracking-tight"
+              title={displayTitle}
             >
-              {apartment.title}
-            </h3>
+              {displayTitle}
+            </div>
 
             <div
               onClick={toggleFavorite}
@@ -408,30 +408,28 @@ export default memo(function ApartmentCard({
             </div>
           </div>
 
-          <p className="mt-1 text-[0.85rem] sm:text-sm text-gray-500 line-clamp-1">
+          <p className="mt-1 text-[0.85rem] sm:text-sm text-gray-500 line-clamp-1 tracking-tight">
             {apartment.district}
           </p>
 
-          <div className="mt-1 flex items-center justify-between text-[0.85rem] sm:text-sm text-gray-500">
+          <div className="mt-1 flex items-center justify-between text-[0.85rem] sm:text-sm text-gray-500 tracking-tight">
             <span className="truncate pr-2 font-medium">
               {apartment.roomType} • {apartment.area} m²
             </span>
             {!isCompact && (
-              <span className="whitespace-nowrap text-gray-400 text-[0.75rem] sm:text-[0.8rem] italic">
+              <span className="whitespace-nowrap text-gray-400 text-[0.75rem] sm:text-[0.8rem] italic tracking-normal">
                 Cập nhật: {formatRelativeTime(timeToDisplay)}
               </span>
             )}
           </div>
 
-          <div className="mt-auto pt-4 flex items-baseline">
-            <span
-              className={`${montserrat.className} text-[1.4rem] sm:text-[1.45rem] font-bold text-[#cda533] tracking-tight`}
-            >
+          <div className="mt-auto pt-2 flex items-baseline">
+            <span className="font-body text-[1.4rem] sm:text-[1.45rem] font-bold text-[#cda533] tracking-tighter">
               {typeof apartment.price === "number"
                 ? `₫${(apartment.price * 1000000).toLocaleString("vi-VN")}`
                 : formatPrice(apartment.price)}
             </span>
-            <span className="ml-1 text-[0.85rem] sm:text-sm font-medium text-gray-500">
+            <span className="ml-1 text-[0.85rem] sm:text-sm font-medium text-gray-500 tracking-tight">
               /tháng
             </span>
           </div>

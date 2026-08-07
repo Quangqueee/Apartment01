@@ -20,7 +20,7 @@ import {
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
 import { Apartment } from "@/lib/types";
-import { Timestamp, doc, getDoc, setDoc, collection, getDocs, updateDoc } from "firebase/firestore";
+import { Timestamp, doc, getDoc, setDoc, collection, getDocs, updateDoc, deleteField } from "firebase/firestore";
 import { ADMIN_PATH, MAX_APARTMENT_IMAGES } from "@/lib/constants";
 import { firestore } from "@/firebase/server-init";
 
@@ -44,14 +44,17 @@ const apartmentBaseSchema = z.object({
   price: z.coerce.number().min(0),
   commission: z.string().optional(),
   details: z.string().min(20),
-  listingSummary: z.string().optional(),
-  seoTitle: z.string().optional(),
-  seoDescription: z.string().optional(), // BỔ SUNG TRƯỜNG NÀY
-  highlights: z.array(z.string()).optional(), // BỔ SUNG TRƯỜNG NÀY
   address: z.string().min(1),
   landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
   status: z.enum(["available", "rented"]).optional().default("available"),
   tags: z.array(z.enum(["pet_friendly", "lake_view"])).optional().default([]),
+  
+  aiContent: z.object({
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    description: z.string().optional(),
+    highlights: z.array(z.string()).optional(),
+  }).nullable().optional(),
 });
 
 const apartmentActionSchema = apartmentBaseSchema.extend({
@@ -60,23 +63,15 @@ const apartmentActionSchema = apartmentBaseSchema.extend({
 
 function flattenImageUrls(value: unknown): string[] {
   const flatImageUrls: string[] = [];
-
   const visitValue = (currentValue: unknown) => {
     if (Array.isArray(currentValue)) {
       currentValue.forEach(visitValue);
       return;
     }
-
-    if (typeof currentValue !== "string") {
-      return;
-    }
-
+    if (typeof currentValue !== "string") return;
     const normalizedValue = currentValue.trim();
-    if (normalizedValue.length > 0) {
-      flatImageUrls.push(normalizedValue);
-    }
+    if (normalizedValue.length > 0) flatImageUrls.push(normalizedValue);
   };
-
   visitValue(value);
   return flatImageUrls;
 }
@@ -102,11 +97,9 @@ function parseImageUrlsJson(
   }
 }
 
-// Helper function to upload or update images
 async function uploadAndCleanupImages(currentImageUrls: string[], existingImageUrls: string[] | undefined): Promise<string[]> {
   const newImageUrls: string[] = [];
 
-  // Upload new images (data URIs)
   for (const url of currentImageUrls) {
     if (url.startsWith('data:')) {
       const storageRef = ref(storage, `apartments/${uuidv4()}`);
@@ -114,25 +107,18 @@ async function uploadAndCleanupImages(currentImageUrls: string[], existingImageU
       const downloadUrl = await getDownloadURL(snapshot.ref);
       newImageUrls.push(downloadUrl);
     } else {
-      // Keep existing URLs
       newImageUrls.push(url);
     }
   }
 
-  // Determine which images to delete if we are editing an existing apartment
   if (existingImageUrls) {
-    const urlsToDelete = existingImageUrls.filter(
-      (url) => !newImageUrls.includes(url)
-    );
-
-    // Delete them
+    const urlsToDelete = existingImageUrls.filter((url) => !newImageUrls.includes(url));
     await Promise.all(
       urlsToDelete.map(async (url) => {
         try {
           const imageRef = ref(storage, url);
           await deleteObject(imageRef);
         } catch (error: any) {
-          // Ignore if object doesn't exist (it might have been deleted already)
           if (error.code !== 'storage/object-not-found') {
             console.error(`Failed to delete old image: ${url}`, error);
           }
@@ -140,7 +126,6 @@ async function uploadAndCleanupImages(currentImageUrls: string[], existingImageU
       })
     );
   }
-
   return newImageUrls;
 }
 
@@ -158,17 +143,14 @@ export async function createOrUpdateApartmentAction(
 
   const parsedImageUrls = parseImageUrlsJson(validatedFields.data.imageUrlsJson);
   if (!parsedImageUrls.success) {
-    const errorMessage = parsedImageUrls.error.issues
-      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
-      .join("; ");
+    const errorMessage = parsedImageUrls.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
     return { error: `Invalid fields! ${errorMessage}` };
   }
 
-  const { imageUrlsJson: _imageUrlsJson, ...data } = validatedFields.data;
+  const { imageUrlsJson: _imageUrlsJson, aiContent, ...data } = validatedFields.data;
   let apartmentId = id;
 
   try {
-    // Đưa biến existingApartment ra ngoài để tái sử dụng lấy dữ liệu AI cũ
     let existingApartment: any = null;
     let existingImageUrls: string[] | undefined = undefined;
 
@@ -178,30 +160,12 @@ export async function createOrUpdateApartmentAction(
     }
 
     const finalImageUrls = await uploadAndCleanupImages(parsedImageUrls.data, existingImageUrls);
-
     const textToSearch = `${data.title} ${data.address} ${data.sourceCode}`.trim();
     const searchKeywords = generateSearchKeywords(textToSearch);
 
-    // ĐÃ SỬA: KHÔNG tự động gọi AI (generateListingSummary) ở đây nữa để tránh bị treo form
-    let aiOptimizedContent = undefined;
-
-    // Nếu trên giao diện có gửi kèm nội dung bài viết (do AI tạo trước đó hoặc do bạn tự viết)
-    if (data.listingSummary || data.seoTitle || data.seoDescription || (data.highlights && data.highlights.length > 0)) {
-      aiOptimizedContent = {
-        seoTitle: data.seoTitle || existingApartment?.aiContent?.seoTitle || data.title,
-        seoDescription: data.seoDescription || existingApartment?.aiContent?.seoDescription || "",
-        b2cDescription: data.listingSummary || existingApartment?.aiContent?.b2cDescription || "",
-        highlights: data.highlights || existingApartment?.aiContent?.highlights || [],
-        updatedAt: Timestamp.now(),
-      };
-    } else if (existingApartment && existingApartment.aiContent) {
-      aiOptimizedContent = existingApartment.aiContent;
-    }
-
     const apartmentDataWithTimestamp = {
       ...data,
-      listingSummary: data.listingSummary || "",
-      ...(aiOptimizedContent && { aiContent: aiOptimizedContent }), // Cập nhật nội dung vào DB
+      aiContent: aiContent || null, 
       imageUrls: finalImageUrls,
       searchKeywords: searchKeywords,
       updatedAt: Timestamp.now(),
@@ -212,7 +176,6 @@ export async function createOrUpdateApartmentAction(
     } else {
       const newApartmentData = {
         ...apartmentDataWithTimestamp,
-        // Apartments created directly by admin need no approval workflow.
         submissionStatus: "published" as const,
         createdAt: Timestamp.now(),
       };
@@ -224,20 +187,16 @@ export async function createOrUpdateApartmentAction(
     return { error: "Database error. Failed to save apartment." };
   }
 
-  // Revalidation and redirection must happen outside the try...catch block
   revalidatePath(`/${ADMIN_PATH}`);
   revalidatePath("/");
   if (apartmentId) {
     revalidatePath(`/apartments/${apartmentId}`);
   }
-  // redirect(`/${ADMIN_PATH}`);
   return { success: true };
 }
 
 export async function deleteApartmentAction(id: string) {
-  if (!id) {
-    return { error: "ID is required" };
-  }
+  if (!id) return { error: "ID is required" };
   try {
     const apartment = await getApartmentById(id);
     if (apartment && apartment.imageUrls.length > 0) {
@@ -273,30 +232,26 @@ const generateSummarySchema = z.object({
   area: z.number().optional(),
   detailedInformation: z.string().optional(),
 });
-// THÊM ĐOẠN NÀY VÀO ĐỂ EXPORT CHO COMPONENT GỌI
+
 export async function generateSummaryAction(
   input: z.infer<typeof generateSummarySchema>
 ) {
   const validatedInput = generateSummarySchema.safeParse(input);
-  if (!validatedInput.success) {
-    return { error: "Invalid input for summary generation." };
-  }
-  // Trong src/app/actions.ts
+  if (!validatedInput.success) return { error: "Invalid input for summary generation." };
 
   try {
     const result = await generateListingSummary({
       title: validatedInput.data.title,
       roomType: validatedInput.data.roomType,
       district: validatedInput.data.district,
-      address: validatedInput.data.address || "", // Thêm address (mặc định chuỗi rỗng nếu chưa nhập)
+      address: validatedInput.data.address || "", 
       price: validatedInput.data.price,
-      area: validatedInput.data.area || 0,        // Thêm area (mặc định 0 nếu chưa nhập)
+      area: validatedInput.data.area || 0,        
       detailedInformation: validatedInput.data.detailedInformation || "",
     });
-    // SỬA: Trả về đầy đủ tất cả các trường do AI viết
+    
     return {
-      summary: result.description, // Giữ nguyên tên biến cũ phòng ngừa lỗi ở nơi khác
-      description: result.description, // Map đúng tên key từ AI
+      description: result.description, 
       seoTitle: result.seoTitle,
       seoDescription: result.seoDescription,
       highlights: result.highlights
@@ -307,7 +262,6 @@ export async function generateSummaryAction(
   }
 }
 
-// Sửa: Cập nhật lại hàm này để khớp với cấu trúc output mới của AI
 export async function fetchApartmentsAction(options: {
   query?: string;
   district?: string;
@@ -318,26 +272,23 @@ export async function fetchApartmentsAction(options: {
   sortBy?: string;
   userId?: string;
 }) {
-
   const { apartments, totalResults } = await getApartments(options);
 
-  // If a user is logged in, check which apartments are favorited
   if (options.userId) {
     const userRef = doc(firestore, "users", options.userId);
     const userSnapshot = await getDoc(userRef);
-    const rawFavoriteIds = userSnapshot.exists()
-      ? userSnapshot.data().favorites
-      : [];
+    const rawFavoriteIds = userSnapshot.exists() ? userSnapshot.data().favorites : [];
     const favoriteIds = Array.isArray(rawFavoriteIds) ? rawFavoriteIds : [];
     const favoriteIdSet = new Set<string>(favoriteIds);
     const apartmentsWithFavorites = apartments.map(apt => ({
       ...apt,
       isFavorited: favoriteIdSet.has(apt.id)
     }));
-    return { apartments: apartmentsWithFavorites, totalResults };
+    
+    return JSON.parse(JSON.stringify({ apartments: apartmentsWithFavorites, totalResults }));
   }
-
-  return { apartments, totalResults };
+  
+  return JSON.parse(JSON.stringify({ apartments, totalResults }));
 }
 
 export async function toggleFavoriteAction({
@@ -349,12 +300,8 @@ export async function toggleFavoriteAction({
   apartmentId: string;
   isFavorited?: boolean;
 }) {
-  if (!userId) {
-    return { error: "User not authenticated." };
-  }
-  if (!apartmentId) {
-    return { error: "Apartment ID missing." };
-  }
+  if (!userId) return { error: "User not authenticated." };
+  if (!apartmentId) return { error: "Apartment ID missing." };
 
   try {
     await createUserDocument(userId, "");
@@ -378,9 +325,7 @@ export async function toggleFavoriteAction({
         throw addError;
       }
     }
-
     return { success: true, isFavorited: !isCurrentlyFavorited };
-
   } catch (error) {
     console.error("Toggle favorite CRITICAL error:", error);
     return { error: "Failed to update favorite status." };
@@ -388,9 +333,7 @@ export async function toggleFavoriteAction({
 }
 
 export async function checkFavoriteStatusAction(userId: string, apartmentId: string) {
-  if (!userId) {
-    return { isFavorited: false };
-  }
+  if (!userId) return { isFavorited: false };
   try {
     const isFavorited = await isApartmentFavorited(userId, apartmentId);
     return { isFavorited };
@@ -404,10 +347,7 @@ export async function createUserDocument(userId: string, email: string) {
   if (!userId) return;
   try {
     const userRef = doc(firestore, "users", userId);
-    await setDoc(userRef, {
-      email: email,
-      createdAt: Timestamp.now()
-    }, { merge: true });
+    await setDoc(userRef, { email: email, createdAt: Timestamp.now() }, { merge: true });
   } catch (error) {
     console.error("Failed to create user document:", error);
   }
@@ -419,19 +359,10 @@ const profileFormSchema = z.object({
   address: z.string().optional(),
 });
 
-export async function updateUserProfileAction(
-  userId: string,
-  values: z.infer<typeof profileFormSchema>
-) {
-  if (!userId) {
-    return { error: "User not authenticated." };
-  }
-
+export async function updateUserProfileAction(userId: string, values: z.infer<typeof profileFormSchema>) {
+  if (!userId) return { error: "User not authenticated." };
   const validatedFields = profileFormSchema.safeParse(values);
-
-  if (!validatedFields.success) {
-    return { error: "Invalid data provided." };
-  }
+  if (!validatedFields.success) return { error: "Invalid data provided." };
 
   try {
     await updateUserProfileInDb(userId, validatedFields.data);
@@ -443,7 +374,6 @@ export async function updateUserProfileAction(
   }
 }
 
-// 1. Lấy danh sách các căn hộ chưa được đồng bộ
 export async function getUnmigratedApartmentsAction() {
   try {
     const apartmentsCol = collection(firestore, "apartments");
@@ -452,8 +382,6 @@ export async function getUnmigratedApartmentsAction() {
 
     for (const docSnap of querySnapshot.docs) {
       const data = docSnap.data();
-
-      // Nếu chưa có searchKeywords thì đưa vào danh sách cần đồng bộ
       if (!data.searchKeywords || data.searchKeywords.length === 0) {
         unmigrated.push({
           id: docSnap.id,
@@ -461,14 +389,13 @@ export async function getUnmigratedApartmentsAction() {
         });
       }
     }
-    return { success: true, data: unmigrated };
+    return JSON.parse(JSON.stringify({ success: true, data: unmigrated }));
   } catch (error) {
     console.error("Lỗi khi kiểm tra dữ liệu:", error);
     return { error: "Không thể lấy danh sách đồng bộ." };
   }
 }
 
-// 2. Xử lý đồng bộ theo từng lô nhỏ (Batch)
 export async function migrateApartmentsBatchAction(batch: { id: string; textToSearch: string }[]) {
   try {
     const promises = batch.map(async (item) => {
@@ -476,8 +403,6 @@ export async function migrateApartmentsBatchAction(batch: { id: string; textToSe
       const docRef = doc(firestore, "apartments", item.id);
       await updateDoc(docRef, { searchKeywords });
     });
-
-    // Chạy song song nhiều update 1 lúc cho nhanh
     await Promise.all(promises);
     return { success: true };
   } catch (error) {
@@ -486,7 +411,10 @@ export async function migrateApartmentsBatchAction(batch: { id: string; textToSe
   }
 }
 
-// 1. Lấy danh sách các căn hộ chưa có nội dung AI tối ưu
+// =========================================================================
+// 🚀 LOGIC KIỂM TRA MIGRATION & GỌI AI
+// =========================================================================
+
 export async function getUnmigratedAiApartmentsAction() {
   try {
     const apartmentsCol = collection(firestore, "apartments");
@@ -496,11 +424,15 @@ export async function getUnmigratedAiApartmentsAction() {
     for (const docSnap of querySnapshot.docs) {
       const data = docSnap.data();
 
-      // Nếu chưa có trường aiContent thì đưa vào danh sách cần chạy AI
-      if (!data.aiContent) {
+      // Cần migration nếu chưa có aiContent HOẶC vẫn còn sót listingSummary/seoTitle ở cấp gốc
+      const hasAiContent = data.aiContent && data.aiContent.description;
+      const hasLegacyRootData = !!data.listingSummary || !!data.seoTitle || !!data.seoDescription;
+
+      if (!hasAiContent || hasLegacyRootData) {
         unmigrated.push({
           id: docSnap.id,
           aptData: {
+            ...data, 
             title: data.title || "Căn hộ cho thuê",
             roomType: data.roomType || "studio",
             district: data.district || "Hà Nội",
@@ -512,34 +444,66 @@ export async function getUnmigratedAiApartmentsAction() {
         });
       }
     }
-    return { success: true, data: unmigrated };
+    
+    return JSON.parse(JSON.stringify({ success: true, data: unmigrated }));
   } catch (error) {
     console.error("Lỗi khi quét danh sách căn hộ cho AI:", error);
     return { error: "Không thể lấy danh sách căn hộ chưa tối ưu AI." };
   }
 }
 
-// 2. Xử lý gọi AI và cập nhật theo từng lô (Batch)
 export async function migrateAiApartmentsBatchAction(
   batch: { id: string; aptData: any }[]
 ): Promise<{ success: boolean; error?: string }> {
   const failedIds: string[] = [];
 
-  // Xử lý tuần tự — rate limiter bên trong generateListingSummary
-  // đã tự tối ưu tốc độ theo hạn mức token/phút của Groq
   for (const item of batch) {
     try {
-      const aiResult = await generateListingSummary(item.aptData);
-
       const docRef = doc(firestore, "apartments", item.id);
+      const data = item.aptData;
+
+      // 1. TÁI CHẾ DỮ LIỆU CŨ (MIGRATION TRỰC TIẾP, BỎ QUA GỌI API AI)
+      if (data.listingSummary || data.seoTitle || data.seoDescription) {
+        let parsedHighlights: string[] = [];
+        if (data.highlights) {
+          parsedHighlights = Array.isArray(data.highlights) 
+            ? data.highlights 
+            : data.highlights.split("\n").filter((h: string) => h.trim() !== "");
+        }
+
+        await updateDoc(docRef, {
+          aiContent: {
+            seoTitle: data.seoTitle || data.title || "",
+            seoDescription: data.seoDescription || "",
+            description: data.listingSummary || "",
+            highlights: parsedHighlights,
+            updatedAt: Timestamp.now(),
+          },
+          // Dọn rác DB bằng deleteField()
+          listingSummary: deleteField(),
+          seoTitle: deleteField(),
+          seoDescription: deleteField(),
+          highlights: deleteField(),
+        });
+        continue; 
+      }
+
+      // 2. NẾU KHÔNG CÓ DỮ LIỆU CŨ -> MỚI CHẠY GỌI GROQ AI
+      const aiResult = await generateListingSummary(item.aptData);
+      
+      // ✅ SỬA LỖI: AiSummaryResponse đã quy định rõ highlights là Array, không cần dùng split() nữa
+      const parsedHighlights: string[] = aiResult.highlights || [];
+
       await updateDoc(docRef, {
         aiContent: {
-          seoTitle: aiResult.seoTitle,
-          b2cDescription: aiResult.description,
-          highlights: aiResult.highlights,
+          seoTitle: aiResult.seoTitle || "",
+          seoDescription: aiResult.seoDescription || "",
+          description: aiResult.description || "", // ✅ Đã xóa thuộc tính 'summary' gây lỗi
+          highlights: parsedHighlights,
           updatedAt: Timestamp.now(),
         },
       });
+
     } catch (error) {
       console.error(`Lỗi khi xử lý căn hộ ${item.id}:`, error);
       failedIds.push(item.id);
@@ -552,30 +516,19 @@ export async function migrateAiApartmentsBatchAction(
       error: `Có ${failedIds.length} căn hộ xử lý thất bại: ${failedIds.join(", ")}`,
     };
   }
-
   return { success: true };
 }
 
+// =========================================================================
 
 export async function pushApartmentAction(id: string) {
-  if (!id) {
-    return { error: "ID is required" };
-  }
-
+  if (!id) return { error: "ID is required" };
   try {
     const docRef = doc(firestore, "apartments", id);
-
-    // Cập nhật lại thời gian để căn hộ trồi lên đầu
-    await updateDoc(docRef, {
-      updatedAt: Timestamp.now(),
-      createdAt: Timestamp.now(),
-    });
-
-    // ÉP LÀM MỚI BỘ NHỚ ĐỆM CỦA TRANG CHỦ NGAY LẬP TỨC
-    revalidatePath("/", "layout"); // Thêm "layout" để force clear toàn bộ
+    await updateDoc(docRef, { updatedAt: Timestamp.now(), createdAt: Timestamp.now() });
+    revalidatePath("/", "layout");
     revalidatePath(`/${ADMIN_PATH}`);
     revalidatePath("/apartments");
-
     return { success: true };
   } catch (error) {
     console.error("Database error on push:", error);
@@ -583,27 +536,17 @@ export async function pushApartmentAction(id: string) {
   }
 }
 
-// One-off migration: apartments created before the landlord-submission workflow
-// existed have no submissionStatus field. Firestore equality/inequality filters
-// exclude documents missing the filtered field entirely, so getApartments()'s
-// new `where("submissionStatus", "==", "published")` filter would otherwise
-// hide every pre-existing listing. Run this once after deploying that filter.
 export async function backfillSubmissionStatusAction() {
   try {
     const apartmentsCol = collection(firestore, "apartments");
     const querySnapshot = await getDocs(apartmentsCol);
-    const toBackfill = querySnapshot.docs.filter(
-      (docSnap) => !docSnap.data().submissionStatus,
-    );
+    const toBackfill = querySnapshot.docs.filter((docSnap) => !docSnap.data().submissionStatus);
 
     await Promise.all(
       toBackfill.map((docSnap) =>
-        updateDoc(doc(firestore, "apartments", docSnap.id), {
-          submissionStatus: "published",
-        }),
-      ),
+        updateDoc(doc(firestore, "apartments", docSnap.id), { submissionStatus: "published" })
+      )
     );
-
     return { success: true, updatedCount: toBackfill.length };
   } catch (error) {
     console.error("Lỗi khi backfill submissionStatus:", error);

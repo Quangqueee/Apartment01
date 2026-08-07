@@ -46,7 +46,10 @@ import {
   useMemo,
   useEffect,
 } from "react";
-import { Loader2, Trash2, Upload, Dog, Waves } from "lucide-react";
+
+// ✅ FIX LỖI 1: Bổ sung import Sparkles
+import { Loader2, Trash2, Upload, Dog, Waves, Sparkles } from "lucide-react";
+
 import {
   DndContext,
   closestCenter,
@@ -301,9 +304,8 @@ export default function ApartmentForm({
   const [isDragging, setIsDragging] = useState(false);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
-  // Trích xuất aiContent từ bản ghi cũ để set trạng thái hiển thị Form SEO
-  const aiData = (apartment as any)?.aiContent || {};
-  const hasOldSeo = !!apartment?.listingSummary || !!aiData?.description;
+  const aiData = apartment?.aiContent || {};
+  const hasOldSeo = !!aiData?.description;
   const [isSeoEnabled, setIsSeoEnabled] = useState(hasOldSeo);
 
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>(
@@ -335,8 +337,7 @@ export default function ApartmentForm({
         apartment?.commission !== undefined ? String(apartment.commission) : "",
       details: apartment?.details || "",
 
-      // Khôi phục dữ liệu SEO từ aiContent hoặc trường gốc
-      listingSummary: apartment?.listingSummary || aiData?.description || "",
+      listingSummary: aiData?.description || "",
       seoTitle: aiData?.seoTitle || "",
       seoDescription: aiData?.seoDescription || "",
       highlights: aiData?.highlights
@@ -374,7 +375,7 @@ export default function ApartmentForm({
 
   useEffect(() => {
     if (apartment) {
-      const currentAiData = (apartment as any)?.aiContent || {};
+      const currentAiData = apartment?.aiContent || {};
       form.reset({
         formMode: mode,
         title: apartment.title || "",
@@ -389,8 +390,7 @@ export default function ApartmentForm({
             : "",
         details: apartment.details || "",
 
-        listingSummary:
-          apartment.listingSummary || currentAiData.description || "",
+        listingSummary: currentAiData.description || "",
         seoTitle: currentAiData.seoTitle || "",
         seoDescription: currentAiData.seoDescription || "",
         highlights: currentAiData.highlights
@@ -509,6 +509,84 @@ export default function ApartmentForm({
     [handleFiles],
   );
 
+  const handleAutoExtractDetails = () => {
+    const detailsText = form.getValues("details") || "";
+    if (!detailsText.trim()) {
+      toast({
+        title: "Thiếu dữ liệu",
+        description:
+          "Vui lòng dán nội dung vào Thông tin căn hộ trước khi trích xuất.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      let extracted = false;
+
+      // 1. Trích xuất Dạng phòng
+      const roomMatch = detailsText.match(/(studio|1n1k|2n1k)/i);
+      if (roomMatch && roomMatch[1]) {
+        form.setValue("roomType", roomMatch[1].toLowerCase() as any, {
+          shouldValidate: true,
+        });
+        extracted = true;
+      }
+
+      // 2. Trích xuất Diện tích
+      const areaMatch = detailsText.match(
+        /(?:diện tích|thiết kế)[:\s]*(\d+)\s*(?:m2|m²|m)/i,
+      );
+      if (areaMatch && areaMatch[1]) {
+        form.setValue("area", parseInt(areaMatch[1], 10), {
+          shouldValidate: true,
+        });
+        extracted = true;
+      }
+
+      // 3. Trích xuất Giá phòng
+      const priceStr = detailsText.toLowerCase();
+      const matchTr = priceStr.match(/giá.*?:?\s*\n*\s*(\d+)\s*tr\s*(\d+)?/);
+
+      if (matchTr) {
+        const base = parseInt(matchTr[1], 10);
+        const fraction = matchTr[2]
+          ? parseInt(matchTr[2], 10) / Math.pow(10, matchTr[2].length)
+          : 0;
+        form.setValue("price", base + fraction, { shouldValidate: true });
+        extracted = true;
+      } else {
+        const matchNum = priceStr.match(
+          /giá.*?:?\s*\n*\s*([\d\.,]+)\s*(vnd|vnđ)?/,
+        );
+        if (matchNum) {
+          let num = parseFloat(
+            matchNum[1].replace(/\./g, "").replace(/,/g, "."),
+          );
+          const finalPrice = num > 1000 ? num / 1000000 : num;
+          form.setValue("price", finalPrice, { shouldValidate: true });
+          extracted = true;
+        }
+      }
+
+      if (extracted) {
+        toast({
+          title: "Trích xuất thành công",
+          description: "Đã tự động điền Dạng phòng, Diện tích và Giá thuê.",
+          className: "bg-green-50 text-green-900 border-green-200",
+        });
+      } else {
+        toast({
+          title: "Không tìm thấy dữ liệu",
+          description: "Không thể tự động nhận diện thông số từ văn bản này.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Lỗi trích xuất dữ liệu:", error);
+    }
+  };
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
@@ -527,7 +605,6 @@ export default function ApartmentForm({
     [updatePreviewItems],
   );
 
-  // HÀM GỌI AI TẠO SEO CONTENT
   const handleGenerateAi = async () => {
     const title = form.getValues("title");
     const roomType = form.getValues("roomType");
@@ -558,7 +635,6 @@ export default function ApartmentForm({
         throw new Error(res.error);
       }
 
-      // Xử lý mapping đúng các key từ file backend
       if (res.seoTitle) {
         form.setValue("seoTitle", res.seoTitle, { shouldValidate: true });
       }
@@ -567,13 +643,15 @@ export default function ApartmentForm({
           shouldValidate: true,
         });
       }
-      // Tool bulk migration và backend trả về "description" thay vì "summary"
-      const generatedContent = res.description || res.summary;
+
+      // ✅ FIX LỖI 2: Xóa res.summary vì backend chỉ còn trả về description để chuẩn hóa Data Flow
+      const generatedContent = res.description;
       if (generatedContent) {
         form.setValue("listingSummary", generatedContent, {
           shouldValidate: true,
         });
       }
+
       if (res.highlights) {
         const highlightsStr = Array.isArray(res.highlights)
           ? res.highlights.join("\n")
@@ -622,11 +700,44 @@ export default function ApartmentForm({
 
       const uploadedUrls = await Promise.all(uploadPromises);
 
-      // Chuyển highlights từ chuỗi \n về mảng để lưu DB
-      const parsedHighlights =
-        isSeoEnabled && values.highlights
-          ? values.highlights.split("\n").filter((h) => h.trim() !== "")
-          : [];
+      const parsedHighlights = values.highlights
+        ? values.highlights.split("\n").filter((h) => h.trim() !== "")
+        : [];
+
+      const currentAiContent = apartment?.aiContent || {};
+
+      const aiContentData = {
+        seoTitle: isSeoEnabled
+          ? values.seoTitle
+          : currentAiContent.seoTitle || "",
+        seoDescription: isSeoEnabled
+          ? values.seoDescription
+          : currentAiContent.seoDescription || "",
+        description: isSeoEnabled
+          ? values.listingSummary
+          : currentAiContent.description || "",
+        highlights:
+          isSeoEnabled && parsedHighlights.length > 0
+            ? parsedHighlights
+            : currentAiContent.highlights || [],
+      };
+
+      const payload = {
+        title: values.title,
+        sourceCode: values.sourceCode || "",
+        roomType: values.roomType,
+        district: values.district,
+        area: values.area,
+        price: values.price,
+        commission: values.commission,
+        details: values.details,
+        aiContent: aiContentData,
+        address: values.address || "",
+        landlordPhoneNumber: values.landlordPhoneNumber || "",
+        status: values.status || "available",
+        tags: values.tags || [],
+        imageUrlsJson: JSON.stringify(uploadedUrls),
+      };
 
       const result =
         mode === "landlord"
@@ -646,37 +757,10 @@ export default function ApartmentForm({
               },
               apartment?.id,
             )
-          : await createOrUpdateApartmentAction(apartment?.id, {
-              title: values.title,
-              sourceCode: values.sourceCode || "",
-              roomType: values.roomType,
-              district: values.district,
-              area: values.area,
-              price: values.price,
-              commission: values.commission,
-              details: values.details,
-
-              // Gửi toàn bộ dữ liệu AI SEO
-              listingSummary: isSeoEnabled ? values.listingSummary : "",
-              seoTitle: isSeoEnabled ? values.seoTitle : "",
-              seoDescription: isSeoEnabled ? values.seoDescription : "",
-              highlights: parsedHighlights as any, // Truyền sang backend
-
-              address: values.address || "",
-              landlordPhoneNumber: values.landlordPhoneNumber || "",
-              status: values.status || "available",
-              tags: values.tags || [],
-              imageUrlsJson: JSON.stringify(uploadedUrls),
-            });
+          : await createOrUpdateApartmentAction(apartment?.id, payload as any);
 
       if (result?.error) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: result.error,
-        });
-        setIsSubmitting(false);
-        return;
+        throw new Error(result.error);
       }
 
       if (mode === "landlord") {
@@ -705,13 +789,15 @@ export default function ApartmentForm({
       setTimeout(() => {
         router.push(`/${ADMIN_PATH}/apartments`);
       }, 100);
-    } catch (error) {
-      console.error("Lỗi khi upload ảnh:", error);
+    } catch (error: any) {
+      console.error("Lỗi khi cập nhật căn hộ:", error);
       toast({
         variant: "destructive",
-        title: "Lỗi Upload",
-        description: "Không thể tải ảnh lên máy chủ. Vui lòng kiểm tra mạng.",
+        title: "Lỗi Hệ thống",
+        description:
+          error.message || "Không thể lưu thông tin. Vui lòng kiểm tra lại.",
       });
+    } finally {
       setIsSubmitting(false);
     }
   }
@@ -748,7 +834,19 @@ export default function ApartmentForm({
                   name="details"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Thông tin căn hộ</FormLabel>
+                      <div className="flex justify-between items-center">
+                        <FormLabel>Thông tin căn hộ</FormLabel>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleAutoExtractDetails}
+                          className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 mr-1" /> Điền nhanh
+                          thông số
+                        </Button>
+                      </div>
                       <FormControl>
                         <Textarea
                           placeholder="Nhập thông số điện nước, phí dịch vụ, giờ giấc, nội thất thô..."
@@ -761,7 +859,6 @@ export default function ApartmentForm({
                   )}
                 />
 
-                {/* NÚT BẬT TẮT VÀ GỌI AI SEO */}
                 {mode === "admin" && (
                   <>
                     <div className="flex items-center gap-2 pt-2 border-t mt-6">
