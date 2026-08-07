@@ -26,15 +26,18 @@ export async function generateMetadata({
     };
   }
 
-  // Ưu tiên tuyệt đối cho tiêu đề và mô tả SEO do AI tạo, nếu không có mới dùng giá trị mặc định
+  // src/app/apartments/[id]/page.tsx
+
+  // Ưu tiên tuyệt đối cho tiêu đề và mô tả SEO do AI tạo nằm bên trong object aiContent
   const title =
-    apartment.seoTitle ||
+    apartment.aiContent?.seoTitle ||
     `${apartment.title} - ${apartment.district} | Hanoi Residences`;
 
   const description =
-    apartment.seoDescription ||
-    apartment.listingSummary ||
-    apartment.details.substring(0, 155);
+    apartment.aiContent?.seoDescription ||
+    apartment.aiContent?.description ||
+    apartment.details ||
+    "Nền tảng tìm thuê căn hộ uy tín tại Hà Nội. Khám phá ngay không gian lý tưởng để an cư.";
 
   const primaryImage = apartment.imageUrls?.[0] || "/default-og-image.png";
 
