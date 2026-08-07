@@ -264,7 +264,7 @@ export default memo(function ApartmentCard({
             {canViewCommission && displayCommission && (
               <div className="bg-[#5cb85c] text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm ml-3 truncate">
                 HH: {displayCommission}
-              </div>
+                </div>
             )}
 
             {!isCollaborator && tagLabel && (
