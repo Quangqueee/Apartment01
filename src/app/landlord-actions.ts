@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { db } from "@/firebase/index";
 import { revalidatePath } from "next/cache";
 import {
   doc,
@@ -14,10 +15,11 @@ import {
   where,
   getDocs,
   deleteDoc,
+  addDoc,
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
 import { createApartment, updateApartment, getApartmentById } from "@/lib/data";
-import { Apartment } from "@/lib/types";
+import { Apartment, LandlordApartmentInput } from "@/lib/types";
 import { ADMIN_PATH, MAX_APARTMENT_IMAGES } from "@/lib/constants";
 import {
   createNotificationServer,
@@ -151,21 +153,29 @@ const landlordSubmissionSchema = z.object({
   details: z.string().min(20),
   commission: z.string().optional(),
   contactPhone: z.string().min(8, "Số điện thoại không hợp lệ."),
-  status: z.enum(["available", "rented"]).optional(), // Đã bổ sung status
+  status: z.enum(["available", "rented"]).optional(),
   imageUrls: z
     .array(z.string().trim().min(1))
     .min(1, "Cần ít nhất 1 hình ảnh.")
     .max(MAX_APARTMENT_IMAGES, `Tối đa ${MAX_APARTMENT_IMAGES} hình ảnh.`),
+  // ĐỒNG BỘ DATA FLOW: Cấu trúc aiContent chuẩn
+  aiContent: z.object({
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    description: z.string().optional(),
+    highlights: z.array(z.string()).optional(),
+  }).nullable().optional(),
 });
 
 export async function submitApartmentByLandlord(
   uid: string,
-  values: z.infer<typeof landlordSubmissionSchema>,
-  apartmentId?: string // Đã bổ sung đối số thứ 3
+  payload: LandlordApartmentInput,
+  apartmentId?: string
 ) {
   if (!uid) return { error: "User not authenticated." };
 
-  const validatedFields = landlordSubmissionSchema.safeParse(values);
+  // FIX: Thay `values` thành `payload`
+  const validatedFields = landlordSubmissionSchema.safeParse(payload);
   if (!validatedFields.success) {
     const errorMessage = validatedFields.error.issues
       .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
@@ -181,7 +191,6 @@ export async function submitApartmentByLandlord(
 
     const data = validatedFields.data;
 
-    // XỬ LÝ NẾU LÀ CẬP NHẬT (Có apartmentId)
     if (apartmentId) {
       const existing = await getApartmentById(apartmentId);
       if (!existing || existing.landlordId !== uid) {
@@ -199,6 +208,7 @@ export async function submitApartmentByLandlord(
         contactPhone: data.contactPhone || "",
         status: data.status || "available",
         imageUrls: data.imageUrls,
+        aiContent: data.aiContent || null, // Đóng gói đúng chuẩn
         updatedAt: Timestamp.now(),
       } as Partial<Apartment>);
 
@@ -207,16 +217,23 @@ export async function submitApartmentByLandlord(
       return { success: true, apartmentId };
     }
 
-    // XỬ LÝ NẾU LÀ TẠO MỚI TIN ĐĂNG
     const newApartmentData = {
-      ...data,
+      title: data.title,
+      roomType: data.roomType,
+      district: data.district,
+      area: data.area,
+      price: data.price,
+      details: data.details,
+      commission: data.commission,
+      contactPhone: data.contactPhone,
+      imageUrls: data.imageUrls,
       sourceCode: "",
       address: data.district,
       landlordPhoneNumber: data.contactPhone,
       status: data.status || "available",
       submissionStatus: "pending" as const,
       landlordId: uid,
-      listingSummary: "",
+      aiContent: data.aiContent || null, // KHÔNG DÙNG listingSummary rời rạc
       tags: [],
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
@@ -248,8 +265,13 @@ const reviewUpdatesSchema = z.object({
   address: z.string().optional(),
   landlordPhoneNumber: z.string().optional(),
   adminNotes: z.string().optional(),
-  seoTitle: z.string().optional(), // Bổ sung SEO Title
-  listingSummary: z.string().optional(), // Bổ sung SEO Content
+  // ĐỒNG BỘ DATA FLOW: Zod Schema cho dữ liệu SEO từ phía Admin
+  aiContent: z.object({
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    description: z.string().optional(),
+    highlights: z.array(z.string()).optional(),
+  }).optional(),
 }).partial();
 
 export async function reviewApartmentSubmission(
@@ -271,11 +293,13 @@ export async function reviewApartmentSubmission(
     const apartment = await getApartmentById(apartmentId);
     if (!apartment) return { error: "Apartment not found." };
 
-    await updateApartment(apartmentId, {
+    const updateData: Partial<Apartment> = {
       ...validatedUpdates.data,
       submissionStatus: decision,
       updatedAt: Timestamp.now(),
-    } as Partial<Apartment>);
+    };
+
+    await updateApartment(apartmentId, updateData);
 
     if (apartment.landlordId) {
       await createNotificationServer({
@@ -368,7 +392,6 @@ export async function getPartnersAction(adminUid: string) {
       };
     });
 
-    // Sắp xếp mới nhất lên đầu
     partners.sort((a, b) => (b.submittedAt?.seconds || 0) - (a.submittedAt?.seconds || 0));
 
     return { partners };
@@ -459,7 +482,6 @@ export async function getLandlordApartmentsAction(adminUid: string, landlordId: 
         updatedAt: data.updatedAt
           ? { seconds: data.updatedAt.seconds, nanoseconds: data.updatedAt.nanoseconds }
           : null,
-        // BỔ SUNG: Ánh xạ luôn Timestamp nằm ẩn bên trong aiContent
         aiContent: data.aiContent
           ? {
             ...data.aiContent,
@@ -471,7 +493,6 @@ export async function getLandlordApartmentsAction(adminUid: string, landlordId: 
       };
     });
 
-    // Sắp xếp bài đăng mới nhất lên đầu
     apartments.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
     return { apartments };
@@ -489,7 +510,6 @@ export async function requestPushApartmentAction(uid: string, apartmentId: strin
     await updateDoc(docRef, {
       isPushRequested: true,
       pushRequestedAt: Timestamp.now(),
-      // Push lên đầu ngay lập tức theo đúng ý bạn
       updatedAt: Timestamp.now(),
       createdAt: Timestamp.now(),
     });
@@ -528,7 +548,7 @@ export async function approveAndResolvePushAction(adminUid: string, apartmentId:
       isPushRequested: false,
       pushRequestedAt: deleteField(),
       updatedAt: Timestamp.now(),
-      createdAt: Timestamp.now(), // Đẩy lên đầu danh sách chính
+      createdAt: Timestamp.now(),
     });
     return { success: true };
   } catch (error) {
@@ -544,7 +564,6 @@ export async function terminatePartnershipAction(adminUid: string, targetUid: st
   if (!targetUid) return { error: "Thiếu ID đối tác." };
 
   try {
-    // 1. Tìm và xóa toàn bộ căn hộ do landlord này đã đăng trong Firestore
     const apartmentsQuery = query(
       collection(firestore, "apartments"),
       where("landlordId", "==", targetUid)
@@ -556,7 +575,6 @@ export async function terminatePartnershipAction(adminUid: string, targetUid: st
     });
     await Promise.all(deletePromises);
 
-    // 2. Cập nhật lại thông tin user: hạ quyền về "user", reset trạng thái và xóa dữ liệu đăng ký cũ
     const userRef = doc(firestore, "users", targetUid);
     await updateDoc(userRef, {
       role: "user",
@@ -566,7 +584,6 @@ export async function terminatePartnershipAction(adminUid: string, targetUid: st
       landlordRequestSubmittedAt: deleteField(),
     });
 
-    // 3. Gửi thông báo cho người dùng
     await createNotificationServer({
       recipientId: targetUid,
       title: "Hợp tác đã bị chấm dứt",
@@ -583,5 +600,64 @@ export async function terminatePartnershipAction(adminUid: string, targetUid: st
   } catch (error) {
     console.error("Failed to terminate partnership:", error);
     return { error: "Không thể ngưng hợp tác và xóa dữ liệu đối tác. Vui lòng thử lại." };
+  }
+}
+
+// --- 14. Chủ nhà tự đổi trạng thái nhanh ngoài danh sách ---
+export async function updateLandlordApartmentStatusAction(
+  landlordId: string,
+  apartmentId: string,
+  newStatus: "available" | "rented"
+) {
+  try {
+    if (!landlordId || !apartmentId) {
+      return { error: "Thiếu thông tin xác thực hoặc mã căn hộ." };
+    }
+
+    // FIX: Sử dụng `firestore` từ server-init thay vì `db`
+    const apartmentRef = doc(firestore, "apartments", apartmentId);
+    const docSnap = await getDoc(apartmentRef);
+
+    if (!docSnap.exists()) {
+      return { error: "Không tìm thấy dữ liệu căn hộ." };
+    }
+
+    const apartmentData = docSnap.data();
+
+    // Kiểm tra quyền sở hữu
+    if (apartmentData?.landlordId !== landlordId) {
+      return { error: "Bạn không có quyền chỉnh sửa căn hộ này." };
+    }
+
+    // Cập nhật trạng thái
+    await updateDoc(apartmentRef, {
+      status: newStatus,
+      updatedAt: Timestamp.now(), // Đồng bộ kiểu dữ liệu Timestamp
+    });
+
+    // Tạo thông báo cho Admin
+    const statusText = newStatus === "available" ? "Còn trống" : "Tạm hết";
+    const notificationPayload = {
+      type: "APARTMENT_STATUS_UPDATE",
+      title: "Chủ nhà cập nhật trạng thái phòng",
+      message: `Căn hộ "${apartmentData.address || apartmentData.title}" (Mã: ${apartmentData.sourceCode || apartmentId}) vừa được đổi trạng thái thành: ${statusText}.`,
+      apartmentId,
+      landlordId,
+      createdAt: Timestamp.now(),
+      isRead: false,
+      recipientRole: "admin",
+    };
+
+    // FIX: Sử dụng `firestore` từ server-init
+    const notificationsRef = collection(firestore, "notifications");
+    await addDoc(notificationsRef, notificationPayload);
+
+    revalidatePath("/profile/apartments");
+    revalidatePath(`/${ADMIN_PATH}/apartments`);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Lỗi cập nhật trạng thái phòng:", error);
+    return { error: error.message || "Không thể cập nhật trạng thái phòng lúc này." };
   }
 }

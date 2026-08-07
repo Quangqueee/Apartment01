@@ -43,8 +43,8 @@ export interface Apartment {
 
   // Landlord submission workflow fields
   submissionStatus?: SubmissionStatus;
-  landlordId?: string; // uid of the landlord who submitted this apartment
-  adminNotes?: string; // Admin feedback, shown to landlord on rejection/edit
+  landlordId?: string; // UID của chủ nhà đã đăng thông tin căn hộ này
+  adminNotes?: string; // Phản hồi từ quản trị viên, hiển thị cho chủ nhà khi bị từ chối hoặc chỉnh sửa
   design?: string; // Thiết kế
   serviceFees?: string; // Phí dịch vụ
   contactPhone?: string; // Landlord-facing contact phone (distinct from admin-only landlordPhoneNumber)
@@ -105,4 +105,19 @@ export interface Favorite {
     seconds: number;
     nanoseconds: number;
   };
+}
+export interface LandlordApartmentInput {
+  title: string;
+  roomType: RoomType;
+  district: string;
+  area: number;
+  price: number;
+  details: string;
+  commission?: string;
+  contactPhone: string;
+  status: ApartmentStatus;
+  imageUrls: string[];
+
+  // ĐỒNG BỘ LUỒNG DỮ LIỆU: Bắt buộc khai báo để TS không ném lỗi
+  aiContent?: AiContent | null;
 }

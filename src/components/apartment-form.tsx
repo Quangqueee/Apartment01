@@ -47,7 +47,6 @@ import {
   useEffect,
 } from "react";
 
-// ✅ FIX LỖI 1: Bổ sung import Sparkles
 import { Loader2, Trash2, Upload, Dog, Waves, Sparkles } from "lucide-react";
 
 import {
@@ -97,11 +96,10 @@ const formSchema = z
       .string()
       .min(20, "Detailed information must be at least 20 characters."),
 
-    // CÁC TRƯỜNG DÀNH CHO SEO AI
-    listingSummary: z.string().optional(), // Map với description của AI
+    listingSummary: z.string().optional(),
     seoTitle: z.string().optional(),
     seoDescription: z.string().optional(),
-    highlights: z.string().optional(), // Nhận text area mỗi dòng 1 highlight
+    highlights: z.string().optional(),
 
     imageUrls: z
       .array(z.string())
@@ -432,6 +430,7 @@ export default function ApartmentForm({
     [previewItems],
   );
 
+  // TỐI ƯU TỐC ĐỘ UPLOAD: Nén ảnh và xử lý filePromises song song
   const handleFiles = useCallback(
     (files: File[]) => {
       if (files.length === 0) return;
@@ -524,7 +523,6 @@ export default function ApartmentForm({
     try {
       let extracted = false;
 
-      // 1. Trích xuất Dạng phòng
       const roomMatch = detailsText.match(/(studio|1n1k|2n1k)/i);
       if (roomMatch && roomMatch[1]) {
         form.setValue("roomType", roomMatch[1].toLowerCase() as any, {
@@ -533,7 +531,6 @@ export default function ApartmentForm({
         extracted = true;
       }
 
-      // 2. Trích xuất Diện tích
       const areaMatch = detailsText.match(
         /(?:diện tích|thiết kế)[:\s]*(\d+)\s*(?:m2|m²|m)/i,
       );
@@ -544,7 +541,6 @@ export default function ApartmentForm({
         extracted = true;
       }
 
-      // 3. Trích xuất Giá phòng
       const priceStr = detailsText.toLowerCase();
       const matchTr = priceStr.match(/giá.*?:?\s*\n*\s*(\d+)\s*tr\s*(\d+)?/);
 
@@ -644,7 +640,6 @@ export default function ApartmentForm({
         });
       }
 
-      // ✅ FIX LỖI 2: Xóa res.summary vì backend chỉ còn trả về description để chuẩn hóa Data Flow
       const generatedContent = res.description;
       if (generatedContent) {
         form.setValue("listingSummary", generatedContent, {
@@ -687,6 +682,7 @@ export default function ApartmentForm({
     setIsSubmitting(true);
 
     try {
+      // TỐI ƯU TỐC ĐỘ UPLOAD: Dùng Promise.all để đẩy các file ảnh lên Firebase song song
       const uploadPromises = previewItems.map(async (item) => {
         if (item.blob) {
           const fileName = `apartments/${Date.now()}-${item.id}.webp`;
@@ -722,7 +718,7 @@ export default function ApartmentForm({
             : currentAiContent.highlights || [],
       };
 
-      const payload = {
+      const adminPayload = {
         title: values.title,
         sourceCode: values.sourceCode || "",
         roomType: values.roomType,
@@ -739,25 +735,31 @@ export default function ApartmentForm({
         imageUrlsJson: JSON.stringify(uploadedUrls),
       };
 
+      const landlordPayload = {
+        title: values.title,
+        roomType: values.roomType,
+        district: values.district,
+        area: values.area,
+        price: values.price,
+        details: values.details,
+        commission: values.commission,
+        contactPhone: values.contactPhone || "",
+        status: values.status || "available",
+        imageUrls: uploadedUrls,
+        aiContent: currentAiContent,
+      };
+
       const result =
         mode === "landlord"
           ? await submitApartmentByLandlord(
               user?.uid || "",
-              {
-                title: values.title,
-                roomType: values.roomType,
-                district: values.district,
-                area: values.area,
-                price: values.price,
-                details: values.details,
-                commission: values.commission,
-                contactPhone: values.contactPhone || "",
-                status: values.status || "available",
-                imageUrls: uploadedUrls,
-              },
+              landlordPayload as any,
               apartment?.id,
             )
-          : await createOrUpdateApartmentAction(apartment?.id, payload as any);
+          : await createOrUpdateApartmentAction(
+              apartment?.id,
+              adminPayload as any,
+            );
 
       if (result?.error) {
         throw new Error(result.error);
@@ -1346,7 +1348,13 @@ export default function ApartmentForm({
               : `${apartment ? "Update" : "Create"} Apartment`}
           </Button>
           <Button variant="outline" asChild>
-            <Link href={mode === "landlord" ? "/" : `/${ADMIN_PATH}`}>
+            <Link
+              href={
+                mode === "landlord"
+                  ? "/profile/apartments"
+                  : `/${ADMIN_PATH}/apartments`
+              }
+            >
               Cancel
             </Link>
           </Button>

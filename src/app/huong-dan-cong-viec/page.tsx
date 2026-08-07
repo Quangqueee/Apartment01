@@ -1132,7 +1132,7 @@ export default function SOPDocsPage() {
             tags: "Studio / Gen Z",
             tagColor: "bg-blue-100 text-blue-700",
             content:
-              '🔥 TÌM ĐÂU RA STUDIO FULL ĐỒ, BAN CÔNG THOÁNG MÀ CHỈ NHỈNH 5X? 🔥\n📍 Vị trí: Ngay trục chính Cầu Giấy / Đống Đa - Thuận tiện di chuyển, ngõ nông dễ tìm.\n\n🌿 Trống sẵn 1 căn Studio duy nhất vừa setup xong, mới tinh tươm.\n🌿 Full đồ đạc y hình: Điều hòa, nóng lạnh, giường tủ, tủ lạnh, bệ bếp... Chỉ việc xách vali quần áo đến ở.\n🌿 Thang máy, cửa khóa vân tay, không chung chủ, giờ giấc thoải mái 24/7.\n🌿 Máy giặt chung sân phơi siêu rộng, ngập tràn ánh nắng.\n\n💬 Phòng đẹp giá sinh viên thường bay trong "1 nốt nhạc". Bác nào ưng bụng IB hoặc add Zalo em ngay để lấy video thực tế nhé!\n☎️ Zalo/Call: [SĐT Của Bạn]',
+              '🔥 TÌM ĐÂU RA STUDIO FULL ĐỒ, BAN CÔNG THOÁNG MÀ CHỈ NHỈNH 5X? 🔥\n📍 Vị trí: Ngay trục chính Cầu Giấy / Đống Đa - Thuận tiện di chuyển, ngõ nông dễ tìm.\n🌿 Trống sẵn 1 căn Studio duy nhất vừa setup xong, mới tinh tươm.\n🌿 Full đồ đạc y hình: Điều hòa, nóng lạnh, giường tủ, tủ lạnh, bệ bếp... Chỉ việc xách vali quần áo đến ở.\n🌿 Thang máy, cửa khóa vân tay, không chung chủ, giờ giấc thoải mái 24/7.\n🌿 Máy giặt chung sân phơi siêu rộng, ngập tràn ánh nắng.\n💬 Phòng đẹp giá sinh viên thường bay trong "1 nốt nhạc". Bác nào ưng bụng IB hoặc add Zalo em ngay để lấy video thực tế nhé!\n☎️ Zalo/Call: [SĐT Của Bạn]',
           },
           {
             id: "tmp-2",
@@ -1140,7 +1140,7 @@ export default function SOPDocsPage() {
             tags: "1N1K / Đi làm",
             tagColor: "bg-amber-100 text-amber-700",
             content:
-              "💎 CĂN HỘ 1 NGỦ 1 KHÁCH RỘNG RÃI TẠI BA ĐÌNH 💎\n📍 Vị trí: Đội Cấn / Kim Mã - Đi làm trung tâm Ba Đình, Đống Đa siêu tiện.\n\n✨ Không gian sống lý tưởng cho cặp đôi hoặc người đi làm cần sự yên tĩnh, riêng tư:\n✔️ Thiết kế 1N1K tách biệt, phòng khách rộng rãi tha hồ tụ tập bạn bè cuối tuần.\n✔️ Cửa sổ lớn, ban công đón nắng gió tự nhiên, view cực thoáng.\n✔️ Nội thất cao cấp nhập khẩu: Smart TV, Tủ lạnh size lớn, Máy giặt riêng trong phòng.\n✔️ Dịch vụ tận răng: Dọn dẹp vệ sinh hàng tuần, an ninh camera 24/7.\n\n🔑 Khu vực dân trí cao, ô tô đỗ tận cổng. Chủ nhà cực kỳ dễ tính.\n📩 Inbox hoặc alo em ngay để qua xem trực tiếp (Hỗ trợ xem phòng miễn phí 24/7).\n☎️ Zalo/Call: [SĐT Của Bạn]",
+              "💎 CĂN HỘ 1 NGỦ 1 KHÁCH RỘNG RÃI TẠI BA ĐÌNH 💎\n📍 Vị trí: Đội Cấn / Kim Mã - Đi làm trung tâm Ba Đình, Đống Đa siêu tiện.\n✨ Không gian sống lý tưởng cho cặp đôi hoặc người đi làm cần sự yên tĩnh, riêng tư:\n✔️ Thiết kế 1N1K tách biệt, phòng khách rộng rãi tha hồ tụ tập bạn bè cuối tuần.\n✔️ Cửa sổ lớn, ban công đón nắng gió tự nhiên, view cực thoáng.\n✔️ Nội thất cao cấp nhập khẩu: Smart TV, Tủ lạnh size lớn, Máy giặt riêng trong phòng.\n✔️ Dịch vụ tận răng: Dọn dẹp vệ sinh hàng tuần, an ninh camera 24/7.\n🔑 Khu vực dân trí cao, ô tô đỗ tận cổng. Chủ nhà cực kỳ dễ tính.\n📩 Inbox hoặc alo em ngay để qua xem trực tiếp (Hỗ trợ xem phòng miễn phí 24/7).\n☎️ Zalo/Call: [SĐT Của Bạn]",
           },
         ];
 

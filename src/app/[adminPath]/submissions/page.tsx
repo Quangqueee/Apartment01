@@ -210,8 +210,8 @@ export default function AdminSubmissionsPage() {
               </div>
 
               <div className="border-t pt-4 space-y-4">
-                <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Thông tin quản trị bổ sung (Bắt buộc khi xuất bản)</h3>
-                
+                <h3 className="font-bold font-airbnb text-gray-900 text-sm uppercase tracking-wider">Thông tin quản trị bổ sung </h3>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold uppercase text-gray-600">Mã nguồn</label>
@@ -257,9 +257,9 @@ export default function AdminSubmissionsPage() {
               variant="destructive"
               onClick={() => handleReviewAction("rejected")}
               disabled={isPending}
-              className="gap-1.5 bg-red-600 hover:bg-red-700"
+              className="gap-1.5 bg-gray-700 hover:bg-red-700"
             >
-              <XCircle className="h-4 w-4" /> Từ chối
+              <XCircle className="h-4 w-4 text-black hover:text-red-500" /> Từ chối
             </Button>
             <Button
               onClick={() => handleReviewAction("published")}

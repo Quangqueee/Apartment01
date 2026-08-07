@@ -5,7 +5,7 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { firebaseConfig } from './config';
 
-// ✅ SỬA LỖI: Export trực tiếp biến firebaseApp
+// SỬA LỖI: Export trực tiếp biến firebaseApp
 export const firebaseApp: FirebaseApp = getApps().length === 0
   ? initializeApp(firebaseConfig)
   : getApp();

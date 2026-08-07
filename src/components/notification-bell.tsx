@@ -103,8 +103,8 @@ export default function NotificationBell({
         </button>
       </PopoverTrigger>
 
-      {/* 
-        Bao bọc PopoverContent: Đảm bảo nó có flex-col và overflow-hidden 
+      {/*
+        Bao bọc PopoverContent: Đảm bảo nó có flex-col và overflow-hidden
         để phần cuộn bên trong (thẻ div) hoạt động tốt nhất.
       */}
       <PopoverContent
@@ -127,13 +127,6 @@ export default function NotificationBell({
           )}
         </div>
 
-        {/* 
-          VÙNG CUỘN ĐÃ ĐƯỢC FIX:
-          Thay thế ScrollArea bằng div tiêu chuẩn.
-          - overflow-y-auto: Tự động cuộn dọc khi danh sách dài.
-          - max-h-[400px]: Giới hạn chiều cao hộp là 400px.
-          - overscroll-contain: Tránh lỗi cuộn lan ra cả trang web.
-        */}
         <div className="max-h-[400px] overflow-y-auto overscroll-contain">
           {isLoading ? (
             <div className="px-4 py-8 text-center text-sm text-gray-400">
