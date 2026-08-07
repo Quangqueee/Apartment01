@@ -7,6 +7,7 @@ import { doc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import AuthModal from "./auth-modal";
 import Link from "next/link";
 import { Apartment } from "@/lib/types";
+import Image from "next/image";
 import {
   Heart,
   ChevronLeft,
@@ -330,14 +331,17 @@ export default memo(function ApartmentCard({
               {apartment.imageUrls.map((url, idx) => (
                 <div
                   key={idx}
-                  className="h-full w-full flex-shrink-0 snap-center"
+                  // QUAN TRỌNG: Phải có 'relative' để thuộc tính 'fill' của Image hoạt động
+                  className="relative h-full w-full flex-shrink-0 snap-center"
                 >
-                  <img
+                  <Image
                     src={url}
                     alt={`${apartment.title} - ảnh ${idx + 1}`}
-                    loading={idx === 0 ? "eager" : "lazy"}
+                    fill // Thay thế cho height/width 100%
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Giúp trình duyệt biết nên tải size ảnh nào
+                    priority={idx === 0} // Chỉ load eager (priority) cho ảnh đầu tiên
                     draggable={false}
-                    className="h-full w-full object-cover pointer-events-none select-none"
+                    className="object-cover pointer-events-none select-none"
                   />
                 </div>
               ))}

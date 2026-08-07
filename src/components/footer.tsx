@@ -25,18 +25,21 @@ export default function Footer() {
               <a
                 href="https://www.facebook.com/quangluxury.9999/"
                 className="text-muted-foreground transition-colors hover:text-primary"
+                aria-label="Facebook"
               >
                 <Facebook className="h-5 w-5" />
               </a>
               <a
                 href="https://www.instagram.com/qquangquee/"
                 className="text-muted-foreground transition-colors hover:text-primary"
+                aria-label="Instagram"
               >
                 <Instagram className="h-5 w-5" />
               </a>
               <a
                 href="https://zalo.me/0355885851"
                 className="text-muted-foreground transition-colors hover:text-primary"
+                aria-label="Zalo"
               >
                 <MessageCircle className="h-5 w-5" />{" "}
                 {/* Icon tượng trưng cho Zalo */}

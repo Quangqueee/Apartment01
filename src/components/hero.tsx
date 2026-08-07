@@ -11,6 +11,7 @@ export default function Hero() {
           alt="Hanoi Residences Hero"
           fill // Tự động lấp đầy thẻ div cha
           priority // QUAN TRỌNG NHẤT: Ép trình duyệt tải ảnh này đầu tiên, không được delay!
+          fetchPriority="high" // THÊM DÒNG NÀY ĐỂ FIX LỖI PAGESPEED
           sizes="100vw" // Khẳng định ảnh này luôn chiếm 100% chiều rộng màn hình
           className="object-cover"
         />
