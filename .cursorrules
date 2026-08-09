@@ -1,0 +1,17 @@
+# Project Architecture
+- Framework: Next.js App Router, React, TypeScript.
+- Styling: Tailwind CSS, Shadcn UI. Lucide React cho Icons.
+- Database: Firebase Firestore (v9 Modular SDK).
+
+# UI/UX Constraints
+- Giao diện bắt buộc tuân thủ Mobile-first và Responsive toàn diện.
+- Nghiêm cấm để xảy ra lỗi tràn viền ngang (horizontal scroll). Luôn sử dụng `overflow-x-hidden` ở các thẻ bao bọc (wrapper) chính.
+- Duy trì cấu trúc Layout cố định (Header, Sidebar) bằng thuộc tính `sticky` thay vì `fixed` để tránh xung đột z-index.
+- Kích thước chữ (font-size) cho thẻ `input` trên mobile tối thiểu là 16px để chống hiện tượng tự động zoom trên iOS.
+
+# Development Standards
+- Mọi thao tác tương tác với cơ sở dữ liệu Firebase (đọc, ghi, sửa, xóa) bắt buộc phải được đặt trong khối `try/catch`.
+- Xử lý phản hồi lỗi hoặc thành công thông qua component `useToast`.
+- Tách biệt rõ ràng logic nghiệp vụ và mã giao diện hiển thị.
+- Tuyệt đối không tự ý xóa tính năng, logic cũ hoặc class CSS trừ khi được yêu cầu trực tiếp.
+- Bắt buộc tham chiếu cấu trúc `graphify` (hoặc dùng `graphify query`) trước khi sửa các file lõi hoặc component lớn để không làm vỡ liên kết.

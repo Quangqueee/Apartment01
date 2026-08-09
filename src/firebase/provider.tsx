@@ -13,8 +13,7 @@ import { Firestore } from "firebase/firestore";
 import { Auth, User, onAuthStateChanged } from "firebase/auth";
 import { FirebaseErrorListener } from "@/components/FirebaseErrorListener";
 
-// 🚀 TỐI ƯU IMPORT CYCLE: Import bằng đường dẫn tương đối nội bộ để tránh lỗi vòng lặp (Import Cycle)
-import { firebaseApp, auth, db as firestore } from "./index";
+import { firebaseApp, auth, db as firestore } from "./app";
 
 interface FirebaseProviderProps {
   children: ReactNode;

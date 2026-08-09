@@ -8,7 +8,7 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { auth, db } from "@/firebase";
+import { auth, db } from "@/firebase/app";
 
 export type UserRole = "user" | "collaborator" | "admin" | "landlord";
 

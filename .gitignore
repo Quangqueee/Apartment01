@@ -49,3 +49,6 @@ graphify-out/
 
 # Bỏ qua cấu hình editor cá nhân
 .vscode/
+.cursor/
+.claude/
+

@@ -1,32 +1,15 @@
 'use client';
-import { getApp, getApps, initializeApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import { firebaseConfig } from './config';
 
-// SỬA LỖI: Export trực tiếp biến firebaseApp
-export const firebaseApp: FirebaseApp = getApps().length === 0
-  ? initializeApp(firebaseConfig)
-  : getApp();
-
-// Xuất trực tiếp các instance để sử dụng toàn project
-export const auth = getAuth(firebaseApp);
-export const db = getFirestore(firebaseApp);
-export const storage = getStorage(firebaseApp);
-
-export function initializeFirebase() {
-  return getSdks(firebaseApp);
-}
-
-export function getSdks(app: FirebaseApp) {
-  return {
-    firebaseApp: app,
-    auth: getAuth(app),
-    firestore: getFirestore(app),
-    storage: getStorage(app)
-  };
-}
+// Barrel: re-export leaf SDK + UI helpers. Import SDK from ./app inside this package
+// to avoid circular dependencies with provider/client-provider.
+export {
+  firebaseApp,
+  auth,
+  db,
+  storage,
+  initializeFirebase,
+  getSdks,
+} from './app';
 
 export * from './provider';
 export * from './client-provider';
