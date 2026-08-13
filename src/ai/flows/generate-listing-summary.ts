@@ -90,7 +90,7 @@ MỤC TIÊU: Viết bài mô tả chuẩn SEO, TUYỆT ĐỐI tuân thủ cấu 
 
 CẤU TRÚC JSON PHẢI TRẢ VỀ:
 {
-  "seoTitle": "Cho thuê căn hộ [Loại phòng] [Diện tích] tại [Đường], [Quận]",
+  "seoTitle": "Cho thuê căn hộ [Loại phòng] [Diện tích (m2)] tại [Đường], [Quận]",
   "seoDescription": "Mô tả ngắn gọn, hấp dẫn khoảng 2-3 câu...",
   "description": "Đoạn mở đầu.\\n\\n## Thông tin căn hộ\\n- Địa chỉ: ...\\n- Diện tích: ...\\n\\n## Chi phí & dịch vụ\\n- Giá thuê: ...\\n- (Liệt kê phí điện, nước, dịch vụ. KHÔNG tự bịa phí. Nếu miễn phí ghi 'Miễn phí').\\n\\n## Vị trí & kết nối\\n- Phân tích điểm mạnh...\\n\\n## Vì sao nên thuê?\\n- (4 bullet points)",
   "highlights": ["Điểm nhấn 1", "Điểm nhấn 2"]
