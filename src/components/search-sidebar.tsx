@@ -191,31 +191,32 @@ export default function SearchSidebar({
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1">
         <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
           Ngân sách (triệu)
         </label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
           <FloatingPriceInput
             id="search-price-min"
-            label="Min"
+            label="Từ"
             value={priceMinInput}
             onChange={setPriceMinInput}
           />
+          <span className="mb-1.5 text-sm text-gray-300">–</span>
           <FloatingPriceInput
             id="search-price-max"
-            label="Max"
+            label="Đến"
             value={priceMaxInput}
             onChange={setPriceMaxInput}
           />
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5 pt-1">
+      <div className="flex flex-col gap-2 pt-1">
         <Button
           type="submit"
           disabled={isPending}
-          className="h-11 w-full rounded-xl bg-[#1a1a1a] font-bold uppercase tracking-widest text-white hover:bg-[#cda533]"
+          className="h-12 w-full rounded-2xl bg-[#1a1a1a] text-sm font-bold uppercase tracking-[0.18em] text-white shadow-[0_8px_20px_rgba(26,26,26,0.18)] transition-all hover:bg-[#cda533] hover:shadow-[0_8px_20px_rgba(205,165,51,0.35)]"
         >
           {isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -228,7 +229,7 @@ export default function SearchSidebar({
         <button
           type="button"
           onClick={resetFilters}
-          className="inline-flex items-center justify-center gap-1.5 py-2 text-[11px] font-bold uppercase tracking-widest text-gray-400 transition-colors hover:text-red-500"
+          className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-2xl border border-gray-200 bg-white text-[11px] font-bold uppercase tracking-widest text-gray-500 shadow-sm transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
         >
           <RotateCcw className="h-3.5 w-3.5" /> Xóa bộ lọc
         </button>
@@ -252,7 +253,7 @@ export function SearchFiltersSheet() {
       </SheetTrigger>
       <SheetContent
         side="left"
-        className="w-[min(100%,20rem)] overflow-y-auto overflow-x-hidden bg-white p-5"
+        className="w-[min(100%,22rem)] overflow-y-auto overflow-x-hidden bg-white p-5"
       >
         <SheetHeader className="mb-4 text-left">
           <SheetTitle className="font-headline text-xl">Bộ lọc</SheetTitle>

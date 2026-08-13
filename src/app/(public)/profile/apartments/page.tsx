@@ -261,7 +261,7 @@ function LandlordApartmentsContent() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
-      <main className="flex-1 container mx-auto px-4 md:px-6 py-10 max-w-[1600px]">
+      <main className="flex-1 container mx-auto px-4 md:px-6 py-10 max-w-[1920px]">
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>

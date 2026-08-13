@@ -108,7 +108,7 @@ export default function ApartmentList({
     <>
       {apartments.length > 0 ? (
         <>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-8">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 xl:gap-8">
             {apartments.map((apartment, index) => (
               // 2. Wrap Card trong motion.div
               <motion.div

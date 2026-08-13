@@ -87,7 +87,7 @@ export default function FavoritesPage() {
       <main className="flex-1">
         {/* SECTION 1: HERO BANNER */}
         <section className="relative bg-gray-50 border-b border-gray-100 py-16 lg:py-28">
-          <div className="max-w-7xl mx-auto px-6">
+          <div className="max-w-[1920px] mx-auto px-6">
             <Link
               href="/"
               className="hidden md:inline-flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-primary transition-colors mb-8"
@@ -102,7 +102,7 @@ export default function FavoritesPage() {
         </section>
 
         {/* SECTION 2: DANH SÁCH */}
-        <section className="max-w-7xl mx-auto px-6 py-5 lg:py-5">
+        <section className="max-w-[1920px] mx-auto px-6 py-5 lg:py-5">
           {!user ? (
             <div className="max-w-md mx-auto text-center py-20 bg-gray-50 rounded-[3rem] border border-gray-100 shadow-sm px-10">
               <Heart className="h-12 w-12 text-gray-200 mx-auto mb-6" />

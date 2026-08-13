@@ -16,7 +16,8 @@ import {
   UserPlus,
   CalendarDays,
   BookOpen,
-  Building, // Thêm icon cho Quản lý phòng
+  Building,
+  Handshake,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,8 @@ export default function Header() {
   const canSeeCollaboratorGuide =
     userRole === "collaborator" || userRole === "admin";
   const isLandlord = userRole === "landlord";
+  const canRegisterAsPartner =
+    !isLandlord && userRole !== "admin" && userRole !== "collaborator";
 
   useEffect(() => {
     if (isMobileMenuOpen) {
@@ -102,6 +105,14 @@ export default function Header() {
           <NavLink href="/" label="Trang chủ" icon={Home} />
           <NavLink href="/#apartments-list" label="Căn hộ" icon={Building2} />
           <NavLink href="/#about" label="Giới thiệu" icon={Info} />
+
+          {canRegisterAsPartner && (
+            <NavLink
+              href="/partner-register"
+              label="Cho thuê phòng"
+              icon={Handshake}
+            />
+          )}
 
           {/* Nếu là Landlord: Hiển thị Quản lý phòng trống */}
           {user && isLandlord && (
@@ -208,6 +219,15 @@ export default function Header() {
             label="Về chúng tôi"
             onClick={() => setIsMobileMenuOpen(false)}
           />
+
+          {canRegisterAsPartner && (
+            <MobileNavLink
+              href="/partner-register"
+              icon={Handshake}
+              label="Đăng ký cho thuê phòng"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+          )}
 
           {user && isLandlord && (
             <MobileNavLink

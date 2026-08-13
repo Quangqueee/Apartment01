@@ -3,7 +3,6 @@ import Header from "@/components/header";
 import Footer from "@/components/footer";
 import MobileNav from "@/components/mobile-nav";
 import SortControls from "@/components/sort-controls";
-import SearchFilterTags from "@/components/search-filter-tags";
 import SearchSidebar, {
   SearchFiltersSheet,
 } from "@/components/search-sidebar";
@@ -70,7 +69,7 @@ export default async function SearchResultsPage({
       <Header />
 
       <main className="flex-1 overflow-x-hidden">
-        <section className="w-full max-w-[1600px] mx-auto px-4 lg:px-6 py-4 md:py-5 overflow-x-hidden">
+        <section className="w-full max-w-[1920px] mx-auto px-4 lg:px-8 py-4 md:py-5 overflow-x-hidden">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3 overflow-x-hidden">
             <div className="min-w-0">
               <Link
@@ -99,11 +98,7 @@ export default async function SearchResultsPage({
             </div>
           </div>
 
-          <Suspense fallback={null}>
-            <SearchFilterTags />
-          </Suspense>
-
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[240px_minmax(0,1fr)]">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
             <aside className="hidden lg:block">
               <div className="sticky top-24 overflow-x-hidden rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
                 <h2 className="mb-3 font-headline text-base font-bold text-gray-900">
@@ -117,12 +112,11 @@ export default async function SearchResultsPage({
 
             <div className="min-w-0 overflow-x-hidden">
               {serializedApartments.length > 0 ? (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 xl:gap-8">
                   {serializedApartments.map((apartment) => (
                     <ApartmentCard
                       key={apartment.id}
                       apartment={apartment}
-                      isCompact
                     />
                   ))}
                 </div>

@@ -291,7 +291,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
           <NotificationBell userId={authUser?.uid} />
         </header>
 
-        <div className="p-4 md:p-8 w-full max-w-[1600px] mx-auto">
+        <div className="p-4 md:p-8 w-full max-w-[1920px] mx-auto">
           {children}
         </div>
       </SidebarInset>

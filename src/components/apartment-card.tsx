@@ -257,6 +257,7 @@ export default memo(function ApartmentCard({
     <>
       <div
         onMouseEnter={() => setIsHovered(true)}
+        onTouchStart={() => setIsHovered(true)}
         className={cn(
           "group/slider relative flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition-all duration-300 ease-out will-change-transform",
           isCompact
@@ -475,11 +476,9 @@ export default memo(function ApartmentCard({
             <span className="truncate pr-2 font-medium">
               {apartment.roomType} • {apartment.area} m²
             </span>
-            {!isCompact && (
-              <span className="whitespace-nowrap text-gray-400 text-[0.75rem] sm:text-[0.8rem] italic tracking-normal">
-                Cập nhật: {formatRelativeTime(timeToDisplay)}
-              </span>
-            )}
+            <span className="whitespace-nowrap text-gray-400 text-[0.75rem] sm:text-[0.8rem] italic tracking-normal">
+              Cập nhật: {formatRelativeTime(timeToDisplay)}
+            </span>
           </div>
 
           <div className={cn("mt-auto flex items-baseline", isCompact ? "pt-1.5" : "pt-2")}>
