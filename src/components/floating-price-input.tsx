@@ -1,5 +1,6 @@
 "use client";
 
+import { useId, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 type FloatingPriceInputProps = {
@@ -15,10 +16,18 @@ export default function FloatingPriceInput({
   value,
   onChange,
 }: FloatingPriceInputProps) {
+  const uid = useId();
+  const inputId = `${id}-${uid}`;
+  const inputRef = useRef<HTMLInputElement>(null);
+
   return (
-    <div className="relative pt-4">
+    <div
+      className="relative cursor-text pt-4"
+      onClick={() => inputRef.current?.focus()}
+    >
       <input
-        id={id}
+        ref={inputRef}
+        id={inputId}
         type="number"
         inputMode="decimal"
         step={0.5}
@@ -33,9 +42,9 @@ export default function FloatingPriceInput({
         )}
       />
       <label
-        htmlFor={id}
+        htmlFor={inputId}
         className={cn(
-          "absolute left-0 top-[1.35rem] origin-left cursor-text text-sm text-gray-400",
+          "pointer-events-none absolute left-0 top-[1.35rem] origin-left cursor-text text-sm text-gray-400",
           "transition-all duration-200 ease-out",
           "peer-focus:top-0 peer-focus:text-[11px] peer-focus:font-semibold peer-focus:text-[#9a7b24]",
           "peer-[:not(:placeholder-shown)]:top-0 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:font-semibold peer-[:not(:placeholder-shown)]:text-[#9a7b24]",

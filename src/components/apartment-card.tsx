@@ -22,6 +22,7 @@ import {
   Waves,
 } from "lucide-react";
 import { formatRelativeTime, formatPrice, cn } from "@/lib/utils";
+import { getDisplaySourceCode } from "@/lib/source-code";
 
 export default memo(function ApartmentCard({
   apartment,
@@ -328,7 +329,7 @@ export default memo(function ApartmentCard({
                 : "right-3 top-3 px-2 py-1 text-xs",
             )}
           >
-            ID: {apartment.sourceCode}
+            ID: {getDisplaySourceCode(apartment.sourceCode, userData?.role)}
           </div>
 
           <Link
@@ -435,7 +436,7 @@ export default memo(function ApartmentCard({
                 "font-body line-clamp-1 pr-8 font-semibold leading-snug tracking-tight text-[#222222]",
                 isCompact
                   ? "text-sm"
-                  : "text-[1.1rem] sm:text-[1.15rem]",
+                  : "text-[0.95rem] sm:text-base",
               )}
               title={displayTitle}
             >
@@ -485,14 +486,14 @@ export default memo(function ApartmentCard({
             <span
               className={cn(
                 "font-body font-bold tracking-tighter text-[#cda533]",
-                isCompact ? "text-lg" : "text-[1.4rem] sm:text-[1.45rem]",
+                isCompact ? "text-base" : "text-[1.2rem] sm:text-[1.25rem]",
               )}
             >
               {typeof apartment.price === "number"
                 ? `₫${(apartment.price * 1000000).toLocaleString("vi-VN")}`
                 : formatPrice(apartment.price)}
             </span>
-            <span className="ml-1 text-[0.85rem] sm:text-sm font-medium text-gray-500 tracking-tight">
+            <span className="ml-1 text-xs sm:text-[0.8rem] font-medium text-gray-500 tracking-tight">
               /tháng
             </span>
           </div>

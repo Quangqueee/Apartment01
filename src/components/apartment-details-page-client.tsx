@@ -726,13 +726,13 @@ export default function ApartmentDetailsPageClient({
     let copyText = "";
 
     if (isAdmin) {
-      copyText = `📍 Mã căn: ${apartment.sourceCode}\n`;
+      copyText = `📍 Mã căn: ${displaySourceCode}\n`;
       copyText += `💰 Giá: ${formatPrice(apartment.price)}/tháng\n`;
       copyText += `🤝 Hoa hồng: ${formatCommission(apartment.commission)}\n`;
       copyText += `📞 SĐT Chủ nhà: ${apartment.landlordPhoneNumber || "Chưa có"}\n`;
       copyText += `\n--- THÔNG TIN CHUNG ---\n${apartment.details || "Chưa có thông tin chi tiết."}`;
     } else {
-      copyText = `📍 Mã căn: ${apartment.sourceCode}\n`;
+      copyText = `📍 Mã căn: ${displaySourceCode}\n`;
       copyText += `\n--- THÔNG TIN CHUNG ---\n${apartment.details || "Chưa có thông tin chi tiết."}`;
     }
 

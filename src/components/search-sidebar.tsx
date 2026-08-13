@@ -32,6 +32,9 @@ const parsePriceInput = (value: string, fallback: number) => {
 const toggleValue = (list: string[], value: string) =>
   list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 
+const ROUND_CHECK_CLASS =
+  "h-4 w-4 shrink-0 cursor-pointer appearance-none rounded-full border-2 border-gray-300 bg-white transition-colors checked:border-[#cda533] checked:bg-[#cda533] checked:shadow-[inset_0_0_0_3px_white] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#cda533]/40";
+
 export default function SearchSidebar({
   className,
   onApplied,
@@ -120,13 +123,27 @@ export default function SearchSidebar({
         <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
           Từ khóa
         </label>
-        <Input
-          type="text"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Địa chỉ hoặc mã ID"
-          className="h-11 rounded-xl bg-white text-base md:text-sm"
-        />
+        <div className="relative">
+          <Input
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Địa chỉ hoặc mã ID"
+            className="h-11 rounded-xl bg-white pr-11 text-base md:text-sm"
+          />
+          <button
+            type="submit"
+            disabled={isPending}
+            aria-label="Tìm kiếm"
+            className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#cda533] disabled:opacity-60"
+          >
+            {isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -148,7 +165,7 @@ export default function SearchSidebar({
               >
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300 text-[#cda533] focus:ring-[#cda533]"
+                  className={ROUND_CHECK_CLASS}
                   checked={checked}
                   onChange={() => setDistricts(toggleValue(districts, district))}
                 />
@@ -163,7 +180,7 @@ export default function SearchSidebar({
         <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
           Loại phòng
         </label>
-        <div className="grid grid-cols-1 gap-0.5">
+        <div className="grid max-h-36 grid-cols-1 gap-0.5 overflow-y-auto overflow-x-hidden pr-1">
           {ROOM_TYPES.map((roomType) => {
             const checked = roomTypes.includes(roomType.value);
             return (
@@ -178,7 +195,7 @@ export default function SearchSidebar({
               >
                 <input
                   type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300 text-[#cda533] focus:ring-[#cda533]"
+                  className={ROUND_CHECK_CLASS}
                   checked={checked}
                   onChange={() =>
                     setRoomTypes(toggleValue(roomTypes, roomType.value))
@@ -198,14 +215,14 @@ export default function SearchSidebar({
         <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
           <FloatingPriceInput
             id="search-price-min"
-            label="Từ"
+            label="Tối Thiểu"
             value={priceMinInput}
             onChange={setPriceMinInput}
           />
           <span className="mb-1.5 text-sm text-gray-300">–</span>
           <FloatingPriceInput
             id="search-price-max"
-            label="Đến"
+            label="Tối Đa"
             value={priceMaxInput}
             onChange={setPriceMaxInput}
           />

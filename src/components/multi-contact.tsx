@@ -77,7 +77,7 @@ export default function MultiContact() {
         >
           {/* 1. Messenger */}
           <a
-            href="https://m.me/hanoiiresidence"
+            href="https://www.facebook.com/hanoiiresidence/"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Truy cập trang Facebook của chúng tôi"
@@ -87,7 +87,7 @@ export default function MultiContact() {
               <FacebookSvgIcon />
             </div>
             <span className="text-sm font-semibold text-gray-700 group-hover:text-[#039be5] whitespace-nowrap pr-2">
-              Facebook 
+              Facebook
             </span>
           </a>
 
@@ -102,7 +102,7 @@ export default function MultiContact() {
               <ZaloSvgIcon />
             </div>
             <span className="text-sm font-semibold text-gray-700 group-hover:text-[#2962ff] whitespace-nowrap pr-2">
-              Zalo 
+              Zalo
             </span>
           </a>
 

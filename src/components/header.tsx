@@ -109,7 +109,7 @@ export default function Header() {
           {canRegisterAsPartner && (
             <NavLink
               href="/partner-register"
-              label="Cho thuê phòng"
+              label="Hợp tác đẩy phòng"
               icon={Handshake}
             />
           )}

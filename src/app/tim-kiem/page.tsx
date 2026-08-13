@@ -8,8 +8,6 @@ import SearchSidebar, {
 } from "@/components/search-sidebar";
 import SearchPagination from "@/components/search-pagination";
 import ApartmentCard from "@/components/apartment-card";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import type { Apartment } from "@/lib/types";
@@ -70,22 +68,14 @@ export default async function SearchResultsPage({
 
       <main className="flex-1 overflow-x-hidden">
         <section className="w-full max-w-[1920px] mx-auto px-4 lg:px-8 py-4 md:py-5 overflow-x-hidden">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 overflow-x-hidden">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3 overflow-x-hidden">
             <div className="min-w-0">
-              <Link
-                href="/"
-                className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-gray-400 transition-colors hover:text-[#cda533]"
-              >
-                <ArrowLeft size={12} /> Trang chủ
-              </Link>
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h1 className="font-headline text-xl font-black uppercase tracking-tight text-gray-900 md:text-2xl">
-                  Kết quả tìm kiếm
-                </h1>
-                <p className="text-xs font-bold uppercase tracking-widest text-amber-700">
-                  {totalResults} căn hộ
-                </p>
-              </div>
+              <h1 className="font-headline text-xl font-black uppercase tracking-tight text-gray-900 md:text-2xl">
+                Kết quả tìm kiếm
+              </h1>
+              <p className="mt-1 text-base font-bold uppercase tracking-widest text-amber-700 md:text-lg">
+                {totalResults} căn hộ
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
