@@ -11,6 +11,7 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   Query,
   DocumentData,
   Timestamp,
@@ -78,6 +79,7 @@ export async function getApartments(
     page?: number;
     limit?: number;
     sortBy?: string;
+    cursor?: string;
     searchBy?: "title" | "sourceCode" | "sourceCodeOrAddress" | "titleOrSourceCode";
   } = {}
 ) {
@@ -89,6 +91,7 @@ export async function getApartments(
     page = 1,
     limit: pageSize = 9,
     sortBy = "newest",
+    cursor,
   } = options;
 
   let baseQuery: Query = apartmentsCollection;
@@ -157,7 +160,7 @@ export async function getApartments(
   const totalResults = countSnapshot.data().count;
 
   if (totalResults === 0) {
-    return { apartments: [], totalResults: 0 };
+    return { apartments: [], totalResults: 0, nextCursor: null as string | null };
   }
 
   if (isFilteringPrice) {
@@ -172,18 +175,44 @@ export async function getApartments(
     }
   }
 
-  const fetchLimit = page * pageSize;
-  baseQuery = query(baseQuery, limit(fetchLimit));
+  const maxPage = Math.max(1, Math.ceil(totalResults / pageSize));
+  const safePage = Math.min(Math.max(1, page), maxPage);
+  let paginatedApartments: Apartment[] = [];
 
-  const querySnapshot = await getDocs(baseQuery);
-  const allFetchedApartments = querySnapshot.docs.map(toApartment);
+  if (cursor) {
+    try {
+      const cursorRef = doc(firestore, "apartments", cursor);
+      const cursorSnap = await getDoc(cursorRef);
+      if (cursorSnap.exists()) {
+        const cursorQuery = query(baseQuery, startAfter(cursorSnap), limit(pageSize));
+        const cursorSnapshot = await getDocs(cursorQuery);
+        paginatedApartments = cursorSnapshot.docs.map(toApartment);
+      } else {
+        const firstPageSnapshot = await getDocs(query(baseQuery, limit(pageSize)));
+        paginatedApartments = firstPageSnapshot.docs.map(toApartment);
+      }
+    } catch (error) {
+      console.error("Cursor pagination failed:", error);
+      const firstPageSnapshot = await getDocs(query(baseQuery, limit(pageSize)));
+      paginatedApartments = firstPageSnapshot.docs.map(toApartment);
+    }
+  } else if (safePage > 1) {
+    const fetchLimit = safePage * pageSize;
+    const offsetSnapshot = await getDocs(query(baseQuery, limit(fetchLimit)));
+    const allFetchedApartments = offsetSnapshot.docs.map(toApartment);
+    const startIndex = (safePage - 1) * pageSize;
+    paginatedApartments = allFetchedApartments.slice(startIndex, startIndex + pageSize);
+  } else {
+    const firstPageSnapshot = await getDocs(query(baseQuery, limit(pageSize)));
+    paginatedApartments = firstPageSnapshot.docs.map(toApartment);
+  }
 
-  const startIndex = (page - 1) * pageSize;
-  const paginatedApartments = allFetchedApartments.slice(startIndex, startIndex + pageSize);
+  const lastApartment = paginatedApartments[paginatedApartments.length - 1];
 
   return {
     apartments: paginatedApartments,
     totalResults,
+    nextCursor: lastApartment?.id ?? null,
   };
 }
 

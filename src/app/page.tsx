@@ -6,20 +6,23 @@ import ApartmentList from "@/components/apartment-list";
 import Hero from "@/components/hero";
 import FeaturedDistricts from "@/components/featured-districts";
 import MobileNav from "@/components/mobile-nav";
-import Link from "next/link";
-import { X } from "lucide-react";
 import AboutSection from "@/app/about/page";
+import { redirect } from "next/navigation";
 
 export const revalidate = 604800;
 
 export default async function Home({ searchParams }: any) {
   const sParams = await searchParams;
 
+  const redirectParams = new URLSearchParams();
+  for (const key of ["query", "district", "price", "roomType", "sort"] as const) {
+    if (sParams[key]) redirectParams.set(key, String(sParams[key]));
+  }
+  if (sParams.query || sParams.district || sParams.price || sParams.roomType) {
+    redirect(`/tim-kiem?${redirectParams.toString()}`);
+  }
+
   const { apartments, totalResults } = await getApartments({
-    query: sParams.query,
-    district: sParams.district,
-    priceRange: sParams.price,
-    roomType: sParams.roomType,
     page: 1,
     limit: 12,
     sortBy: sParams.sort,
@@ -39,55 +42,23 @@ export default async function Home({ searchParams }: any) {
     }),
   );
 
-  // Multi-select: "district" trên URL có thể là nhiều quận phân tách bằng dấu phẩy
-  // -> parse thành mảng để quyết định cách hiển thị tiêu đề bên dưới.
-  const districtArray: string[] = sParams.district
-    ? sParams.district
-        .split(",")
-        .map((d: string) => d.trim())
-        .filter(Boolean)
-    : [];
-
-  let sectionTitle = "CĂN HỘ NỔI BẬT";
-  if (sParams.query) {
-    sectionTitle = `KẾT QUẢ TÌM KIẾM: "${sParams.query}"`;
-  } else if (districtArray.length > 1) {
-    // Chọn nhiều quận cùng lúc -> không liệt kê tên (tránh tiêu đề bị lỗi), dùng tiêu đề chung
-    sectionTitle = "KẾT QUẢ TÌM KIẾM";
-  } else if (districtArray.length === 1) {
-    sectionTitle = `CĂN HỘ TẠI ${districtArray[0].toUpperCase()}`;
-  }
-
   return (
     <>
       <Header />
       <Hero />
       <main className="bg-white">
-        <div className="container mx-auto px-4 py-16">
+        <div className="container mx-auto px-4 py-10 lg:py-12">
           <FeaturedDistricts stats={districtStats} />
 
           {/* Danh sách căn hộ & Bộ lọc */}
           <div
             id="apartments-list"
-            className="mt-24 mb-12 flex flex-col md:flex-row justify-between items-center md:items-end border-b border-gray-100 pb-10 gap-6 scroll-mt-32"
+            className="mt-12 mb-8 flex flex-col md:flex-row justify-between items-center md:items-end border-b border-gray-100 pb-6 gap-4 scroll-mt-32"
           >
-            <div className="flex flex-col gap-3 text-center md:text-left w-full md:w-auto">
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
-                <h2 className="text-3xl md:text-4xl font-headline font-black uppercase tracking-tighter text-gray-900 leading-tight">
-                  {sectionTitle}
-                </h2>
-                {(sParams.district ||
-                  sParams.query ||
-                  sParams.price ||
-                  sParams.roomType) && (
-                  <Link
-                    href="/"
-                    className="flex items-center gap-1 text-[10px] font-black text-gray-400 hover:text-red-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 uppercase tracking-widest transition-colors"
-                  >
-                    <X className="h-3 w-3" /> Xóa lọc
-                  </Link>
-                )}
-              </div>
+            <div className="flex flex-col gap-2 text-center md:text-left w-full md:w-auto">
+              <h2 className="text-3xl md:text-4xl font-headline font-black uppercase tracking-tighter text-gray-900 leading-tight">
+                CĂN HỘ NỔI BẬT
+              </h2>
               <p className="text-sm font-bold text-amber-700 uppercase tracking-[0.2em] italic">
                 Tìm thấy {totalResults} căn hộ
               </p>
@@ -105,7 +76,7 @@ export default async function Home({ searchParams }: any) {
           {/* PHẦN ABOUT */}
           <div
             id="about"
-            className="scroll-mt-28 mt-32 border-t border-gray-100 pt-16"
+            className="scroll-mt-28 mt-20 border-t border-gray-100 pt-12"
           >
             <AboutSection />
           </div>

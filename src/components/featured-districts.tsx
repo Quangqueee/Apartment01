@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import Image from "next/image";
 
@@ -20,15 +18,6 @@ export default function FeaturedDistricts({
 }: {
   stats: DistrictStat[];
 }) {
-  const handleScrollToApartments = () => {
-    setTimeout(() => {
-      const element = document.getElementById("apartments-list");
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }, 50);
-  };
-
   return (
     <section className="py-8">
       <h2 className="mb-10 text-center font-headline text-3xl font-semibold tracking-tight text-gray-900">
@@ -42,9 +31,7 @@ export default function FeaturedDistricts({
           return (
             <Link
               key={district.name}
-              href={`/?district=${encodeURIComponent(district.name)}`}
-              scroll={false}
-              onClick={handleScrollToApartments}
+              href={`/tim-kiem?district=${encodeURIComponent(district.name)}`}
               className="group relative h-[280px] overflow-hidden rounded-[2rem] bg-gray-200 shadow-md transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl transform-gpu"
               style={{
                 WebkitMaskImage: "-webkit-radial-gradient(white, black)",

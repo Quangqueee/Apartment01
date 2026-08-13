@@ -21,7 +21,7 @@ import {
   Dog,
   Waves,
 } from "lucide-react";
-import { formatRelativeTime, formatPrice } from "@/lib/utils";
+import { formatRelativeTime, formatPrice, cn } from "@/lib/utils";
 
 export default memo(function ApartmentCard({
   apartment,
@@ -257,19 +257,47 @@ export default memo(function ApartmentCard({
     <>
       <div
         onMouseEnter={() => setIsHovered(true)}
-        className="group/slider relative flex flex-col h-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] will-change-transform  hover:-translate-y-1.5 hover:scale-[1.015]"
+        className={cn(
+          "group/slider relative flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition-all duration-300 ease-out will-change-transform",
+          isCompact
+            ? "rounded-xl hover:shadow-md"
+            : "rounded-xl hover:-translate-y-1.5 hover:scale-[1.015] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] sm:rounded-2xl",
+        )}
       >
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
-          <div className="absolute top-3 left-0 z-20 flex flex-col gap-2 pointer-events-none items-start">
+        <div
+          className={cn(
+            "relative w-full overflow-hidden bg-gray-100",
+            isCompact ? "aspect-[3/2]" : "aspect-[4/3]",
+          )}
+        >
+          <div
+            className={cn(
+              "absolute left-0 top-3 z-20 flex flex-col items-start gap-2 pointer-events-none",
+              isCompact && "top-2 gap-1.5",
+            )}
+          >
             {canViewCommission && displayCommission && (
-              <div className="bg-[#5cb85c] text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm ml-3 truncate">
+              <div
+                className={cn(
+                  "truncate rounded bg-[#5cb85c] font-bold text-white shadow-sm ml-3",
+                  isCompact
+                    ? "px-2 py-0.5 text-[10px]"
+                    : "px-2.5 py-1 text-xs",
+                )}
+              >
                 HH: {displayCommission}
-                </div>
+              </div>
             )}
 
             {!isCollaborator && tagLabel && (
               <div
-                className={`${tagBgClass} flex items-center gap-1.5 text-white text-[10px] sm:text-xs font-bold pl-3 pr-4 py-1.5 uppercase tracking-wide drop-shadow-md`}
+                className={cn(
+                  tagBgClass,
+                  "flex items-center gap-1.5 font-bold uppercase tracking-wide text-white drop-shadow-md",
+                  isCompact
+                    ? "py-1 pl-2.5 pr-3 text-[10px]"
+                    : "py-1.5 pl-3 pr-4 text-[10px] sm:text-xs",
+                )}
                 style={{
                   clipPath:
                     "polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%)",
@@ -291,7 +319,14 @@ export default memo(function ApartmentCard({
             </div>
           )}
 
-          <div className="absolute top-3 right-3 z-20 bg-black/60 backdrop-blur-md text-white text-xs font-bold px-2 py-1 rounded shadow-sm pointer-events-none">
+          <div
+            className={cn(
+              "absolute z-20 rounded bg-black/60 font-bold text-white shadow-sm pointer-events-none backdrop-blur-md",
+              isCompact
+                ? "right-2 top-2 px-1.5 py-0.5 text-[10px]"
+                : "right-3 top-3 px-2 py-1 text-xs",
+            )}
+          >
             ID: {apartment.sourceCode}
           </div>
 
@@ -333,7 +368,11 @@ export default memo(function ApartmentCard({
                       src={url}
                       alt={`${displayTitle} - ảnh ${idx + 1}`}
                       fill
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      sizes={
+                        isCompact
+                          ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 28vw"
+                          : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      }
                       priority={idx === 0}
                       loading={idx === 0 ? "eager" : "lazy"}
                       draggable={false}
@@ -381,14 +420,22 @@ export default memo(function ApartmentCard({
         <Link
           href={`/apartments/${apartment.id}`}
           onClick={handleLinkClick}
-          className="flex flex-1 flex-col p-4 sm:p-5"
+          className={cn(
+            "flex flex-1 flex-col",
+            isCompact ? "p-3" : "p-4 sm:p-5",
+          )}
         >
           <div className="relative w-full">
             {/* Sử dụng font-body không chân, nét đậm vừa (semibold) đảm bảo tính hiện đại */}
             <div
               role="heading"
               aria-level={3}
-              className="font-body pr-8 text-[1.1rem] sm:text-[1.15rem] font-semibold text-[#222222] line-clamp-1 leading-snug tracking-tight"
+              className={cn(
+                "font-body line-clamp-1 pr-8 font-semibold leading-snug tracking-tight text-[#222222]",
+                isCompact
+                  ? "text-sm"
+                  : "text-[1.1rem] sm:text-[1.15rem]",
+              )}
               title={displayTitle}
             >
               {displayTitle}
@@ -399,20 +446,32 @@ export default memo(function ApartmentCard({
               className="absolute right-0 top-0 cursor-pointer p-1 active:scale-90 transition-transform z-10"
             >
               <Heart
-                className={`h-5 w-5 transition-colors duration-300 ${
+                className={cn(
+                  "transition-colors duration-300",
+                  isCompact ? "h-4 w-4" : "h-5 w-5",
                   isFavorite
                     ? "fill-red-500 text-red-500"
-                    : "text-gray-400 hover:text-red-400"
-                }`}
+                    : "text-gray-400 hover:text-red-400",
+                )}
               />
             </div>
           </div>
 
-          <p className="mt-1 text-[0.85rem] sm:text-sm text-gray-500 line-clamp-1 tracking-tight">
+          <p
+            className={cn(
+              "mt-1 line-clamp-1 tracking-tight text-gray-500",
+              isCompact ? "text-xs" : "text-[0.85rem] sm:text-sm",
+            )}
+          >
             {apartment.district}
           </p>
 
-          <div className="mt-1 flex items-center justify-between text-[0.85rem] sm:text-sm text-gray-500 tracking-tight">
+          <div
+            className={cn(
+              "mt-1 flex items-center justify-between tracking-tight text-gray-500",
+              isCompact ? "text-xs" : "text-[0.85rem] sm:text-sm",
+            )}
+          >
             <span className="truncate pr-2 font-medium">
               {apartment.roomType} • {apartment.area} m²
             </span>
@@ -423,8 +482,13 @@ export default memo(function ApartmentCard({
             )}
           </div>
 
-          <div className="mt-auto pt-2 flex items-baseline">
-            <span className="font-body text-[1.4rem] sm:text-[1.45rem] font-bold text-[#cda533] tracking-tighter">
+          <div className={cn("mt-auto flex items-baseline", isCompact ? "pt-1.5" : "pt-2")}>
+            <span
+              className={cn(
+                "font-body font-bold tracking-tighter text-[#cda533]",
+                isCompact ? "text-lg" : "text-[1.4rem] sm:text-[1.45rem]",
+              )}
+            >
               {typeof apartment.price === "number"
                 ? `₫${(apartment.price * 1000000).toLocaleString("vi-VN")}`
                 : formatPrice(apartment.price)}

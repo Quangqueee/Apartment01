@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Popover,
   PopoverContent,
@@ -51,11 +51,9 @@ const parsePriceInput = (value: string, fallback: number) => {
 
 export default function FilterControls() {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [mounted, setMounted] = useState(false);
-  const [shouldScroll, setShouldScroll] = useState(false);
 
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
 
@@ -75,16 +73,6 @@ export default function FilterControls() {
     });
     setMounted(true);
   }, [searchParams]);
-
-  useEffect(() => {
-    if (!isPending && shouldScroll) {
-      const element = document.getElementById("apartments-list");
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-      setShouldScroll(false);
-    }
-  }, [isPending, shouldScroll]);
 
   const handleApply = () => {
     const params = new URLSearchParams(searchParams.toString());
@@ -119,11 +107,14 @@ export default function FilterControls() {
     if (isNoPriceInput || isDefaultPrice) params.delete("price");
     else params.set("price", serializedPrice);
 
-    params.set("page", "1");
+    const currentSort = searchParams.get("sort");
+    if (currentSort) params.set("sort", currentSort);
+    params.delete("page");
+    params.delete("cursor");
 
     startTransition(() => {
-      setShouldScroll(true);
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      const queryString = params.toString();
+      router.push(queryString ? `/tim-kiem?${queryString}` : "/tim-kiem");
     });
   };
 

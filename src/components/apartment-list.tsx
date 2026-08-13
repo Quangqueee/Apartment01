@@ -14,6 +14,7 @@ type ApartmentListProps = {
   initialApartments: Apartment[];
   searchParams: {
     q?: string;
+    query?: string;
     district?: string;
     price?: string;
     roomType?: string;
@@ -74,7 +75,7 @@ export default function ApartmentList({
     const nextPage = page + 1;
 
     const result = await fetchApartmentsAction({
-      query: searchParams.q,
+      query: searchParams.query || searchParams.q,
       district: searchParams.district,
       priceRange: searchParams.price,
       roomType: searchParams.roomType,
