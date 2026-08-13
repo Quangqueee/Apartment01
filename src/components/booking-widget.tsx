@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/dialog";
 import { Heart, Phone, Loader2, UserPlus, Users, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Apartment } from "@/lib/types"; // ĐÃ GỘP IMPORT TỪ TYPES.TS
+import { Apartment } from "@/lib/types";
+import { getDisplaySourceCode } from "@/lib/source-code";
 
 // Helper function to remove Vietnamese tone marks
 const removeVietnameseTones = (str: string = "") => {
@@ -237,7 +238,7 @@ export default function BookingWidget({
 
       await addDoc(collection(db, collectionName), payload);
 
-      const successMessage = `Bạn đã đặt lịch hẹn thành công cho căn ${apartment.sourceCode || "N/A"}.`;
+      const successMessage = `Bạn đã đặt lịch hẹn thành công cho căn ${getDisplaySourceCode(apartment.sourceCode, role) || "N/A"}.`;
 
       if (role === "collaborator") {
         await notifyAdmins({
@@ -553,7 +554,7 @@ export default function BookingWidget({
                     <label className="text-sm font-semibold">Mã căn</label>
                     <input
                       type="text"
-                      value={apartment.sourceCode}
+                      value={getDisplaySourceCode(apartment.sourceCode, role)}
                       readOnly
                       className="border rounded-lg p-2 bg-gray-50 text-gray-500 outline-none"
                     />

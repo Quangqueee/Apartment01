@@ -2,7 +2,7 @@
 import React from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,26 +68,39 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { hasHyphenSourceCode } from "@/lib/source-code";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { storage } from "@/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-const MAX_IMAGE_WIDTH = 3840;
-const IMAGE_QUALITY = 0.95;
+const MAX_IMAGE_WIDTH = 1920;
+const IMAGE_QUALITY = 0.82;
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/jpg",
   "image/png",
   "image/webp",
+  "image/heic",
+  "image/heif",
 ];
+const UPLOAD_RETRY_COUNT = 3;
 
 const formSchema = z
   .object({
     formMode: z.enum(["admin", "landlord"]),
     title: z.string().min(5, "Title must be at least 5 characters."),
-    roomType: z.enum(["studio", "1n1k", "2n1k", "other"]),
+    roomType: z.enum([
+      "studio",
+      "1n1k",
+      "2n1k",
+      "3n1k",
+      "4n1k",
+      "duplex",
+      "penthouse",
+      "other",
+    ]),
     district: z.string().min(1, "District is required."),
     area: z.coerce.number().min(1, "Area must be greater than 0."),
     price: z.coerce.number().min(0, "Price must be a positive number."),
@@ -241,41 +254,122 @@ const flattenImageSources = (value: unknown): string[] => {
   return flatImageSources;
 };
 
+const normalizeHighlights = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const getFirstFormErrorMessage = (errors: FieldErrors<FormSchema>): string => {
+  const visit = (value: unknown): string | null => {
+    if (!value || typeof value !== "object") return null;
+    const record = value as { message?: unknown };
+    if (typeof record.message === "string" && record.message.length > 0) {
+      return record.message;
+    }
+    for (const [key, nested] of Object.entries(record)) {
+      if (key === "ref" || key === "type" || key === "types") continue;
+      const found = visit(nested);
+      if (found) return found;
+    }
+    return null;
+  };
+  return (
+    visit(errors) ||
+    "Vui lòng kiểm tra các trường còn thiếu hoặc chưa hợp lệ."
+  );
+};
+
+const isAcceptedImageFile = (file: File) =>
+  !file.type || ACCEPTED_IMAGE_TYPES.includes(file.type);
+
+const uploadBlobWithRetry = async (blob: Blob, path: string): Promise<string> => {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < UPLOAD_RETRY_COUNT; attempt++) {
+    try {
+      const storageRef = ref(storage, path);
+      await uploadBytes(storageRef, blob, {
+        contentType: blob.type || "image/jpeg",
+      });
+      return await getDownloadURL(storageRef);
+    } catch (error) {
+      lastError = error;
+      if (attempt < UPLOAD_RETRY_COUNT - 1) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 400 * (attempt + 1)),
+        );
+      }
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Không thể tải ảnh lên máy chủ.");
+};
+
 const compressImage = (file: File): Promise<{ src: string; blob: Blob }> => {
   return new Promise((resolve, reject) => {
+    const fail = (reason: unknown) => {
+      reject(
+        reason instanceof Error
+          ? reason
+          : new Error(`Không xử lý được ảnh: ${file.name}`),
+      );
+    };
+
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
       const img = document.createElement("img");
       img.src = event.target?.result as string;
       img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        let { width, height } = img;
-        if (width > MAX_IMAGE_WIDTH) {
-          height = (height * MAX_IMAGE_WIDTH) / width;
-          width = MAX_IMAGE_WIDTH;
-        }
-        canvas.width = width;
-        canvas.height = height;
-        ctx?.drawImage(img, 0, 0, width, height);
+        try {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            fail(new Error("Trình duyệt không hỗ trợ xử lý ảnh."));
+            return;
+          }
 
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error("Lỗi xử lý ảnh trên canvas."));
-              return;
-            }
-            const objectUrl = URL.createObjectURL(blob);
-            resolve({ src: objectUrl, blob });
-          },
-          "image/jpeg",
-          IMAGE_QUALITY,
-        );
+          let { width, height } = img;
+          if (width > MAX_IMAGE_WIDTH) {
+            height = (height * MAX_IMAGE_WIDTH) / width;
+            width = MAX_IMAGE_WIDTH;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                fail(new Error(`Lỗi xử lý ảnh trên canvas: ${file.name}`));
+                return;
+              }
+              const objectUrl = URL.createObjectURL(blob);
+              resolve({ src: objectUrl, blob });
+            },
+            "image/jpeg",
+            IMAGE_QUALITY,
+          );
+        } catch (error) {
+          fail(error);
+        }
       };
-      img.onerror = reject;
+      img.onerror = () =>
+        fail(new Error(`Không đọc được ảnh: ${file.name}`));
     };
-    reader.onerror = reject;
+    reader.onerror = () =>
+      fail(new Error(`Không đọc được file: ${file.name}`));
   });
 };
 
@@ -299,6 +393,7 @@ export default function ApartmentForm({
   const router = useRouter();
   const { user } = useAppAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessingImages, setIsProcessingImages] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
 
@@ -348,7 +443,7 @@ export default function ApartmentForm({
       landlordPhoneNumber: apartment?.landlordPhoneNumber || "",
       status: apartment?.status || "available",
       tags: apartment?.tags || [],
-      imageUrls: apartment?.imageUrls || [],
+      imageUrls: flattenImageSources(apartment?.imageUrls || []),
       serviceFees: apartment?.serviceFees || "",
       contactPhone: apartment?.contactPhone || "",
     },
@@ -401,14 +496,12 @@ export default function ApartmentForm({
         landlordPhoneNumber: apartment.landlordPhoneNumber || "",
         status: apartment.status || "available",
         tags: apartment.tags || [],
-        imageUrls: apartment.imageUrls || [],
+        imageUrls: flattenImageSources(apartment.imageUrls || []),
         serviceFees: apartment.serviceFees || "",
         contactPhone: apartment.contactPhone || "",
       });
 
-      if (apartment.imageUrls && apartment.imageUrls.length > 0) {
-        setPreviewItems(createInitialPreviewItems(apartment.imageUrls));
-      }
+      setPreviewItems(createInitialPreviewItems(apartment.imageUrls || []));
     }
   }, [apartment, mode, form]);
 
@@ -430,7 +523,7 @@ export default function ApartmentForm({
     [previewItems],
   );
 
-  // TỐI ƯU TỐC ĐỘ UPLOAD: Nén ảnh và xử lý filePromises song song
+  // TỐI ƯU TỐC ĐỘ UPLOAD: Nén ảnh song song, giữ lại ảnh hợp lệ nếu một file lỗi
   const handleFiles = useCallback(
     (files: File[]) => {
       if (files.length === 0) return;
@@ -443,25 +536,56 @@ export default function ApartmentForm({
         return;
       }
 
-      const filePromises = files.map((file) => {
-        return new Promise<{ src: string; blob: Blob }>((resolve, reject) => {
-          if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-            return reject(`Định dạng file không được hỗ trợ: ${file.name}`);
-          }
-          compressImage(file).then(resolve).catch(reject);
-        });
-      });
+      setIsProcessingImages(true);
 
-      Promise.all(filePromises)
-        .then((newImages) => {
-          updatePreviewItems((currentPreviewItems) => [
-            ...currentPreviewItems,
-            ...newImages.map((img) => ({
-              id: createPreviewId(),
-              src: img.src,
-              blob: img.blob,
-            })),
-          ]);
+      Promise.allSettled(
+        files.map(async (file) => {
+          if (!isAcceptedImageFile(file)) {
+            throw new Error(`Định dạng file không được hỗ trợ: ${file.name}`);
+          }
+          return compressImage(file);
+        }),
+      )
+        .then((results) => {
+          const succeeded: { src: string; blob: Blob }[] = [];
+          const failedMessages: string[] = [];
+
+          results.forEach((result, index) => {
+            if (result.status === "fulfilled") {
+              succeeded.push(result.value);
+              return;
+            }
+            const reason = result.reason;
+            failedMessages.push(
+              typeof reason === "string"
+                ? reason
+                : reason instanceof Error
+                  ? reason.message
+                  : `Không xử lý được: ${files[index]?.name || "ảnh"}`,
+            );
+          });
+
+          if (succeeded.length > 0) {
+            updatePreviewItems((currentPreviewItems) => [
+              ...currentPreviewItems,
+              ...succeeded.map((img) => ({
+                id: createPreviewId(),
+                src: img.src,
+                blob: img.blob,
+              })),
+            ]);
+          }
+
+          if (failedMessages.length > 0) {
+            toast({
+              variant: "destructive",
+              title:
+                succeeded.length > 0
+                  ? "Một số ảnh bị bỏ qua"
+                  : "Lỗi xử lý ảnh",
+              description: failedMessages.slice(0, 3).join(" "),
+            });
+          }
         })
         .catch((error) => {
           toast({
@@ -472,6 +596,9 @@ export default function ApartmentForm({
                 ? error
                 : "Đã xảy ra lỗi không mong muốn.",
           });
+        })
+        .finally(() => {
+          setIsProcessingImages(false);
         });
     },
     [previewItems.length, toast, updatePreviewItems],
@@ -523,7 +650,9 @@ export default function ApartmentForm({
     try {
       let extracted = false;
 
-      const roomMatch = detailsText.match(/(studio|1n1k|2n1k)/i);
+      const roomMatch = detailsText.match(
+        /(studio|1n1k|2n1k|3n1k|4n1k|duplex|penthouse)/i,
+      );
       if (roomMatch && roomMatch[1]) {
         form.setValue("roomType", roomMatch[1].toLowerCase() as any, {
           shouldValidate: true,
@@ -670,11 +799,42 @@ export default function ApartmentForm({
     }
   };
 
+  const onInvalid = (errors: FieldErrors<FormSchema>) => {
+    toast({
+      variant: "destructive",
+      title: "Chưa đủ thông tin để đăng tin",
+      description: getFirstFormErrorMessage(errors),
+    });
+  };
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (isProcessingImages) {
+      toast({
+        variant: "destructive",
+        title: "Ảnh đang được xử lý",
+        description: "Vui lòng đợi ảnh nén xong rồi bấm lưu lại.",
+      });
+      return;
+    }
+
     if (previewItems.length === 0) {
       form.setError("imageUrls", {
         type: "manual",
         message: "Vui lòng tải lên ít nhất 1 ảnh.",
+      });
+      toast({
+        variant: "destructive",
+        title: "Thiếu hình ảnh",
+        description: "Vui lòng tải lên ít nhất 1 ảnh.",
+      });
+      return;
+    }
+
+    if (mode === "landlord" && !user?.uid) {
+      toast({
+        variant: "destructive",
+        title: "Chưa đăng nhập",
+        description: "Vui lòng đăng nhập lại rồi thử gửi tin.",
       });
       return;
     }
@@ -682,23 +842,42 @@ export default function ApartmentForm({
     setIsSubmitting(true);
 
     try {
-      // TỐI ƯU TỐC ĐỘ UPLOAD: Dùng Promise.all để đẩy các file ảnh lên Firebase song song
-      const uploadPromises = previewItems.map(async (item) => {
-        if (item.blob) {
-          const fileName = `apartments/${Date.now()}-${item.id}.webp`;
-          const storageRef = ref(storage, fileName);
-          await uploadBytes(storageRef, item.blob);
-          return await getDownloadURL(storageRef);
-        } else {
+      const uploadResults = await Promise.allSettled(
+        previewItems.map(async (item) => {
+          if (item.blob) {
+            const fileName = `apartments/${Date.now()}-${item.id}.jpg`;
+            return await uploadBlobWithRetry(item.blob, fileName);
+          }
+          if (item.src.startsWith("blob:") || item.src.startsWith("data:")) {
+            throw new Error(
+              "Có ảnh chưa tải lên được. Vui lòng xóa và chọn lại.",
+            );
+          }
           return item.src;
+        }),
+      );
+
+      const uploadedUrls: string[] = [];
+      let failedCount = 0;
+      for (const result of uploadResults) {
+        if (result.status === "fulfilled") {
+          uploadedUrls.push(result.value);
+        } else {
+          failedCount += 1;
         }
-      });
+      }
 
-      const uploadedUrls = await Promise.all(uploadPromises);
+      if (uploadedUrls.length === 0) {
+        throw new Error("Không tải được ảnh lên. Vui lòng thử lại.");
+      }
 
-      const parsedHighlights = values.highlights
-        ? values.highlights.split("\n").filter((h) => h.trim() !== "")
-        : [];
+      if (failedCount > 0) {
+        throw new Error(
+          `Không tải được ${failedCount}/${previewItems.length} ảnh. Vui lòng thử lại.`,
+        );
+      }
+
+      const parsedHighlights = normalizeHighlights(values.highlights);
 
       const currentAiContent = apartment?.aiContent || {};
 
@@ -715,7 +894,7 @@ export default function ApartmentForm({
         highlights:
           isSeoEnabled && parsedHighlights.length > 0
             ? parsedHighlights
-            : currentAiContent.highlights || [],
+            : normalizeHighlights(currentAiContent.highlights),
       };
 
       const adminPayload = {
@@ -731,7 +910,10 @@ export default function ApartmentForm({
         address: values.address || "",
         landlordPhoneNumber: values.landlordPhoneNumber || "",
         status: values.status || "available",
-        tags: values.tags || [],
+        tags: (values.tags || []).filter(
+          (tag): tag is FeatureTag =>
+            tag === "pet_friendly" || tag === "lake_view",
+        ),
         imageUrlsJson: JSON.stringify(uploadedUrls),
       };
 
@@ -746,13 +928,18 @@ export default function ApartmentForm({
         contactPhone: values.contactPhone || "",
         status: values.status || "available",
         imageUrls: uploadedUrls,
-        aiContent: currentAiContent,
+        aiContent: {
+          seoTitle: currentAiContent.seoTitle || "",
+          seoDescription: currentAiContent.seoDescription || "",
+          description: currentAiContent.description || "",
+          highlights: normalizeHighlights(currentAiContent.highlights),
+        },
       };
 
       const result =
         mode === "landlord"
           ? await submitApartmentByLandlord(
-              user?.uid || "",
+              user?.uid as string,
               landlordPayload as any,
               apartment?.id,
             )
@@ -806,7 +993,7 @@ export default function ApartmentForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-8">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="space-y-8 lg:col-span-2">
             <Card>
@@ -1078,7 +1265,7 @@ export default function ApartmentForm({
                       <FormLabel>Trạng thái phòng</FormLabel>
                       <Select
                         onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        value={field.value || undefined}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -1218,7 +1405,7 @@ export default function ApartmentForm({
                       <FormLabel>Quận</FormLabel>
                       <Select
                         onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        value={field.value || undefined}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -1245,7 +1432,7 @@ export default function ApartmentForm({
                       <FormLabel>Dạng phòng</FormLabel>
                       <Select
                         onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        value={field.value || undefined}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -1282,6 +1469,9 @@ export default function ApartmentForm({
                         <FormControl>
                           <Input placeholder="VD. TH0012" {...field} />
                         </FormControl>
+                        {hasHyphenSourceCode(field.value) && (
+                          <FormDescription>Khách sẽ thấy: 888</FormDescription>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1341,11 +1531,15 @@ export default function ApartmentForm({
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {mode === "landlord"
-              ? "Gửi tin đăng"
-              : `${apartment ? "Update" : "Create"} Apartment`}
+          <Button type="submit" disabled={isSubmitting || isProcessingImages}>
+            {(isSubmitting || isProcessingImages) && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            {isProcessingImages
+              ? "Đang xử lý ảnh..."
+              : mode === "landlord"
+                ? "Gửi tin đăng"
+                : `${apartment ? "Update" : "Create"} Apartment`}
           </Button>
           <Button variant="outline" asChild>
             <Link

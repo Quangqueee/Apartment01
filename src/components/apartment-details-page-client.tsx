@@ -35,6 +35,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { getDisplaySourceCode } from "@/lib/source-code";
 import Link from "next/link";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
@@ -442,6 +443,10 @@ export default function ApartmentDetailsPageClient({
 
   const isAdmin = userData?.role === "admin";
   const isCollaborator = userData?.role === "collaborator" || isAdmin;
+  const displaySourceCode = getDisplaySourceCode(
+    apartment.sourceCode,
+    userData?.role,
+  );
 
   const handleDownloadImages = async () => {
     const images = apartment.imageUrls;
@@ -939,7 +944,7 @@ export default function ApartmentDetailsPageClient({
                         Mã căn:
                       </div>
                       <div className="text-gray-900 font-bold text-lg">
-                        {apartment.sourceCode}
+                        {displaySourceCode}
                       </div>
                     </div>
                   )}
@@ -1105,7 +1110,7 @@ export default function ApartmentDetailsPageClient({
                   <InfoBox
                     icon={Hash}
                     label="Mã căn"
-                    value={apartment.sourceCode}
+                    value={displaySourceCode}
                   />
                 </div>
               </div>
@@ -1153,7 +1158,7 @@ export default function ApartmentDetailsPageClient({
                           Mã căn:
                         </div>
                         <div className="text-gray-900 font-bold text-lg">
-                          {apartment.sourceCode}
+                          {displaySourceCode}
                         </div>
                       </div>
                     )}

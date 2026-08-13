@@ -144,9 +144,32 @@ async function approveOrRejectLandlord(
 
 // --- 3. Landlord submits an apartment for review ---
 
+const highlightsSchema = z.preprocess((value) => {
+  if (value === undefined || value === null) return [];
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+  if (typeof value === "string") {
+    return value
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}, z.array(z.string()));
+
 const landlordSubmissionSchema = z.object({
   title: z.string().min(5),
-  roomType: z.enum(["studio", "1n1k", "2n1k", "other"]),
+  roomType: z.enum([
+    "studio",
+    "1n1k",
+    "2n1k",
+    "3n1k",
+    "4n1k",
+    "duplex",
+    "penthouse",
+    "other",
+  ]),
   district: z.string().min(1),
   area: z.coerce.number().min(1, "Diện tích phải lớn hơn 0."),
   price: z.coerce.number().min(0),
@@ -155,7 +178,16 @@ const landlordSubmissionSchema = z.object({
   contactPhone: z.string().min(8, "Số điện thoại không hợp lệ."),
   status: z.enum(["available", "rented"]).optional(),
   imageUrls: z
-    .array(z.string().trim().min(1))
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .refine(
+          (url) => !url.startsWith("blob:") && !url.startsWith("data:"),
+          "Ảnh chưa được tải lên máy chủ.",
+        ),
+    )
     .min(1, "Cần ít nhất 1 hình ảnh.")
     .max(MAX_APARTMENT_IMAGES, `Tối đa ${MAX_APARTMENT_IMAGES} hình ảnh.`),
   // ĐỒNG BỘ DATA FLOW: Cấu trúc aiContent chuẩn
@@ -163,7 +195,7 @@ const landlordSubmissionSchema = z.object({
     seoTitle: z.string().optional(),
     seoDescription: z.string().optional(),
     description: z.string().optional(),
-    highlights: z.array(z.string()).optional(),
+    highlights: highlightsSchema,
   }).nullable().optional(),
 });
 
@@ -270,7 +302,7 @@ const reviewUpdatesSchema = z.object({
     seoTitle: z.string().optional(),
     seoDescription: z.string().optional(),
     description: z.string().optional(),
-    highlights: z.array(z.string()).optional(),
+    highlights: highlightsSchema,
   }).optional(),
 }).partial();
 

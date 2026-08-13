@@ -28,6 +28,10 @@ export const ROOM_TYPES: { label: string; value: RoomType }[] = [
   { label: "Studio", value: "studio" },
   { label: "1 Phòng ngủ", value: "1n1k" },
   { label: "2 Phòng ngủ", value: "2n1k" },
+  { label: "3 Phòng ngủ", value: "3n1k" },
+  { label: "4 Phòng ngủ", value: "4n1k" },
+  { label: "Duplex", value: "duplex" },
+  { label: "Penthouse", value: "penthouse" },
   { label: "Khác", value: "other" },
 ];
 

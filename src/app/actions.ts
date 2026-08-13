@@ -28,17 +28,49 @@ import { firestore } from "@/firebase/server-init";
 const storage = getStorage(firebaseApp);
 
 const imageUrlsSchema = z
-  .array(z.string().trim().min(1))
+  .array(
+    z
+      .string()
+      .trim()
+      .min(1)
+      .refine(
+        (url) => !url.startsWith("blob:") && !url.startsWith("data:"),
+        "Ảnh chưa được tải lên máy chủ.",
+      ),
+  )
   .min(1, "At least one image is required.")
   .max(
     MAX_APARTMENT_IMAGES,
     `You can upload a maximum of ${MAX_APARTMENT_IMAGES} images.`,
   );
 
+const highlightsSchema = z.preprocess((value) => {
+  if (value === undefined || value === null) return [];
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+  if (typeof value === "string") {
+    return value
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}, z.array(z.string()));
+
 const apartmentBaseSchema = z.object({
   title: z.string().min(5),
   sourceCode: z.string().min(1),
-  roomType: z.enum(["studio", "1n1k", "2n1k", "other"]),
+  roomType: z.enum([
+    "studio",
+    "1n1k",
+    "2n1k",
+    "3n1k",
+    "4n1k",
+    "duplex",
+    "penthouse",
+    "other",
+  ]),
   district: z.string().min(1),
   area: z.coerce.number().min(1, "Area must be greater than 0."),
   price: z.coerce.number().min(0),
@@ -53,7 +85,7 @@ const apartmentBaseSchema = z.object({
     seoTitle: z.string().optional(),
     seoDescription: z.string().optional(),
     description: z.string().optional(),
-    highlights: z.array(z.string()).optional(),
+    highlights: highlightsSchema,
   }).nullable().optional(),
 });
 
