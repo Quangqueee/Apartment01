@@ -43,6 +43,9 @@ export const SORT_OPTIONS = [
 
 export const MAX_APARTMENT_IMAGES = 15;
 
+export const APARTMENT_DELETE_LIMIT_PER_HOUR = 10;
+export const APARTMENT_DELETE_WINDOW_MS = 60 * 60 * 1000;
+
 // This path is now dynamic and controlled by an environment variable.
 // It serves as a default/fallback if the env var is not set.
 export const ADMIN_PATH = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || "admin";

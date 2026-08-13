@@ -90,3 +90,36 @@ export function generateSearchKeywords(text: string): string[] {
 
   return Array.from(keywords);
 }
+
+export function normalizeSearchText(text: string): string {
+  return removeVietnameseTones(text || "")
+    .replace(/[\/,\-_?]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function matchesApartmentSearch(
+  apt: {
+    address?: string | null;
+    sourceCode?: string | null;
+    landlordPhoneNumber?: string | null;
+  },
+  searchQuery: string,
+  extraFields: Array<string | null | undefined> = [],
+): boolean {
+  const queryWords = normalizeSearchText(searchQuery).split(" ").filter(Boolean);
+  if (queryWords.length === 0) return true;
+
+  const haystack = normalizeSearchText(
+    [
+      apt.address,
+      apt.sourceCode,
+      apt.landlordPhoneNumber,
+      ...extraFields,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+
+  return queryWords.every((word) => haystack.includes(word));
+}

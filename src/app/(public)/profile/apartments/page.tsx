@@ -42,6 +42,8 @@ import {
 import { getApartments } from "@/lib/data-client";
 import Link from "next/link";
 import { deleteApartmentAction } from "@/app/actions";
+import { consumeApartmentDeleteQuota } from "@/lib/apartment-delete-quota";
+import { db } from "@/firebase";
 import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
@@ -204,9 +206,22 @@ function LandlordApartmentsContent() {
     if (!apartmentToDelete) return;
     startTransition(async () => {
       try {
+        const quota = await consumeApartmentDeleteQuota(db, user?.uid);
+        if (!quota.ok) {
+          toast({
+            variant: "destructive",
+            title: "Không thể xóa",
+            description: quota.error,
+          });
+          return;
+        }
+
         const result = await deleteApartmentAction(apartmentToDelete);
         if (result?.error) throw new Error(result.error);
-        toast({ title: "Thành công!", description: "Đã xóa căn hộ." });
+        toast({
+          title: "Thành công!",
+          description: `Đã xóa căn hộ. Còn ${quota.remaining} lượt xóa trong giờ này.`,
+        });
         fetchApartments();
       } catch (error: any) {
         toast({
@@ -628,7 +643,8 @@ function LandlordApartmentsContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
             <AlertDialogDescription>
-              Hành động này sẽ xóa vĩnh viễn căn hộ khỏi hệ thống.
+              Hành động này sẽ xóa vĩnh viễn căn hộ khỏi hệ thống. Mỗi tài khoản
+              chỉ được xóa tối đa 10 căn hộ trong 1 giờ.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

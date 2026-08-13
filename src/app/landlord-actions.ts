@@ -16,6 +16,7 @@ import {
   getDocs,
   deleteDoc,
   addDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
 import { createApartment, updateApartment, getApartmentById } from "@/lib/data";
@@ -586,6 +587,43 @@ export async function approveAndResolvePushAction(adminUid: string, apartmentId:
   } catch (error) {
     console.error("Error approving push:", error);
     return { error: "Lỗi khi phê duyệt đẩy tin." };
+  }
+}
+
+export async function approveAndResolvePushBatchAction(
+  adminUid: string,
+  apartmentIds: string[],
+) {
+  const isAdmin = await assertIsAdmin(adminUid);
+  if (!isAdmin) return { error: "Không có quyền quản trị." };
+  if (!apartmentIds?.length) return { error: "Chưa chọn căn hộ nào." };
+
+  const uniqueIds = Array.from(new Set(apartmentIds.filter(Boolean)));
+  if (uniqueIds.length === 0) return { error: "Chưa chọn căn hộ nào." };
+  if (uniqueIds.length > 500) return { error: "Tối đa 500 căn hộ mỗi lần duyệt." };
+
+  try {
+    const now = Date.now();
+    const CHUNK = 450;
+    for (let i = 0; i < uniqueIds.length; i += CHUNK) {
+      const chunk = uniqueIds.slice(i, i + CHUNK);
+      const batch = writeBatch(firestore);
+      chunk.forEach((id, chunkIndex) => {
+        const globalIndex = i + chunkIndex;
+        const ts = Timestamp.fromMillis(now + (uniqueIds.length - globalIndex));
+        batch.update(doc(firestore, "apartments", id), {
+          isPushRequested: false,
+          pushRequestedAt: deleteField(),
+          updatedAt: ts,
+          createdAt: ts,
+        });
+      });
+      await batch.commit();
+    }
+    return { success: true, pushedCount: uniqueIds.length };
+  } catch (error) {
+    console.error("Error approving batch push:", error);
+    return { error: "Lỗi khi phê duyệt đẩy tin hàng loạt." };
   }
 }
 

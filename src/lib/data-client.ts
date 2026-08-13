@@ -18,7 +18,7 @@ import { getFirestore } from "firebase/firestore";
 import { initializeFirebase } from "@/firebase";
 import { Apartment, UserProfile } from "./types";
 import { toApartment } from "./data"; // Assuming toApartment can be used on client
-import { removeVietnameseTones } from "./utils";
+import { matchesApartmentSearch } from "./utils";
 import { isPriceInRange, parsePriceRange } from "./price-range";
 
 
@@ -96,34 +96,11 @@ export async function getApartments(
     );
   }
 
-  // --- Client-side Text Search linh hoạt cho Admin ---
+  // --- Client-side Text Search linh hoạt ---
   if (searchQuery) {
-    // 1. Chuẩn hóa từ khóa gõ vào: chuyển thường, bỏ dấu, thay thế mọi ký tự đặc biệt thành khoảng trắng
-    const normalizedQuery = removeVietnameseTones(searchQuery)
-      .toLowerCase()
-      .replace(/[\/,\-_?]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    // Tách các từ khóa người dùng gõ thành từng từ đơn (Ví dụ: "279 đội cấn" -> ["279", "doi", "can"])
-    const queryWords = normalizedQuery.split(" ").filter(Boolean);
-
-    allMatchingApartments = allMatchingApartments.filter((apt) => {
-      // 2. Chuẩn hóa địa chỉ và mã ID của căn hộ trong database
-      const normalizedAddress = removeVietnameseTones(apt.address || "")
-        .toLowerCase()
-        .replace(/[\/,\-_?]/g, " ")
-        .replace(/\s+/g, " ");
-
-      const normalizedCode = removeVietnameseTones(apt.sourceCode || "")
-        .toLowerCase();
-
-      // Kiểm tra xem tất cả các từ người dùng gõ có cùng xuất hiện trong địa chỉ hoặc mã ID hay không
-      const matchAddress = queryWords.every(word => normalizedAddress.includes(word));
-      const matchCode = queryWords.every(word => normalizedCode.includes(word));
-
-      return matchAddress || matchCode;
-    });
+    allMatchingApartments = allMatchingApartments.filter((apt) =>
+      matchesApartmentSearch(apt, searchQuery),
+    );
   }
   // --- Client-side Sorting ---
   if (sortBy === 'price-asc') {

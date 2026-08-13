@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   MoreHorizontal,
   PlusCircle,
@@ -38,21 +39,21 @@ import {
   ArrowUpCircle,
   CheckCircle,
   Loader2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import {
   deleteApartmentAction,
   pushApartmentAction,
-  // getUnmigratedApartmentsAction,
-  // migrateApartmentsBatchAction,
+  pushApartmentsBatchAction,
   getUnmigratedAiApartmentsAction,
   migrateAiApartmentsBatchAction,
-  backfillSubmissionStatusAction, // <--- Thêm dòng này vào
+  backfillSubmissionStatusAction,
 } from "../../actions";
 import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useState, useEffect, useTransition, FormEvent, useMemo } from "react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, matchesApartmentSearch } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
   Tooltip,
@@ -61,10 +62,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ADMIN_PATH } from "@/lib/constants";
-import { approveAndResolvePushAction } from "@/app/landlord-actions";
+import {
+  approveAndResolvePushAction,
+  approveAndResolvePushBatchAction,
+} from "@/app/landlord-actions";
 import { useAuth as useAuthContext } from "@/context/auth-context";
 import { db } from "@/firebase";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { consumeApartmentDeleteQuota } from "@/lib/apartment-delete-quota";
 
 export default function ApartmentsPage() {
   const { user: authUser } = useAuthContext();
@@ -81,6 +86,8 @@ export default function ApartmentsPage() {
   const [apartmentToDelete, setApartmentToDelete] = useState<string | null>(
     null,
   );
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
 
   // Quản lý Tab hiển thị ("all" hoặc "push_requests")
   const [activeTab, setActiveTab] = useState<"all" | "push_requests">("all");
@@ -113,7 +120,8 @@ export default function ApartmentsPage() {
     return () => unsubscribe();
   }, []);
 
-  // Lọc danh sách theo Tab, Search
+  // Lọc danh sách theo Tab, Search (chỉ lọc khi đã Enter / submit, không gọi Firestore)
+  const appliedQuery = (searchParams.get("q") || "").trim();
   const filteredApartments = useMemo(() => {
     return apartments.filter((apt: any) => {
       if (activeTab === "push_requests") {
@@ -122,25 +130,50 @@ export default function ApartmentsPage() {
         if (apt.isPushRequested) return false;
       }
 
-      const q = (searchParams.get("q") || "").toLowerCase().trim();
-      if (!q) return true;
-
-      const addressMatch = (apt.address || "").toLowerCase().includes(q);
-      const codeMatch = (apt.sourceCode || "").toLowerCase().includes(q);
-      return addressMatch || codeMatch;
+      if (!appliedQuery) return true;
+      return matchesApartmentSearch(apt, appliedQuery);
     });
-  }, [apartments, activeTab, searchParams]);
+  }, [apartments, activeTab, appliedQuery]);
 
   const pushRequestCount = useMemo(() => {
     return apartments.filter((apt: any) => apt.isPushRequested === true).length;
   }, [apartments]);
 
-  const totalPages = Math.ceil(filteredApartments.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredApartments.length / itemsPerPage),
+  );
+  const effectivePage = Math.min(Math.max(currentPage, 1), totalPages);
+  const startIndex = (effectivePage - 1) * itemsPerPage;
   const currentApartments = filteredApartments.slice(
     startIndex,
     startIndex + itemsPerPage,
   );
+
+  const pageIds = useMemo(
+    () => currentApartments.map((apt: any) => apt.id as string),
+    [currentApartments],
+  );
+  const selectedOnPage = pageIds.filter((id) => selectedIds.has(id)).length;
+  const allPageSelected =
+    pageIds.length > 0 && selectedOnPage === pageIds.length;
+  const somePageSelected = selectedOnPage > 0 && !allPageSelected;
+  const selectedCount = selectedIds.size;
+
+  useEffect(() => {
+    const validIds = new Set(
+      filteredApartments.map((apt: any) => apt.id as string),
+    );
+    setSelectedIds((prev) => {
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (validIds.has(id)) next.add(id);
+        else changed = true;
+      });
+      return changed ? next : prev;
+    });
+  }, [filteredApartments]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
@@ -155,8 +188,45 @@ export default function ApartmentsPage() {
     if (queryVal) params.set("q", queryVal);
     else params.delete("q");
     params.set("page", "1");
+    setSelectedIds(new Set());
     router.push(`${pathname}?${params.toString()}`);
   };
+
+  const handleTabChange = (tab: "all" | "push_requests") => {
+    setActiveTab(tab);
+    setSelectedIds(new Set());
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", "1");
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectPage = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        pageIds.forEach((id) => next.delete(id));
+      } else {
+        pageIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const orderedSelectedIds = () =>
+    filteredApartments
+      .filter((apt: any) => selectedIds.has(apt.id))
+      .map((apt: any) => apt.id as string);
 
   const handleDeleteClick = (id: string) => {
     setApartmentToDelete(id);
@@ -166,18 +236,41 @@ export default function ApartmentsPage() {
   const handleDeleteConfirm = async () => {
     if (!apartmentToDelete) return;
     startTransition(async () => {
-      const result = await deleteApartmentAction(apartmentToDelete);
-      if (result?.error) {
+      try {
+        const quota = await consumeApartmentDeleteQuota(db, authUser?.uid);
+        if (!quota.ok) {
+          toast({
+            variant: "destructive",
+            title: "Không thể xóa",
+            description: quota.error,
+          });
+          return;
+        }
+
+        const result = await deleteApartmentAction(apartmentToDelete);
+        if (result?.error) {
+          toast({
+            variant: "destructive",
+            title: "Lỗi!",
+            description: result.error,
+          });
+        } else {
+          toast({
+            title: "Thành công!",
+            description: `Đã xóa căn hộ. Còn ${quota.remaining} lượt xóa trong giờ này.`,
+          });
+        }
+      } catch (error) {
+        console.error("Lỗi xóa căn hộ:", error);
         toast({
           variant: "destructive",
           title: "Lỗi!",
-          description: result.error,
+          description: "Không thể xóa căn hộ.",
         });
-      } else {
-        toast({ title: "Thành công!", description: "Đã xóa căn hộ." });
+      } finally {
+        setDialogOpen(false);
+        setApartmentToDelete(null);
       }
-      setDialogOpen(false);
-      setApartmentToDelete(null);
     });
   };
 
@@ -222,6 +315,50 @@ export default function ApartmentsPage() {
           description: "Căn hộ đã được chấp nhận đẩy lên đầu.",
         });
       }
+    });
+  };
+
+  const handleBulkConfirm = async () => {
+    const ids = orderedSelectedIds();
+    if (ids.length === 0) return;
+
+    startTransition(async () => {
+      if (activeTab === "push_requests") {
+        if (!authUser) return;
+        const result = await approveAndResolvePushBatchAction(
+          authUser.uid,
+          ids,
+        );
+        if (result?.error) {
+          toast({
+            variant: "destructive",
+            title: "Lỗi",
+            description: result.error,
+          });
+        } else {
+          toast({
+            title: "Đã duyệt và đẩy top! 🚀",
+            description: `Đã chấp nhận đẩy ${result.pushedCount || ids.length} căn hộ lên đầu.`,
+          });
+          clearSelection();
+        }
+      } else {
+        const result = await pushApartmentsBatchAction(ids);
+        if (result?.error) {
+          toast({
+            variant: "destructive",
+            title: "Lỗi!",
+            description: result.error,
+          });
+        } else {
+          toast({
+            title: "Đẩy nhanh thành công!",
+            description: `Đã đẩy ${result.pushedCount || ids.length} căn hộ lên đầu trang.`,
+          });
+          clearSelection();
+        }
+      }
+      setBulkDialogOpen(false);
     });
   };
 
@@ -366,7 +503,7 @@ export default function ApartmentsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="font-headline text-3xl font-bold tracking-tight">
@@ -405,12 +542,7 @@ export default function ApartmentsPage() {
       {/* THANH TAB CHUYỂN ĐỔI */}
       <div className="flex border-b border-gray-200 gap-6">
         <button
-          onClick={() => {
-            setActiveTab("all");
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("page", "1");
-            router.push(`${pathname}?${params.toString()}`);
-          }}
+          onClick={() => handleTabChange("all")}
           className={`pb-3 font-bold text-sm border-b-2 transition-all ${
             activeTab === "all"
               ? "border-[#cda533] text-[#cda533]"
@@ -420,12 +552,7 @@ export default function ApartmentsPage() {
           Tất cả căn hộ ({apartments.filter((a) => !a.isPushRequested).length})
         </button>
         <button
-          onClick={() => {
-            setActiveTab("push_requests");
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("page", "1");
-            router.push(`${pathname}?${params.toString()}`);
-          }}
+          onClick={() => handleTabChange("push_requests")}
           className={`pb-3 font-bold text-sm border-b-2 transition-all flex items-center gap-2 ${
             activeTab === "push_requests"
               ? "border-amber-500 text-amber-600"
@@ -442,25 +569,65 @@ export default function ApartmentsPage() {
       </div>
 
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <form
-          onSubmit={handleSearch}
-          className="relative w-full md:max-w-sm mb-4"
-        >
-          <Input
-            placeholder="Tìm theo Mã ID hoặc Địa chỉ..."
-            value={queryVal}
-            onChange={(e) => setQueryVal(e.target.value)}
-            className="pr-10 bg-gray-50 border-gray-200"
-          />
-          <Button
-            type="submit"
-            size="icon"
-            variant="ghost"
-            className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+        <div className="sticky top-0 z-20 -mx-4 mb-4 flex flex-col gap-3 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100">
+          <form
+            onSubmit={handleSearch}
+            className="relative w-full md:max-w-sm"
           >
-            <Search className="h-4 w-4 text-gray-400" />
-          </Button>
-        </form>
+            <Input
+              placeholder="Tìm địa chỉ, Mã ID hoặc SĐT..."
+              value={queryVal}
+              onChange={(e) => setQueryVal(e.target.value)}
+              className="pr-10 bg-gray-50 border-gray-200 text-base"
+            />
+            <Button
+              type="submit"
+              size="icon"
+              variant="ghost"
+              className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+            >
+              <Search className="h-4 w-4 text-gray-400" />
+            </Button>
+          </form>
+
+          {selectedCount > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-gray-500">
+                Đã chọn{" "}
+                <span className="font-bold text-gray-800">{selectedCount}</span>
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearSelection}
+                disabled={isPending}
+              >
+                <X className="mr-1 h-4 w-4" /> Bỏ chọn
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setBulkDialogOpen(true)}
+                disabled={isPending}
+                className={
+                  activeTab === "push_requests"
+                    ? "bg-green-600 hover:bg-green-700 text-white font-bold"
+                    : "bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                }
+              >
+                {isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : activeTab === "push_requests" ? (
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                ) : (
+                  <ArrowUpCircle className="mr-2 h-4 w-4" />
+                )}
+                {activeTab === "push_requests" ? "Duyệt & Đẩy" : "Đẩy nhanh"}
+              </Button>
+            </div>
+          )}
+        </div>
 
         {/* BẢNG DESKTOP */}
         <div className="hidden md:block rounded-lg border border-gray-100 overflow-hidden">
@@ -468,6 +635,21 @@ export default function ApartmentsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-gray-50/50">
+                  <TableHead className="w-10 px-2">
+                    <Checkbox
+                      checked={
+                        allPageSelected
+                          ? true
+                          : somePageSelected
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={toggleSelectPage}
+                      aria-label="Chọn trang này"
+                      className="translate-y-[1px]"
+                    />
+                  </TableHead>
+                  <TableHead className="w-12 text-center px-2">TT</TableHead>
                   <TableHead>Địa chỉ</TableHead>
                   <TableHead>Mã ID</TableHead>
                   <TableHead>SĐT Chủ nhà</TableHead>
@@ -480,7 +662,7 @@ export default function ApartmentsPage() {
                 {currentApartments.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={8}
                       className="text-center py-8 text-gray-500"
                     >
                       {activeTab === "push_requests"
@@ -489,8 +671,22 @@ export default function ApartmentsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  currentApartments.map((apt: any) => (
-                    <TableRow key={apt.id} className="hover:bg-gray-50">
+                  currentApartments.map((apt: any, index: number) => (
+                    <TableRow
+                      key={apt.id}
+                      className="hover:bg-gray-50"
+                      data-state={selectedIds.has(apt.id) ? "selected" : undefined}
+                    >
+                      <TableCell className="px-2">
+                        <Checkbox
+                          checked={selectedIds.has(apt.id)}
+                          onCheckedChange={() => toggleSelect(apt.id)}
+                          aria-label={`Chọn căn hộ ${apt.sourceCode || apt.address}`}
+                        />
+                      </TableCell>
+                      <TableCell className="text-center px-2 text-gray-500 font-medium tabular-nums">
+                        {startIndex + index + 1}
+                      </TableCell>
                       <TableCell className="font-medium">
                         <Link
                           href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
@@ -621,12 +817,22 @@ export default function ApartmentsPage() {
                 : "Không tìm thấy căn hộ nào."}
             </div>
           ) : (
-            currentApartments.map((apt: any) => (
+            currentApartments.map((apt: any, index: number) => (
               <Card
                 key={apt.id}
-                className="relative bg-white border border-gray-200"
+                className="relative bg-white border border-gray-200 overflow-x-hidden"
               >
                 <CardContent className="space-y-2 p-4">
+                  <div className="flex items-center gap-2 mb-1 pr-10">
+                    <Checkbox
+                      checked={selectedIds.has(apt.id)}
+                      onCheckedChange={() => toggleSelect(apt.id)}
+                      aria-label={`Chọn căn hộ ${apt.sourceCode || apt.address}`}
+                    />
+                    <span className="text-xs font-bold text-gray-400 tabular-nums">
+                      TT {startIndex + index + 1}
+                    </span>
+                  </div>
                   {apt.isPushRequested && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-800 animate-pulse border border-amber-300 mb-1">
                       🔥 Chủ nhà xin đẩy top
@@ -731,16 +937,16 @@ export default function ApartmentsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage <= 1 || isPending}
+              onClick={() => handlePageChange(effectivePage - 1)}
+              disabled={effectivePage <= 1 || isPending}
             >
               <ChevronLeft className="h-4 w-4 mr-1" /> Trước
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage >= totalPages || isPending}
+              onClick={() => handlePageChange(effectivePage + 1)}
+              disabled={effectivePage >= totalPages || isPending}
             >
               Sau <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
@@ -753,7 +959,8 @@ export default function ApartmentsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Bạn có chắc chắn xóa?</AlertDialogTitle>
             <AlertDialogDescription>
-              Hành động này không thể hoàn tác.
+              Hành động này không thể hoàn tác. Mỗi tài khoản chỉ được xóa tối đa
+              10 căn hộ trong 1 giờ.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -764,6 +971,41 @@ export default function ApartmentsPage() {
               className="bg-red-600 hover:bg-red-700 text-white border-none"
             >
               {isPending ? "Đang xóa..." : "Xóa ngay"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+        <AlertDialogContent className="bg-white z-[100] shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {activeTab === "push_requests"
+                ? `Duyệt và đẩy ${selectedCount} căn hộ?`
+                : `Đẩy nhanh ${selectedCount} căn hộ?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {activeTab === "push_requests"
+                ? "Các căn đã chọn sẽ được chấp nhận và đẩy lên đầu trang chủ theo thứ tự hiện tại."
+                : "Các căn đã chọn sẽ được đẩy lên đầu trang chủ theo thứ tự hiện tại trên bảng."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkConfirm}
+              disabled={isPending}
+              className={
+                activeTab === "push_requests"
+                  ? "bg-green-600 hover:bg-green-700 text-white border-none"
+                  : "bg-blue-600 hover:bg-blue-700 text-white border-none"
+              }
+            >
+              {isPending
+                ? "Đang xử lý..."
+                : activeTab === "push_requests"
+                  ? "Chấp nhận & Đẩy"
+                  : "Đẩy nhanh"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

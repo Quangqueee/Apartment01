@@ -20,7 +20,7 @@ import {
 import { generateListingSummary } from "@/ai/flows/generate-listing-summary";
 import { firebaseApp } from "@/firebase/server-init";
 import { Apartment } from "@/lib/types";
-import { Timestamp, doc, getDoc, setDoc, collection, getDocs, updateDoc, deleteField } from "firebase/firestore";
+import { Timestamp, doc, getDoc, setDoc, collection, getDocs, updateDoc, deleteField, writeBatch } from "firebase/firestore";
 import { ADMIN_PATH, MAX_APARTMENT_IMAGES } from "@/lib/constants";
 import { firestore } from "@/firebase/server-init";
 
@@ -249,6 +249,7 @@ export async function deleteApartmentAction(id: string) {
     if (apartment) {
       revalidatePath(`/apartments/${id}`);
     }
+    return { success: true };
   } catch (error) {
     console.error("Database error on delete:", error);
     return { error: "Database error. Failed to delete apartment." };
@@ -565,6 +566,38 @@ export async function pushApartmentAction(id: string) {
   } catch (error) {
     console.error("Database error on push:", error);
     return { error: "Database error. Failed to push apartment." };
+  }
+}
+
+export async function pushApartmentsBatchAction(ids: string[]) {
+  if (!ids?.length) return { error: "Chưa chọn căn hộ nào." };
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+  if (uniqueIds.length === 0) return { error: "Chưa chọn căn hộ nào." };
+  if (uniqueIds.length > 500) return { error: "Tối đa 500 căn hộ mỗi lần đẩy." };
+
+  try {
+    const now = Date.now();
+    const CHUNK = 450;
+    for (let i = 0; i < uniqueIds.length; i += CHUNK) {
+      const chunk = uniqueIds.slice(i, i + CHUNK);
+      const batch = writeBatch(firestore);
+      chunk.forEach((id, chunkIndex) => {
+        const globalIndex = i + chunkIndex;
+        const ts = Timestamp.fromMillis(now + (uniqueIds.length - globalIndex));
+        batch.update(doc(firestore, "apartments", id), {
+          updatedAt: ts,
+          createdAt: ts,
+        });
+      });
+      await batch.commit();
+    }
+    revalidatePath("/", "layout");
+    revalidatePath(`/${ADMIN_PATH}`);
+    revalidatePath("/apartments");
+    return { success: true, pushedCount: uniqueIds.length };
+  } catch (error) {
+    console.error("Database error on batch push:", error);
+    return { error: "Không thể đẩy hàng loạt căn hộ." };
   }
 }
 
