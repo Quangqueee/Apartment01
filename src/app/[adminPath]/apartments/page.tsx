@@ -690,6 +690,8 @@ export default function ApartmentsPage() {
                       <TableCell className="font-medium">
                         <Link
                           href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="text-primary hover:underline font-bold"
                         >
                           {apt.address}
@@ -772,6 +774,8 @@ export default function ApartmentsPage() {
                                   <Button variant="ghost" size="icon" asChild>
                                     <Link
                                       href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
                                     >
                                       <Pencil className="h-4 w-4" />
                                     </Link>
@@ -840,6 +844,8 @@ export default function ApartmentsPage() {
                   )}
                   <Link
                     href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="pr-10 font-bold text-primary hover:underline line-clamp-2 text-base block"
                   >
                     {apt.address}
@@ -877,6 +883,8 @@ export default function ApartmentsPage() {
                             <DropdownMenuItem asChild>
                               <Link
                                 href={`/${ADMIN_PATH}/apartments/${apt.id}/edit`}
+                                target="_blank"
+                                rel="noopener noreferrer"
                               >
                                 <Pencil className="mr-2 h-4 w-4" /> Sửa
                               </Link>

@@ -1,7 +1,6 @@
 import { getApartments } from "@/lib/data";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
-import MobileNav from "@/components/mobile-nav";
 import SortControls from "@/components/sort-controls";
 import SearchSidebar, {
   SearchFiltersSheet,
@@ -103,10 +102,11 @@ export default async function SearchResultsPage({
             <div className="min-w-0 overflow-x-hidden">
               {serializedApartments.length > 0 ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 xl:gap-8">
-                  {serializedApartments.map((apartment) => (
+                  {serializedApartments.map((apartment, index) => (
                     <ApartmentCard
                       key={apartment.id}
                       apartment={apartment}
+                      imagePriority={index < 2}
                     />
                   ))}
                 </div>
@@ -135,7 +135,6 @@ export default async function SearchResultsPage({
       </main>
 
       <Footer />
-      <MobileNav />
     </div>
   );
 }

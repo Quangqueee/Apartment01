@@ -17,10 +17,15 @@ import {
   Timestamp,
   getCountFromServer,
 } from "firebase/firestore";
+import { unstable_cache } from "next/cache";
 import { firestore } from "@/firebase/server-init";
 import { Apartment, Favorite, UserProfile } from "./types";
 import { removeVietnameseTones } from "./utils";
 import { isPriceInRange, parsePriceRange } from "./price-range";
+import { APARTMENTS_CACHE_TAG } from "./apartment-cache-tag";
+
+const HOME_CACHE_REVALIDATE_SECONDS = 600;
+const FEATURED_DISTRICTS = ["Tây Hồ", "Ba Đình", "Đống Đa", "Cầu Giấy"] as const;
 
 const apartmentsCollection = collection(firestore, "apartments");
 const usersCollection = collection(firestore, "users");
@@ -215,6 +220,50 @@ export async function getApartments(
     nextCursor: lastApartment?.id ?? null,
   };
 }
+
+/** Count-only query — avoids fetching apartment docs for district stats. */
+export async function getPublishedCountByDistrict(
+  district: string,
+): Promise<number> {
+  const countQuery = query(
+    apartmentsCollection,
+    where("submissionStatus", "==", "published"),
+    where("district", "==", district),
+  );
+  const snapshot = await getCountFromServer(countQuery);
+  return snapshot.data().count;
+}
+
+export const getCachedHomeApartments = unstable_cache(
+  async () => {
+    const result = await getApartments({
+      page: 1,
+      limit: 12,
+      sortBy: "newest",
+    });
+    return JSON.parse(JSON.stringify(result)) as {
+      apartments: Apartment[];
+      totalResults: number;
+      nextCursor: string | null;
+    };
+  },
+  ["home-apartments-v1"],
+  { revalidate: HOME_CACHE_REVALIDATE_SECONDS, tags: [APARTMENTS_CACHE_TAG] },
+);
+
+export const getCachedFeaturedDistrictStats = unstable_cache(
+  async () => {
+    const stats = await Promise.all(
+      FEATURED_DISTRICTS.map(async (name) => ({
+        name,
+        count: await getPublishedCountByDistrict(name),
+      })),
+    );
+    return stats;
+  },
+  ["featured-district-stats-v1"],
+  { revalidate: HOME_CACHE_REVALIDATE_SECONDS, tags: [APARTMENTS_CACHE_TAG] },
+);
 
 export async function getApartmentById(id: string): Promise<Apartment | null> {
   if (!id || typeof id !== 'string') return null;

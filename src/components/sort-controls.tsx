@@ -33,8 +33,9 @@ export default function SortControls() {
     params.delete("page");
     params.delete("cursor");
 
-    // Thêm { scroll: false } để ngăn trình duyệt giật lên đầu trang
-    router.push(pathname + "?" + params.toString(), { scroll: false });
+    // Keep `/` static: sort changes go to the search page.
+    const targetPath = pathname === "/" ? "/tim-kiem" : pathname;
+    router.push(targetPath + "?" + params.toString(), { scroll: false });
   };
 
   // 3. Nếu chưa mount xong, hiển thị khung giữ chỗ (Skeleton) để tránh lỗi Hydration

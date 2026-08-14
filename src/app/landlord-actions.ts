@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { db } from "@/firebase/index";
 import { revalidatePath } from "next/cache";
+import { revalidateApartmentListings } from "@/lib/apartment-cache";
 import {
   doc,
   getDoc,
@@ -353,11 +354,9 @@ export async function reviewApartmentSubmission(
     }
 
     revalidatePath(`/${ADMIN_PATH}/submissions`);
-    revalidatePath(`/${ADMIN_PATH}`);
-    revalidatePath("/");
-    if (decision === "published") {
-      revalidatePath(`/apartments/${apartmentId}`);
-    }
+    revalidateApartmentListings(
+      decision === "published" ? apartmentId : undefined,
+    );
 
     return { success: true };
   } catch (error) {
@@ -583,6 +582,7 @@ export async function approveAndResolvePushAction(adminUid: string, apartmentId:
       updatedAt: Timestamp.now(),
       createdAt: Timestamp.now(),
     });
+    revalidateApartmentListings(apartmentId);
     return { success: true };
   } catch (error) {
     console.error("Error approving push:", error);
@@ -620,6 +620,7 @@ export async function approveAndResolvePushBatchAction(
       });
       await batch.commit();
     }
+    revalidateApartmentListings();
     return { success: true, pushedCount: uniqueIds.length };
   } catch (error) {
     console.error("Error approving batch push:", error);
@@ -663,8 +664,7 @@ export async function terminatePartnershipAction(adminUid: string, targetUid: st
     });
 
     revalidatePath(`/${ADMIN_PATH}/partners`);
-    revalidatePath(`/${ADMIN_PATH}`);
-    revalidatePath("/");
+    revalidateApartmentListings();
 
     return { success: true, deletedApartmentsCount: snapshot.size };
   } catch (error) {

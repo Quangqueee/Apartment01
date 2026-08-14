@@ -23,20 +23,29 @@ import {
 } from "lucide-react";
 import { formatRelativeTime, formatPrice, cn } from "@/lib/utils";
 import { getDisplaySourceCode } from "@/lib/source-code";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default memo(function ApartmentCard({
   apartment,
   onFavoriteToggle,
   isCompact = false,
+  imagePriority = false,
 }: {
   apartment: Apartment;
   onFavoriteToggle?: (apartmentId: string, isFavorited: boolean) => void;
   isCompact?: boolean;
+  /** Only the first visible card(s) should set this to protect LCP. */
+  imagePriority?: boolean;
 }) {
   const { user, userData } = useAuth();
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [showModal, setShowModal] = useState(false);
   const [isFavoriteUpdating, setIsFavoriteUpdating] = useState(false);
+  /** Desktop (md+): open details in a new tab; mobile stays same-tab. */
+  const detailsLinkTarget = isMobile
+    ? undefined
+    : ({ target: "_blank", rel: "noopener noreferrer" } as const);
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -337,6 +346,7 @@ export default memo(function ApartmentCard({
             className="absolute inset-0 z-0 block"
             onClick={handleLinkClick}
             draggable={false}
+            {...detailsLinkTarget}
           >
             <div
               ref={scrollRef}
@@ -375,8 +385,8 @@ export default memo(function ApartmentCard({
                           ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 28vw"
                           : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                       }
-                      priority={idx === 0}
-                      loading={idx === 0 ? "eager" : "lazy"}
+                      priority={imagePriority && idx === 0}
+                      loading={imagePriority && idx === 0 ? "eager" : "lazy"}
                       draggable={false}
                       className="object-cover pointer-events-none select-none"
                     />
@@ -426,6 +436,7 @@ export default memo(function ApartmentCard({
             "flex flex-1 flex-col",
             isCompact ? "p-3" : "p-4 sm:p-5",
           )}
+          {...detailsLinkTarget}
         >
           <div className="relative w-full">
             {/* Sử dụng font-body không chân, nét đậm vừa (semibold) đảm bảo tính hiện đại */}

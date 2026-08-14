@@ -9,7 +9,6 @@ import { Heart, Loader2, House, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
-import MobileNav from "@/components/mobile-nav";
 
 export default function FavoritesPage() {
   const { user, userData, loading: authLoading } = useAuth();
@@ -76,7 +75,6 @@ export default function FavoritesPage() {
           </div>
         </div>
         <Footer />
-        <MobileNav />
       </div>
     );
 
@@ -151,7 +149,6 @@ export default function FavoritesPage() {
       </main>
 
       <Footer />
-      <MobileNav />
     </div>
   );
 }

@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { Be_Vietnam_Pro, Playfair_Display } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
-import { FirebaseProvider } from "@/firebase/provider"; // ✅ Bổ sung FirebaseProvider
-import { AuthProvider } from "@/context/auth-context";
 import "./globals.css";
 import MobileNav from "@/components/mobile-nav";
 import MultiContact from "@/components/multi-contact";
@@ -138,18 +136,14 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
 
-        {/* 🚀 CHUẨN HÓA BỌC PHÂN CẤP PROVIDER: FirebaseClientProvider -> FirebaseProvider -> AuthProvider */}
+        {/* FirebaseClientProvider already nests FirebaseProvider + AuthProvider */}
         <FirebaseClientProvider>
-          <FirebaseProvider>
-            <AuthProvider>
-              <div className="relative flex min-h-screen flex-col">
-                <main className="flex-1 pb-24 md:pb-0">{children}</main>
-              </div>
-              <MultiContact />
-              <MobileNav />
-              <Toaster />
-            </AuthProvider>
-          </FirebaseProvider>
+          <div className="relative flex min-h-screen flex-col">
+            <main className="flex-1 pb-24 md:pb-0">{children}</main>
+          </div>
+          <MultiContact />
+          <MobileNav />
+          <Toaster />
         </FirebaseClientProvider>
       </body>
     </html>

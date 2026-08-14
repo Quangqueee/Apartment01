@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 import { v4 as uuidv4 } from 'uuid';
 import { generateSearchKeywords } from "@/lib/utils";
+import { revalidateApartmentListings } from "@/lib/apartment-cache";
 import {
   createApartment,
   updateApartment,
@@ -219,11 +220,7 @@ export async function createOrUpdateApartmentAction(
     return { error: "Database error. Failed to save apartment." };
   }
 
-  revalidatePath(`/${ADMIN_PATH}`);
-  revalidatePath("/");
-  if (apartmentId) {
-    revalidatePath(`/apartments/${apartmentId}`);
-  }
+  revalidateApartmentListings(apartmentId);
   return { success: true };
 }
 
@@ -244,11 +241,7 @@ export async function deleteApartmentAction(id: string) {
       }));
     }
     await deleteApartmentFromDb(id);
-    revalidatePath(`/${ADMIN_PATH}`);
-    revalidatePath("/");
-    if (apartment) {
-      revalidatePath(`/apartments/${id}`);
-    }
+    revalidateApartmentListings(id);
     return { success: true };
   } catch (error) {
     console.error("Database error on delete:", error);
@@ -559,9 +552,7 @@ export async function pushApartmentAction(id: string) {
   try {
     const docRef = doc(firestore, "apartments", id);
     await updateDoc(docRef, { updatedAt: Timestamp.now(), createdAt: Timestamp.now() });
-    revalidatePath("/", "layout");
-    revalidatePath(`/${ADMIN_PATH}`);
-    revalidatePath("/apartments");
+    revalidateApartmentListings(id);
     return { success: true };
   } catch (error) {
     console.error("Database error on push:", error);
@@ -591,9 +582,7 @@ export async function pushApartmentsBatchAction(ids: string[]) {
       });
       await batch.commit();
     }
-    revalidatePath("/", "layout");
-    revalidatePath(`/${ADMIN_PATH}`);
-    revalidatePath("/apartments");
+    revalidateApartmentListings();
     return { success: true, pushedCount: uniqueIds.length };
   } catch (error) {
     console.error("Database error on batch push:", error);

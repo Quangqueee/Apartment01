@@ -130,6 +130,7 @@ export default function ApartmentList({
                 <ApartmentCard
                   apartment={apartment}
                   onFavoriteToggle={handleFavoriteToggle}
+                  imagePriority={index < 2}
                 />
               </motion.div>
             ))}

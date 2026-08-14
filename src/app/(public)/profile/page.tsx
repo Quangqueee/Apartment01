@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
-import MobileNav from "@/components/mobile-nav";
 import Link from "next/link";
 
 export default function ProfilePage() {
@@ -201,7 +200,6 @@ export default function ProfilePage() {
         </div>
       </main>
       <Footer />
-      <MobileNav />
     </div>
   );
 }
