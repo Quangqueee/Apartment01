@@ -784,7 +784,7 @@ export default function ApartmentDetailsPageClient({
   const daysPassed = Math.floor(
     (Date.now() - dateInMs) / (1000 * 60 * 60 * 24),
   );
-  const isOldListing = daysPassed >= 14;
+  const isOldListing = daysPassed >= 10;
 
   let statusLabel = "";
   let statusTextColor = "";

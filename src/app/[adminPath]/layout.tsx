@@ -20,18 +20,20 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
       <AdminSidebar />
 
       <SidebarInset className="min-h-screen overflow-x-hidden bg-gray-50">
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 overflow-x-hidden border-b border-gray-200 bg-white px-4 shadow-sm md:hidden">
-          <SidebarTrigger className="h-10 w-10 rounded-md border border-gray-200 bg-gray-50 text-gray-700 transition-all hover:bg-gray-100 active:scale-95" />
-          <span className="flex-1 font-headline text-lg font-bold text-[#cda533]">
-            Hanoi Residences
-          </span>
-          <NotificationBell userId={authUser?.uid} />
-        </header>
+        <div className="w-full">
+          <header className="sticky top-0 z-20 flex h-16 items-center gap-3 overflow-x-hidden border-b border-gray-200 bg-white px-4 shadow-sm md:hidden">
+            <SidebarTrigger className="h-10 w-10 rounded-md border border-gray-200 bg-gray-50 text-gray-700 transition-all hover:bg-gray-100 active:scale-95" />
+            <span className="flex-1 font-headline text-lg font-bold text-[#cda533]">
+              Hanoi Residences
+            </span>
+            <NotificationBell userId={authUser?.uid} />
+          </header>
 
-        <header className="sticky top-0 z-20 hidden h-16 items-center justify-between overflow-x-hidden border-b border-gray-200 bg-white px-6 shadow-sm md:flex">
-          <SidebarTrigger className="h-9 w-9 rounded-md text-gray-600 hover:bg-[#f2f2f3]" />
-          <NotificationBell userId={authUser?.uid} />
-        </header>
+          <header className="sticky top-0 z-20 hidden h-16 items-center justify-between overflow-x-hidden border-b border-gray-200 bg-white px-6 shadow-sm md:flex">
+            <SidebarTrigger className="h-9 w-9 rounded-md text-gray-600 hover:bg-[#f2f2f3]" />
+            <NotificationBell userId={authUser?.uid} />
+          </header>
+        </div>
 
         <div className="mx-auto w-full max-w-[1920px] overflow-x-hidden p-4 md:p-8">
           {children}

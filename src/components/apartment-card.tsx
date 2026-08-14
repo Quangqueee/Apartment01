@@ -212,7 +212,7 @@ export default memo(function ApartmentCard({
   const daysPassed = Math.floor(
     (Date.now() - dateInMs) / (1000 * 60 * 60 * 24),
   );
-  const isOldListing = daysPassed >= 14;
+  const isOldListing = daysPassed >= 10;
 
   if (isCollaborator) {
     if (isRented) {

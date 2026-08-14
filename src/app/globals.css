@@ -4,6 +4,14 @@
 
 html {
   scroll-behavior: smooth;
+  /* Bù chiều cao header sticky (h-20 / md:h-24) khi Next.js / hash scroll */
+  scroll-padding-top: 5rem;
+}
+
+@media (min-width: 768px) {
+  html {
+    scroll-padding-top: 6rem;
+  }
 }
 
 @layer base {

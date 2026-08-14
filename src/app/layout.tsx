@@ -121,7 +121,7 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="vi" suppressHydrationWarning>
+    <html lang="vi" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body
         className={cn(
           "min-h-screen bg-background font-body text-foreground antialiased",
