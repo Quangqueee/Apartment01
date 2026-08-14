@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   getCachedFeaturedDistrictStats,
   getCachedHomeApartments,
@@ -39,7 +40,15 @@ export default async function Home() {
                 Tìm thấy {totalResults} căn hộ
               </p>
             </div>
-            <SortControls />
+            <Suspense
+              fallback={
+                <div className="flex items-center gap-2">
+                  <div className="h-10 w-[160px] animate-pulse rounded-md bg-gray-100" />
+                </div>
+              }
+            >
+              <SortControls />
+            </Suspense>
           </div>
 
           <ApartmentList

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Select,
@@ -12,7 +12,16 @@ import {
 import { SORT_OPTIONS } from "@/lib/constants";
 import { Label } from "./ui/label";
 
-export default function SortControls() {
+function SortControlsFallback() {
+  return (
+    <div className="flex items-center gap-2">
+      <Label className="hidden text-sm text-gray-500 sm:inline">Sắp xếp:</Label>
+      <div className="h-10 w-[160px] animate-pulse rounded-md bg-gray-100"></div>
+    </div>
+  );
+}
+
+function SortControlsInner() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -66,5 +75,13 @@ export default function SortControls() {
         </SelectContent>
       </Select>
     </div>
+  );
+}
+
+export default function SortControls() {
+  return (
+    <Suspense fallback={<SortControlsFallback />}>
+      <SortControlsInner />
+    </Suspense>
   );
 }

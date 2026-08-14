@@ -1,4 +1,4 @@
-"use client";
+import { Suspense } from "react";
 import Image from "next/image"; // 1. Import thẻ Image của Next.js
 import FilterControls from "./filter-controls";
 
@@ -31,7 +31,9 @@ export default function Hero() {
             </p>
           </div>
           <div className="w-full sm:max-w-[480px] lg:w-[450px] shrink-0 animate-in fade-in slide-in-from-right-10 duration-1000 delay-300">
-            <FilterControls />
+            <Suspense fallback={<div className="min-h-[320px] w-full" />}>
+              <FilterControls />
+            </Suspense>
           </div>
         </div>
       </div>

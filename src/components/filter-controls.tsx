@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Popover,
@@ -49,7 +49,7 @@ const parsePriceInput = (value: string, fallback: number) => {
   return Math.max(PRICE_FILTER_MIN, Math.min(PRICE_FILTER_MAX, parsed));
 };
 
-export default function FilterControls() {
+function FilterControlsInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
@@ -347,5 +347,13 @@ export default function FilterControls() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function FilterControls() {
+  return (
+    <Suspense fallback={<div className="min-h-[320px] w-full" />}>
+      <FilterControlsInner />
+    </Suspense>
   );
 }
