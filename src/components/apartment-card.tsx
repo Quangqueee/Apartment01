@@ -271,8 +271,8 @@ export default memo(function ApartmentCard({
         className={cn(
           "group/slider relative flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition-all duration-300 ease-out will-change-transform",
           isCompact
-            ? "rounded-xl hover:shadow-md"
-            : "rounded-xl hover:-translate-y-1.5 hover:scale-[1.015] hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] sm:rounded-2xl",
+            ? "rounded-xl md:hover:shadow-md"
+            : "rounded-xl md:hover:-translate-y-1.5 md:hover:scale-[1.015] md:hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] sm:rounded-2xl",
         )}
       >
         <div
@@ -464,7 +464,7 @@ export default memo(function ApartmentCard({
                   isCompact ? "h-4 w-4" : "h-5 w-5",
                   isFavorite
                     ? "fill-red-500 text-red-500"
-                    : "text-gray-400 hover:text-red-400",
+                    : "text-gray-400 md:hover:text-red-400",
                 )}
               />
             </div>

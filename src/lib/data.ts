@@ -20,7 +20,10 @@ import {
 import { unstable_cache } from "next/cache";
 import { firestore } from "@/firebase/server-init";
 import { Apartment, Favorite, UserProfile } from "./types";
-import { removeVietnameseTones } from "./utils";
+import {
+  planApartmentTextSearch,
+  matchesAllSearchTokens,
+} from "./utils";
 import { isPriceInRange, parsePriceRange } from "./price-range";
 import { APARTMENTS_CACHE_TAG } from "./apartment-cache-tag";
 
@@ -99,7 +102,6 @@ export async function getApartments(
     cursor,
   } = options;
 
-  let baseQuery: Query = apartmentsCollection;
   let whereClauses: any[] = [];
 
   // Chỉ hiển thị công khai các tin đã published. Yêu cầu chạy
@@ -138,12 +140,9 @@ export async function getApartments(
     whereClauses.push(where("roomType", "in", roomTypeArray));
   }
 
-  if (searchQuery && searchQuery.trim() !== "") {
-    const searchWords = removeVietnameseTones(searchQuery.trim()).toLowerCase().split(/\s+/);
-    if (searchWords.length > 0) {
-      whereClauses.push(where("searchKeywords", "array-contains", searchWords[0]));
-    }
-  }
+  const searchPlan = searchQuery?.trim()
+    ? planApartmentTextSearch(searchQuery)
+    : null;
 
   let isFilteringPrice = false;
   if (priceRange && priceRange !== "all") {
@@ -157,27 +156,91 @@ export async function getApartments(
     }
   }
 
-  if (whereClauses.length > 0) {
-    baseQuery = query(baseQuery, ...whereClauses);
+  const applySort = (inputQuery: Query) => {
+    if (isFilteringPrice) {
+      return query(inputQuery, orderBy("price", sortBy === "price-desc" ? "desc" : "asc"));
+    }
+    if (sortBy === "price-asc") return query(inputQuery, orderBy("price", "asc"));
+    if (sortBy === "price-desc") return query(inputQuery, orderBy("price", "desc"));
+    return query(inputQuery, orderBy("createdAt", "desc"));
+  };
+
+  const buildSortedQuery = (searchValue?: string) => {
+    const clauses = [...whereClauses];
+    if (searchValue) {
+      clauses.push(where("searchKeywords", "array-contains", searchValue));
+    }
+    const filteredQuery =
+      clauses.length > 0 ? query(apartmentsCollection, ...clauses) : apartmentsCollection;
+    return applySort(filteredQuery);
+  };
+
+  const paginateSlice = (
+    matched: Apartment[],
+    totalResults: number,
+  ): {
+    apartments: Apartment[];
+    totalResults: number;
+    nextCursor: string | null;
+  } => {
+    if (totalResults === 0) {
+      return { apartments: [], totalResults: 0, nextCursor: null };
+    }
+    const maxPage = Math.max(1, Math.ceil(totalResults / pageSize));
+    const safePage = Math.min(Math.max(1, page), maxPage);
+    let paginatedApartments: Apartment[] = [];
+    if (cursor) {
+      const cursorIndex = matched.findIndex((apt) => apt.id === cursor);
+      const start = cursorIndex >= 0 ? cursorIndex + 1 : 0;
+      paginatedApartments = matched.slice(start, start + pageSize);
+    } else {
+      const startIndex = (safePage - 1) * pageSize;
+      paginatedApartments = matched.slice(startIndex, startIndex + pageSize);
+    }
+    const lastApartment = paginatedApartments[paginatedApartments.length - 1];
+    return {
+      apartments: paginatedApartments,
+      totalResults,
+      nextCursor: lastApartment?.id ?? null,
+    };
+  };
+
+  const searchValues = searchPlan?.firestoreValues ?? [];
+  const needsCandidateScan =
+    !!searchPlan && (searchPlan.tokens.length > 1 || searchValues.length > 1);
+
+  if (needsCandidateScan && searchPlan) {
+    const SEARCH_CANDIDATE_CAP = 500;
+    try {
+      const snapshots = await Promise.all(
+        searchValues.map((value) =>
+          getDocs(query(buildSortedQuery(value), limit(SEARCH_CANDIDATE_CAP))),
+        ),
+      );
+      const byId = new Map<string, Apartment>();
+      for (const snapshot of snapshots) {
+        for (const docSnap of snapshot.docs) {
+          if (!byId.has(docSnap.id)) {
+            byId.set(docSnap.id, toApartment(docSnap));
+          }
+        }
+      }
+      const matched = [...byId.values()].filter((apt) =>
+        matchesAllSearchTokens(apt, searchPlan.tokens),
+      );
+      return paginateSlice(matched, matched.length);
+    } catch (error) {
+      console.error("Conjunctive apartment search failed:", error);
+      return { apartments: [], totalResults: 0, nextCursor: null };
+    }
   }
 
+  const baseQuery = buildSortedQuery(searchPlan?.firestoreValue);
   const countSnapshot = await getCountFromServer(baseQuery);
   const totalResults = countSnapshot.data().count;
 
   if (totalResults === 0) {
     return { apartments: [], totalResults: 0, nextCursor: null as string | null };
-  }
-
-  if (isFilteringPrice) {
-    baseQuery = query(baseQuery, orderBy("price", sortBy === "price-desc" ? "desc" : "asc"));
-  } else {
-    if (sortBy === 'price-asc') {
-      baseQuery = query(baseQuery, orderBy("price", "asc"));
-    } else if (sortBy === 'price-desc') {
-      baseQuery = query(baseQuery, orderBy("price", "desc"));
-    } else {
-      baseQuery = query(baseQuery, orderBy("createdAt", "desc"));
-    }
   }
 
   const maxPage = Math.max(1, Math.ceil(totalResults / pageSize));
@@ -210,6 +273,12 @@ export async function getApartments(
   } else {
     const firstPageSnapshot = await getDocs(query(baseQuery, limit(pageSize)));
     paginatedApartments = firstPageSnapshot.docs.map(toApartment);
+  }
+
+  if (searchPlan) {
+    paginatedApartments = paginatedApartments.filter((apt) =>
+      matchesAllSearchTokens(apt, searchPlan.tokens),
+    );
   }
 
   const lastApartment = paginatedApartments[paginatedApartments.length - 1];
