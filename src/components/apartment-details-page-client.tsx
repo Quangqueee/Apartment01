@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Apartment } from "@/lib/types";
 import ClientFormattedDate from "@/components/client-formatted-date";
 import { useAuth } from "@/context/auth-context";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
@@ -706,27 +706,33 @@ export default function ApartmentDetailsPageClient({
     setIsFavorited(currentFavorites.includes(apartmentId));
   }, [user, userData?.favorites, apartmentId]);
 
-  useEffect(() => {
-    if (isCollaborator) {
+  useLayoutEffect(() => {
+    if (authLoading || isCollaborator) {
       setDescOverflows(false);
       return;
     }
+
     const el = descRef.current;
     if (!el) return;
 
     const checkOverflow = () => {
-      setDescOverflows(el.scrollHeight > el.clientHeight + 1);
+      const node = descRef.current;
+      if (!node) return;
+      const inner = node.firstElementChild as HTMLElement | null;
+      const clampedOverflow = node.scrollHeight > node.clientHeight + 1;
+      const innerOverflow = inner
+        ? inner.scrollHeight > node.clientHeight + 1
+        : false;
+      setDescOverflows(clampedOverflow || innerOverflow);
     };
 
     checkOverflow();
-    const rafId = requestAnimationFrame(checkOverflow);
     const observer = new ResizeObserver(checkOverflow);
     observer.observe(el);
-    return () => {
-      cancelAnimationFrame(rafId);
-      observer.disconnect();
-    };
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    return () => observer.disconnect();
   }, [
+    authLoading,
     isCollaborator,
     apartmentId,
     apartment.details,
@@ -1261,7 +1267,9 @@ export default function ApartmentDetailsPageClient({
                     ref={descRef}
                     className={cn(
                       "text-[#222222] md:text-gray-700 text-[16px] leading-6 md:leading-[1.6]",
-                      isCollaborator ? "whitespace-pre-wrap" : "line-clamp-3",
+                      isCollaborator
+                        ? "whitespace-pre-wrap"
+                        : "line-clamp-3 max-h-[4.5rem] md:max-h-[4.8rem] [&_p]:my-0 [&_ul]:my-0 [&_ol]:my-0",
                     )}
                   >
                     {isCollaborator ? (
