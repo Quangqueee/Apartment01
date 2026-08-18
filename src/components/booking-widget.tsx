@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Heart, Phone, Loader2, UserPlus, Users, Search } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
 import { Apartment } from "@/lib/types";
 import { getDisplaySourceCode } from "@/lib/source-code";
 
@@ -48,6 +48,7 @@ interface BookingWidgetProps {
   statusLabel: string;
   statusTextColor: string;
   statusDotColor: string;
+  hideMobileBar?: boolean;
 }
 
 export default function BookingWidget({
@@ -59,6 +60,7 @@ export default function BookingWidget({
   statusLabel,
   statusTextColor,
   statusDotColor,
+  hideMobileBar = false,
 }: BookingWidgetProps) {
   const { user, userData } = useAuth();
   const { toast } = useToast();
@@ -316,68 +318,353 @@ export default function BookingWidget({
     return "Nhận tư vấn";
   };
 
+  const getMobileButtonText = () => {
+    if (role === "admin") return "Thêm lịch";
+    if (isCollaborator) return "Đặt lịch";
+    if (role === "user") return "Đặt lịch";
+    return "Nhận tư vấn";
+  };
+
+  const formattedPrice =
+    typeof apartment.price === "number"
+      ? `₫${(apartment.price * 1000000).toLocaleString("vi-VN")}`
+      : formatPrice(apartment.price);
+
+  const isAdminRole = role === "admin";
+  const useCtvFields = role === "collaborator" || isAdminRole;
+
+  const inputClass =
+    "w-full border border-[#e2e2e2] rounded-lg px-3 py-2.5 text-base outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]";
+  const labelClass = "text-sm font-semibold text-[#222222]";
+
+  const renderLeadFields = () => (
+    <>
+      {useCtvFields ? (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>
+                Tên khách <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                type="text"
+                name="clientName"
+                value={formData.clientName}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>
+                SĐT khách <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                type="tel"
+                name="clientPhone"
+                value={formData.clientPhone}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>Mã căn</label>
+              <input
+                type="text"
+                value={getDisplaySourceCode(apartment.sourceCode, role)}
+                readOnly
+                className={`${inputClass} bg-gray-50 text-gray-500`}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>Ngân sách</label>
+              <input
+                type="text"
+                name="budget"
+                value={formData.budget}
+                onChange={handleChange}
+                placeholder="VD: 5-7tr"
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>
+              Giá tư vấn <span className="text-red-500">*</span>
+            </label>
+            <input
+              required
+              type="text"
+              name="consultationPrice"
+              value={formData.consultationPrice}
+              onChange={handleChange}
+              placeholder="Giá báo khách..."
+              className={inputClass}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>
+                Ngày dẫn khách <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                type="date"
+                name="bookingDate"
+                value={formData.bookingDate}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>
+                Giờ dẫn{" "}
+                <span className="text-gray-400 text-[11px] font-normal">
+                  (Có thể bỏ trống)
+                </span>
+              </label>
+              <input
+                type="time"
+                name="bookingTime"
+                value={formData.bookingTime}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>
+              Họ và tên <span className="text-red-500">*</span>
+            </label>
+            <input
+              required
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              className={inputClass}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>
+              Số điện thoại <span className="text-red-500">*</span>
+            </label>
+            <input
+              required
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              className={inputClass}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>
+                Ngày xem <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                type="date"
+                name="bookingDate"
+                value={formData.bookingDate}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelClass}>
+                Giờ xem{" "}
+                <span className="text-gray-400 text-[11px] font-normal">
+                  (Có thể bỏ trống)
+                </span>
+              </label>
+              <input
+                type="time"
+                name="bookingTime"
+                value={formData.bookingTime}
+                onChange={handleChange}
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Ngân sách</label>
+            <input
+              type="text"
+              name="budget"
+              value={formData.budget}
+              onChange={handleChange}
+              placeholder="VD: 5-7 triệu"
+              className={inputClass}
+            />
+          </div>
+        </>
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <label className={labelClass}>Lưu ý thêm</label>
+        <textarea
+          name="notes"
+          value={formData.notes}
+          onChange={handleChange}
+          placeholder="Khu vực cần tìm, ngày cần chuyển, có xe điện, có nuôi pet..."
+          className={`${inputClass} resize-none h-20`}
+        />
+      </div>
+    </>
+  );
+
   return (
     <>
-      <div className="sticky top-28">
-        <div className="rounded-[2.5rem] bg-white p-8 shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-gray-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
-          <div className="relative z-10 space-y-6">
-            <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100/50">
-              <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-4">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
-                  {statusHeader}
-                </span>
-                <span
-                  className={`flex items-center gap-2 ${statusTextColor} text-xs font-bold uppercase tracking-wide`}
-                >
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span
-                      className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusDotColor} opacity-40`}
-                    ></span>
-                    <span
-                      className={`relative inline-flex rounded-full h-2.5 w-2.5 ${statusDotColor}`}
-                    ></span>
+      <div className="hidden lg:block sticky top-28">
+        {isAdminRole ? (
+          <div className="rounded-[2.5rem] bg-white p-8 shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-gray-100 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+            <div className="relative z-10 space-y-6">
+              <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100/50">
+                <div className="flex items-center justify-between border-b border-gray-200 pb-4 mb-4">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                    {statusHeader}
                   </span>
-                  {statusLabel}
-                </span>
+                  <span
+                    className={`flex items-center gap-2 ${statusTextColor} text-xs font-bold uppercase tracking-wide`}
+                  >
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span
+                        className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusDotColor} opacity-40`}
+                      ></span>
+                      <span
+                        className={`relative inline-flex rounded-full h-2.5 w-2.5 ${statusDotColor}`}
+                      ></span>
+                    </span>
+                    {statusLabel}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                    Hotline 24/7
+                  </span>
+                  <span className="font-mono text-xl font-bold text-gray-900 tracking-wide">
+                    0355.885.851
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
-                  Hotline 24/7
-                </span>
-                <span className="font-mono text-xl font-bold text-gray-900 tracking-wide">
-                  0355.885.851
-                </span>
+              <div className="space-y-3 pt-2">
+                <button
+                  onClick={() => setIsOpen(true)}
+                  className="flex items-center justify-center w-full py-4 rounded-2xl bg-gradient-to-r from-[#FF385C] to-[#D70466] text-white font-bold uppercase tracking-widest hover:shadow-[0_10px_25px_rgba(215,4,102,0.35)] hover:scale-[1.01] transition-all duration-300 gap-2 shadow-lg"
+                >
+                  <Phone className="h-5 w-5 fill-current" /> {getButtonText()}
+                </button>
+                <button
+                  onClick={onFavoriteToggle}
+                  disabled={isFavLoading}
+                  className={cn(
+                    "hidden lg:flex items-center justify-center w-full py-4 rounded-2xl border-2 font-bold uppercase tracking-widest transition-all group gap-2 text-xs",
+                    isFavorited
+                      ? "border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300"
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-primary hover:text-primary",
+                  )}
+                >
+                  <Heart
+                    className={cn(
+                      "h-5 w-5 transition-transform group-hover:scale-110",
+                      isFavorited && "fill-current",
+                    )}
+                  />
+                  {isFavorited ? "Đã lưu tin" : "Lưu tin này"}
+                </button>
               </div>
             </div>
-            <div className="space-y-3 pt-2">
-              <button
-                onClick={() => setIsOpen(true)}
-                className="flex items-center justify-center w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-[#b88e22] text-white font-bold uppercase tracking-widest hover:shadow-[0_10px_25px_rgba(205,165,51,0.3)] hover:scale-[1.01] transition-all duration-300 gap-2 shadow-lg"
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-white p-5 shadow-[0_6px_20px_rgba(0,0,0,0.08)] border border-[#e2e2e2] max-h-[calc(100vh-8rem)] overflow-y-auto overflow-x-hidden">
+            <div className="mb-4 pb-4 border-b border-[#e2e2e2]">
+              <p className="text-sm font-semibold text-[#222222]">
+                Hanoi Residences
+              </p>
+              <p className="text-xs text-[#757575]">
+                Tư vấn căn hộ · Phản hồi trong ngày
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+              {renderLeadFields()}
+
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full h-11 mt-1 rounded-xl bg-gradient-to-r from-[#FF385C] to-[#D70466] hover:from-[#E31C5F] hover:to-[#BD0458] text-white font-bold shadow-[0_8px_20px_rgba(215,4,102,0.28)]"
               >
-                <Phone className="h-5 w-5 fill-current" /> {getButtonText()}
-              </button>
+                {isSubmitting ? (
+                  <Loader2 className="animate-spin h-5 w-5" />
+                ) : (
+                  getButtonText()
+                )}
+              </Button>
+
+              <a
+                href="tel:0355885851"
+                className="flex items-center justify-center w-full h-11 rounded-xl border border-[#222222] text-[#222222] font-semibold text-sm hover:bg-gray-50 transition-colors gap-2"
+              >
+                <Phone className="h-4 w-4" />
+                Gọi 0355.885.851
+              </a>
+
               <button
+                type="button"
                 onClick={onFavoriteToggle}
                 disabled={isFavLoading}
                 className={cn(
-                  "hidden lg:flex items-center justify-center w-full py-4 rounded-2xl border-2 font-bold uppercase tracking-widest transition-all group gap-2 text-xs",
+                  "flex items-center justify-center w-full gap-1.5 py-1 text-sm font-semibold underline underline-offset-2 transition-colors",
                   isFavorited
-                    ? "border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:border-red-300"
-                    : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-primary hover:text-primary",
+                    ? "text-red-500"
+                    : "text-[#222222] hover:text-[#cda533]",
                 )}
               >
                 <Heart
                   className={cn(
-                    "h-5 w-5 transition-transform group-hover:scale-110",
+                    "h-4 w-4",
                     isFavorited && "fill-current",
                   )}
                 />
                 {isFavorited ? "Đã lưu tin" : "Lưu tin này"}
               </button>
-            </div>
+            </form>
+          </div>
+        )}
+      </div>
+
+      <div
+        className={cn(
+          "listing-sticky-cta lg:hidden fixed left-0 right-0 z-40 bg-white border-t border-[#e2e2e2] px-5 py-3 flex items-center gap-3 overflow-x-hidden",
+          hideMobileBar && "hidden",
+        )}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-1">
+            <p className="font-bold text-[20px] leading-7 tracking-[-0.08px] text-[#cda533] truncate">
+              {formattedPrice}
+            </p>
+            <p className="font-normal text-[14px] leading-5 text-[#757575] shrink-0">
+              /tháng
+            </p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="shrink-0 min-w-[148px] bg-gradient-to-r from-[#FF385C] to-[#D70466] hover:from-[#E31C5F] hover:to-[#BD0458] active:scale-[0.98] text-white font-bold text-[15px] leading-5 px-5 py-3.5 rounded-xl shadow-[0_8px_20px_rgba(215,4,102,0.35)] transition-all"
+        >
+          {getMobileButtonText()}
+        </button>
       </div>
 
       <Dialog
@@ -519,192 +806,7 @@ export default function BookingWidget({
               </div>
             )}
 
-            {isCollaborator ? (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold">
-                      Tên khách <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      required
-                      type="text"
-                      name="clientName"
-                      value={formData.clientName}
-                      onChange={handleChange}
-                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold">
-                      SĐT khách <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      required
-                      type="tel"
-                      name="clientPhone"
-                      value={formData.clientPhone}
-                      onChange={handleChange}
-                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold">Mã căn</label>
-                    <input
-                      type="text"
-                      value={getDisplaySourceCode(apartment.sourceCode, role)}
-                      readOnly
-                      className="border rounded-lg p-2 bg-gray-50 text-gray-500 outline-none"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold">Ngân sách</label>
-                    <input
-                      type="text"
-                      name="budget"
-                      value={formData.budget}
-                      onChange={handleChange}
-                      placeholder="VD: 5-7tr"
-                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold">
-                    Giá tư vấn <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    name="consultationPrice"
-                    value={formData.consultationPrice}
-                    onChange={handleChange}
-                    placeholder="Giá báo khách..."
-                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] text-sm"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold">
-                      Ngày dẫn khách <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      required
-                      type="date"
-                      name="bookingDate"
-                      value={formData.bookingDate}
-                      onChange={handleChange}
-                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold whitespace-nowrap">
-                      Giờ dẫn{" "}
-                      <span className="text-gray-400 text-[11px] font-normal">
-                        (Có thể bỏ trống)
-                      </span>
-                    </label>
-                    <input
-                      type="time"
-                      name="bookingTime"
-                      value={formData.bookingTime}
-                      onChange={handleChange}
-                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
-                    />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold">
-                    Họ và tên <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold">
-                    Số điện thoại <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    required
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold">
-                      Ngày xem <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      required
-                      type="date"
-                      name="bookingDate"
-                      value={formData.bookingDate}
-                      onChange={handleChange}
-                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold">
-                      Giờ xem{" "}
-                      <span className="text-gray-400 text-[11px] font-normal">
-                        (Bỏ trống)
-                      </span>
-                    </label>
-                    <input
-                      type="time"
-                      name="bookingTime"
-                      value={formData.bookingTime}
-                      onChange={handleChange}
-                      className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold">Ngân sách</label>
-                  <input
-                    type="text"
-                    name="budget"
-                    value={formData.budget}
-                    onChange={handleChange}
-                    placeholder="VD: 5-7 triệu"
-                    className="border rounded-lg p-2 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
-                  />
-                </div>
-              </>
-            )}
-
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-semibold">Lưu ý thêm</label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                placeholder={
-                  isCollaborator
-                    ? "Tài chính, xe điện, pet..."
-                    : "Yêu cầu đặc biệt (pet, chỗ để oto...)"
-                }
-                className="border rounded-lg p-2 resize-none h-20 outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
-              />
-            </div>
+            {renderLeadFields()}
 
             <Button
               type="submit"

@@ -86,7 +86,7 @@ export async function generateListingSummary(input: {
   const formattedArea = input.area > 0 ? `${input.area} m2` : "Không cung cấp";
 
   const systemPrompt = `Bạn là chuyên gia Content SEO Bất động sản cao cấp tại Hà Nội.
-MỤC TIÊU: Viết bài mô tả chuẩn SEO, TUYỆT ĐỐI tuân thủ cấu trúc Markdown (H2, Bullet points) bên trong trường "description". KHÔNG bịa thông tin.
+MỤC TIÊU: Viết bài mô tả chuẩn SEO, văn phong tự nhiên như người môi giới giàu kinh nghiệm — hấp dẫn, cụ thể, không sáo rỗng, không dịch máy. TUYỆT ĐỐI tuân thủ cấu trúc Markdown (H2, Bullet points) bên trong trường "description". KHÔNG bịa thông tin.
 
 CẤU TRÚC JSON PHẢI TRẢ VỀ:
 {
@@ -108,7 +108,7 @@ CẤU TRÚC JSON PHẢI TRẢ VỀ:
 ${input.detailedInformation}
 """`;
 
-  const estimatedTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 2.5) + 800;
+  const estimatedTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 2.5) + 1000;
   const MAX_RETRIES = 5;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -120,13 +120,16 @@ ${input.detailedInformation}
       console.log(`[Groq] Đang gọi AI (Key Index: ${currentKeyIndex})...`);
 
       const response = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
+        model: "qwen/qwen3.6-27b",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
         response_format: { type: "json_object" },
-        temperature: 0.3, // Ép chặt định dạng Markdown JSON
+        temperature: 0.7,
+        top_p: 0.8,
+        max_completion_tokens: 4096,
+        reasoning_effort: "none",
       });
 
       if (response.usage?.total_tokens) {

@@ -690,6 +690,67 @@ export default function SOPDocsPage() {
                 </div>
               </div>
 
+              {/* Cơ chế nguồn nhân sự đẩy về website */}
+              <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm overflow-x-hidden">
+                <h3 className="text-2xl font-black text-gray-900 mb-6 text-center">
+                  CƠ CHẾ NGUỒN NHÂN SỰ ĐẨY VỀ WEBSITE
+                </h3>
+                <div className="grid md:grid-cols-2 gap-6 mb-6">
+                  <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-2 h-full bg-emerald-500"></div>
+                    <h4 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                      <Users className="text-emerald-600 flex-shrink-0" /> Nhân
+                      sự chủ nguồn
+                    </h4>
+                    <p className="text-gray-700 text-base leading-relaxed">
+                      Nhân sự đẩy nguồn hàng của mình về website sẽ nhận{" "}
+                      <strong className="text-emerald-700 font-black">
+                        20% tổng doanh số
+                      </strong>{" "}
+                      của căn được chốt.
+                    </p>
+                  </div>
+                  <div className="bg-amber-50 rounded-2xl p-6 border border-amber-100 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-2 h-full bg-amber-500"></div>
+                    <h4 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                      <AlertTriangle className="text-amber-600 flex-shrink-0" />{" "}
+                      CTV chốt nguồn nhân sự
+                    </h4>
+                    <p className="text-gray-700 text-base leading-relaxed">
+                      Khi CTV chốt căn thuộc nguồn của nhân sự khác, cơ chế hoa
+                      hồng phải{" "}
+                      <strong className="text-amber-800 font-black">
+                        cắt 10%
+                      </strong>{" "}
+                      cho chủ nguồn nhân sự đó, và công ty sẽ trả phần còn lại cho nhân sự đó.
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-slate-50 border-l-4 border-slate-500 p-5 rounded-r-2xl">
+                  <h4 className="font-bold text-slate-900 text-base mb-2">
+                    Cách nhận diện nguồn trên bảng hàng
+                  </h4>
+                  <ul className="list-disc pl-5 space-y-2 text-slate-700 text-sm md:text-base">
+                    <li>
+                      Mã dạng viết tắt quận + số (VD: <strong>TH0083</strong>,{" "}
+                      <strong>HK0089</strong>, ...) là{" "}
+                      <strong className="text-slate-900">
+                        nguồn của công ty
+                      </strong>
+                      .
+                    </li>
+                    <li>
+                      Mã có tên riêng kèm số thứ tự (STT) là{" "}
+                      <strong className="text-slate-900">
+                        nguồn của nhân sự {" "}
+                      </strong>
+                      (VD: <strong>VIỆT HOÀNG -38, HUY CHUNG-42,...)</strong>,{" "}
+                      .
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
               {/* Bảng tính hoa hồng tương tác */}
               <div className="bg-white border border-gray-200 rounded-3xl p-8 shadow-sm">
                 <h3 className="text-2xl font-black text-gray-900 mb-2 text-center">
@@ -1029,7 +1090,7 @@ export default function SOPDocsPage() {
         return (
           <div
             id="module-1"
-            className="animate-in fade-in duration-300 space-y-16"
+            className="animate-in fade-in duration-300 space-y-16 overflow-x-hidden"
           >
             <div id="m1-bang-gia">
               <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-4">
@@ -1130,6 +1191,31 @@ export default function SOPDocsPage() {
                     vụ. VD: Trên nguồn chỉ ghi Điện 4k. Lúc này sẽ ngầm hiểu là
                     chỉ thu phí điện 4k/kWh, và miễn phí dịch vụ, nước sinh
                     hoạt.
+                  </p>
+                </div>
+                <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm">
+                  <div className="w-14 h-14 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center font-bold text-xl mb-5">
+                    CT
+                  </div>
+                  <h3 className="font-bold text-gray-900 mb-3 text-xl">
+                    Nguồn công ty
+                  </h3>
+                  <p className="text-base text-gray-600 leading-relaxed">
+                    Mã dạng viết tắt quận + số (VD:{" "}
+                    <strong className="text-gray-900">hbt0083</strong>,{" "}
+                    <strong className="text-gray-900">hk0089</strong>, ...) là
+                    nguồn của công ty.
+                  </p>
+                </div>
+                <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm">
+                  <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center font-bold text-xl mb-5">
+                    NS
+                  </div>
+                  <h3 className="font-bold text-gray-900 mb-3 text-xl">
+                    Nguồn nhân sự
+                  </h3>
+                  <p className="text-base text-gray-600 leading-relaxed">
+                    Mã có tên riêng kèm số thứ tự (STT) là nguồn của nhân sự. (VD: <strong className="text-gray-900">VIỆT HOÀNG -38, HUY CHUNG-42,...)</strong>,{" "}
                   </p>
                 </div>
                 <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm md:col-span-2 flex flex-col md:flex-row gap-6 items-start md:items-center">
@@ -2785,7 +2871,7 @@ Liên hệ em 📲 081.2442.111 (Zalo/Call) hoặc inbox trực tiếp để qua
               <div className="absolute top-0 right-0 w-80 h-80 bg-[#cda533] opacity-5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
 
               <div className="relative z-10">
-                <h3 className="text-3xl md:text-4xl font-extrabold text-[#cda533] mb-8 leading-tight font-[Playfair display] tracking-wide">
+                <h3 className="text-3xl md:text-4xl font-extrabold text-[#cda533] mb-8 leading-tight font-headline tracking-wide">
                   Lời Gửi Gắm Từ <br className="hidden md:block" /> Ban Quản Trị
                   Hanoi Residences
                 </h3>
@@ -2852,9 +2938,9 @@ Liên hệ em 📲 081.2442.111 (Zalo/Call) hoặc inbox trực tiếp để qua
   };
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-80px)] md:min-h-[calc(100vh-96px)] bg-[#f8fafc] text-gray-800 font-sans relative">
-      {/* MOBILE TOP BAR */}
-      <div className="lg:hidden sticky top-0 z-[90] bg-white/95 backdrop-blur-md border-b border-gray-200 px-5 py-3.5 flex items-center justify-between shadow-sm">
+    <div className="sop-guide flex flex-col lg:flex-row min-h-[calc(100vh-80px)] md:min-h-[calc(100vh-96px)] bg-[#f8fafc] text-gray-800 font-sans relative">
+      {/* MOBILE TOP BAR — luôn dính mép trên khi cuộn */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-[90] bg-white/95 backdrop-blur-md border-b border-gray-200 px-5 py-3.5 flex items-center justify-between shadow-sm">
         <div className="font-bold text-gray-900 text-[15px] flex items-center gap-2">
           <BookOpen size={18} className="text-[#cda533]" /> Mục lục đào tạo
         </div>
@@ -2865,6 +2951,7 @@ Liên hệ em 📲 081.2442.111 (Zalo/Call) hoặc inbox trực tiếp để qua
           <Menu size={22} />
         </button>
       </div>
+      <div className="lg:hidden h-[57px] shrink-0" aria-hidden />
 
       {/* MOBILE OVERLAY */}
       {mobileMenuOpen && (
@@ -2874,11 +2961,13 @@ Liên hệ em 📲 081.2442.111 (Zalo/Call) hoặc inbox trực tiếp để qua
         />
       )}
 
-      {/* SIDEBAR NAVIGATION */}
+      {/* SIDEBAR: mobile = drawer cố định; desktop = sticky full viewport */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 bg-white w-[75vw] sm:w-[280px] lg:w-[320px] z-[95] transform transition-transform duration-300 ease-in-out lg:sticky lg:translate-x-0 lg:top-0 lg:h-screen lg:self-start shadow-[4px_0_24px_rgba(0,0,0,0.08)] flex flex-col border-r border-gray-200",
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
+          "fixed inset-y-0 left-0 bg-white w-[75vw] sm:w-[280px] lg:w-[320px] z-[95] flex flex-col border-r border-gray-200 shadow-[4px_0_24px_rgba(0,0,0,0.08)]",
+          "transform transition-transform duration-300 ease-in-out",
+          "lg:sticky lg:top-0 lg:h-[100dvh] lg:max-h-[100dvh] lg:self-start lg:shrink-0 lg:transform-none",
+          mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
         <div className="flex p-5 lg:p-6 border-b border-gray-100 items-center justify-between bg-gray-50/50">
@@ -2971,7 +3060,7 @@ Liên hệ em 📲 081.2442.111 (Zalo/Call) hoặc inbox trực tiếp để qua
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 overflow-y-auto bg-transparent p-5 md:p-8 lg:pt-8 lg:px-10 relative">
+      <main className="flex-1 overflow-x-hidden bg-transparent p-5 md:p-8 lg:pt-8 lg:px-10 relative">
         <div className="max-w-5xl mx-auto pb-24">{renderContent()}</div>
 
         {/* Floating Back to Top Button */}

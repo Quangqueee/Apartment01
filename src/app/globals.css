@@ -51,6 +51,29 @@ html {
     font-family: var(--font-headline), serif;
     @apply tracking-tighter;
   }
+
+  /* SOP đào tạo: heading không chân, dễ đọc tiếng Việt — trừ Tầm nhìn & Lời kết */
+  .sop-guide h1,
+  .sop-guide h2,
+  .sop-guide h3,
+  .sop-guide h4,
+  .sop-guide h5,
+  .sop-guide h6 {
+    font-family: var(--font-body), system-ui, sans-serif;
+    letter-spacing: 0.01em;
+  }
+
+  .sop-guide #tam-nhin h1,
+  .sop-guide #tam-nhin h2,
+  .sop-guide #tam-nhin h3,
+  .sop-guide #tam-nhin h4,
+  .sop-guide #loi-gui-gam h1,
+  .sop-guide #loi-gui-gam h2,
+  .sop-guide #loi-gui-gam h3,
+  .sop-guide #loi-gui-gam h4 {
+    font-family: var(--font-headline), serif;
+    letter-spacing: -0.025em;
+  }
 }
 
 .transition-luxury {
@@ -87,4 +110,18 @@ html {
 body[data-scroll-locked] {
   padding-right: 0 !important;
   margin-right: 0 !important;
+}
+
+.listing-sticky-cta {
+  bottom: 0;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  transition: bottom 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (max-width: 1023px) {
+  body[data-listing-page="true"]:not([data-listing-nav-hidden="true"])
+    .listing-sticky-cta {
+    bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 1rem;
+  }
 }

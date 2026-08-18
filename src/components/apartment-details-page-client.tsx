@@ -17,6 +17,7 @@ import {
   Clock,
   Sparkles,
   Star,
+  Phone,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
@@ -299,14 +300,35 @@ function FeatureRow({
   desc: React.ReactNode;
 }) {
   return (
-    <div className="flex gap-5 items-start">
-      <div className="p-3 rounded-xl bg-primary/5 text-primary">
-        <Icon className="h-6 w-6" />
+    <div className="flex gap-3 md:gap-5 items-start">
+      <div className="shrink-0 size-7 md:size-auto md:p-3 md:rounded-xl md:bg-primary/5 md:text-primary">
+        <Icon className="h-7 w-7 md:h-6 md:w-6 text-[#222222] md:text-primary" />
       </div>
-      <div>
-        <h4 className="font-bold text-gray-900 text-base mb-1">{title}</h4>
-        <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
+      <div className="min-w-0">
+        <h4 className="font-semibold md:font-bold text-[#222222] text-[15px] md:text-base mb-0 md:mb-1 leading-5">
+          {title}
+        </h4>
+        <p className="text-[#757575] md:text-gray-500 text-[13px] md:text-sm leading-5 md:leading-relaxed">
+          {desc}
+        </p>
       </div>
+    </div>
+  );
+}
+
+function HighlightCard({
+  icon: Icon,
+  label,
+}: {
+  icon: any;
+  label: string;
+}) {
+  return (
+    <div className="flex-1 min-w-0 self-stretch flex flex-col justify-between gap-2 border border-[#e2e2e2] rounded-2xl p-3">
+      <Icon className="h-7 w-7 text-[#222222] shrink-0" />
+      <p className="font-semibold text-[12px] leading-4 tracking-[0.04px] text-[#222222] break-words">
+        {label}
+      </p>
     </div>
   );
 }
@@ -344,10 +366,10 @@ function RelatedApartments({ related }: { related: Apartment[] }) {
   if (related.length === 0) return null;
 
   return (
-    <div className="py-12 md:py-16">
+    <div className="py-8 md:py-16">
       <div className="container mx-auto px-4 md:px-6">
         <div className="rounded-[2.5rem] bg-gray-50/65 p-6 md:p-10 border border-gray-100/80 shadow-sm relative">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4 md:mb-8">
             <h3 className="font-headline text-2xl md:text-3xl font-bold text-gray-900">
               Có thể bạn cũng thích
             </h3>
@@ -376,7 +398,7 @@ function RelatedApartments({ related }: { related: Apartment[] }) {
               </Link>
             </div>
           </div>
-          <div className="md:hidden text-center text-xs font-medium text-gray-400 flex items-center justify-center gap-3 mb-6">
+          <div className="md:hidden text-center text-xs font-medium text-gray-400 flex items-center justify-center gap-3 mb-3">
             <span className="opacity-60 text-base">←</span>
             <span>Vuốt ngang để xem thêm</span>
             <span className="opacity-60 text-base">→</span>
@@ -440,6 +462,8 @@ export default function ApartmentDetailsPageClient({
   const [isGalleryLightboxOpen, setIsGalleryLightboxOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDescModalOpen, setIsDescModalOpen] = useState(false);
+  const descRef = useRef<HTMLDivElement>(null);
+  const [descOverflows, setDescOverflows] = useState(false);
 
   const isAdmin = userData?.role === "admin";
   const isCollaborator = userData?.role === "collaborator" || isAdmin;
@@ -682,6 +706,34 @@ export default function ApartmentDetailsPageClient({
     setIsFavorited(currentFavorites.includes(apartmentId));
   }, [user, userData?.favorites, apartmentId]);
 
+  useEffect(() => {
+    if (isCollaborator) {
+      setDescOverflows(false);
+      return;
+    }
+    const el = descRef.current;
+    if (!el) return;
+
+    const checkOverflow = () => {
+      setDescOverflows(el.scrollHeight > el.clientHeight + 1);
+    };
+
+    checkOverflow();
+    const rafId = requestAnimationFrame(checkOverflow);
+    const observer = new ResizeObserver(checkOverflow);
+    observer.observe(el);
+    return () => {
+      cancelAnimationFrame(rafId);
+      observer.disconnect();
+    };
+  }, [
+    isCollaborator,
+    apartmentId,
+    apartment.details,
+    apartment.aiContent?.description,
+    apartment.aiContent?.highlights,
+  ]);
+
   const handleFavoriteToggle = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!user) {
@@ -775,6 +827,10 @@ export default function ApartmentDetailsPageClient({
   }
 
   const isRented = apartment.status === "rented";
+  const formattedPrice =
+    typeof apartment.price === "number"
+      ? `₫${(apartment.price * 1000000).toLocaleString("vi-VN")}`
+      : formatPrice(apartment.price);
   const displayDate = apartment.updatedAt?.seconds
     ? apartment.updatedAt
     : apartment.createdAt;
@@ -977,7 +1033,7 @@ export default function ApartmentDetailsPageClient({
         </DialogContent>
       </Dialog>
 
-      <main className="flex-1 bg-white min-h-screen font-body text-gray-800">
+      <main className="flex-1 bg-white min-h-screen font-body text-[#222222] overflow-x-hidden">
         <div className="pt-0 md:pt-6">
           <div className="container mx-auto px-0 md:px-6">
             <ApartmentImageGallery
@@ -1027,12 +1083,12 @@ export default function ApartmentDetailsPageClient({
           </div>
         </div>
 
-        <div className="container mx-auto px-6 mt-8 md:mt-12 mb-16">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+        <div className="container mx-auto px-6 mt-0 md:mt-12 mb-6 lg:mb-16 pb-20 lg:pb-0">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 lg:gap-12">
             <div className="lg:col-span-8">
-              <div className="border-b border-gray-200 pb-6 mb-8 mt-2">
+              <div className="pt-4 pb-3 md:py-0 md:border-b md:border-gray-200 md:pb-6 md:mb-8 md:mt-2">
                 <div className="flex justify-between items-start gap-4 mb-2">
-                  <h1 className="text-[26px] md:text-[28px] font-semibold text-[#222222] leading-[1.2] tracking-tight font-airbnb">
+                  <h1 className="text-[24px] md:text-[28px] font-semibold text-[#222222] leading-[30px] md:leading-[1.2] tracking-[-0.1px] font-airbnb">
                     {isCollaborator
                       ? apartment.title
                       : apartment.aiContent?.seoTitle || apartment.title}
@@ -1065,33 +1121,64 @@ export default function ApartmentDetailsPageClient({
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-y-3 mt-4">
-                  <div className="flex items-center flex-wrap gap-x-2 text-[15px] text-[#222222]">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-[30px] md:text-[24px] font-bold tracking-tight text-[#cda533]">
-                        {typeof apartment.price === "number"
-                          ? `₫${(apartment.price * 1000000).toLocaleString("vi-VN")}`
-                          : formatPrice(apartment.price)}
-                      </span>
-                      <span className="text-gray-500 font-normal text-base">
-                        /tháng
-                      </span>
-                    </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] leading-5 text-[#222222]">
+                  <span className="inline-flex items-center gap-1">
+                    <Star className="h-4 w-4 fill-[#222222] text-[#222222]" />
+                    <span className={cn("font-normal", statusTextColor)}>
+                      {statusLabel}
+                    </span>
+                  </span>
+                  <span>·</span>
+                  <span className="font-semibold underline underline-offset-2">
+                    {displaySourceCode}
+                  </span>
+                  <span>·</span>
+                  <span>
+                    {apartment.district}
+                    {apartment.district ? ", Hà Nội" : "Hà Nội"}
+                  </span>
+                </div>
 
-                    <span className="text-gray-300 font-bold mx-1">·</span>
+                <div className="flex flex-col gap-2 mt-3 md:mt-4">
+                  <div className="hidden md:flex items-baseline gap-1">
+                    <span className="text-[24px] font-bold tracking-tight text-[#cda533]">
+                      {formattedPrice}
+                    </span>
+                    <span className="text-gray-500 font-normal text-[16px]">
+                      /tháng
+                    </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+                  <div className="flex items-center gap-1.5 text-[13px] md:text-xs font-medium text-[#757575] md:text-gray-500 md:bg-gray-50 md:px-3 md:py-1.5 md:rounded-full md:border md:border-gray-100 md:w-fit">
                     <Clock className="h-3.5 w-3.5" />
                     <span>
-                      Cập nhật: <ClientFormattedDate date={displayDate} />
+                      Ngày đăng: <ClientFormattedDate date={displayDate} />
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="border-b border-gray-100 pb-8 mb-8">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              <div className="h-px w-full bg-[#e2e2e2] md:hidden" />
+
+              <div className="py-4 md:py-0 md:border-b md:border-gray-100 md:pb-8 md:mb-8">
+                <p className="font-semibold text-[18px] md:text-[20px] leading-6 md:leading-7 tracking-[-0.08px] text-[#222222] mb-3">
+                  {getRoomTypeLabel(apartment.roomType)} tại{" "}
+                  {apartment.district || "Hà Nội"}
+                </p>
+
+                <div className="flex gap-[11px] md:hidden">
+                  <HighlightCard
+                    icon={Maximize}
+                    label={`${apartment.area} m²`}
+                  />
+                  <HighlightCard
+                    icon={LayoutGrid}
+                    label={getRoomTypeLabel(apartment.roomType)}
+                  />
+                  <HighlightCard icon={Hash} label={displaySourceCode} />
+                </div>
+
+                <div className="hidden md:grid grid-cols-4 gap-4">
                   <InfoBox
                     icon={Maximize}
                     label="Diện tích"
@@ -1115,10 +1202,14 @@ export default function ApartmentDetailsPageClient({
                 </div>
               </div>
 
-              <div className="pb-8 border-b border-gray-100 mb-8">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-2xl font-semibold text-gray-900">
-                    Thông tin chi tiết
+              <div className="h-px w-full bg-[#e2e2e2] md:hidden" />
+
+              <div className="py-4 md:py-0 md:pb-8 md:border-b md:border-gray-100 md:mb-8">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-[18px] md:text-2xl font-semibold text-[#222222] leading-6 md:leading-7 tracking-[-0.08px] md:tracking-normal font-airbnb">
+                    {isCollaborator
+                      ? "Thông tin chi tiết"
+                      : "Giới thiệu về chỗ ở này"}
                   </h3>
                   {isCollaborator && (
                     <Button
@@ -1133,8 +1224,8 @@ export default function ApartmentDetailsPageClient({
                 </div>
 
                 {isCollaborator && (
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className=" bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm">
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className=" bg-gray-50 border border-gray-100 p-3 rounded-xl shadow-sm">
                       <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
                         Hoa hồng:
                       </div>
@@ -1144,7 +1235,7 @@ export default function ApartmentDetailsPageClient({
                     </div>
 
                     {isAdmin ? (
-                      <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm">
+                      <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl shadow-sm">
                         <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
                           SĐT Chủ nhà:
                         </div>
@@ -1153,7 +1244,7 @@ export default function ApartmentDetailsPageClient({
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm">
+                      <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl shadow-sm">
                         <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
                           Mã căn:
                         </div>
@@ -1167,9 +1258,10 @@ export default function ApartmentDetailsPageClient({
 
                 <div className="relative">
                   <div
+                    ref={descRef}
                     className={cn(
-                      "text-gray-700 text-[16px] leading-[1.6]",
-                      !isCollaborator && "line-clamp-[17]",
+                      "text-[#222222] md:text-gray-700 text-[16px] leading-6 md:leading-[1.6]",
+                      isCollaborator ? "whitespace-pre-wrap" : "line-clamp-3",
                     )}
                   >
                     {isCollaborator ? (
@@ -1183,22 +1275,43 @@ export default function ApartmentDetailsPageClient({
                     )}
                   </div>
 
-                  {!isCollaborator && (
-                    <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+                  {!isCollaborator && descOverflows && (
+                    <div className="absolute bottom-0 left-0 w-full h-6 bg-gradient-to-t from-white to-transparent pointer-events-none" />
                   )}
                 </div>
 
-                {!isCollaborator && (
+                {!isCollaborator && descOverflows && (
                   <button
                     onClick={() => setIsDescModalOpen(true)}
-                    className="mt-4 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold rounded-xl transition-colors text-base flex items-center"
+                    className="mt-2 inline-flex items-center gap-1 text-[16px] font-semibold text-[#222222] underline underline-offset-2 md:no-underline md:mt-3 md:px-6 md:py-3 md:bg-gray-100 md:hover:bg-gray-200 md:rounded-xl md:transition-colors"
                   >
                     Hiển thị thêm
+                    <ChevronRight className="h-5 w-5 md:hidden" />
                   </button>
                 )}
               </div>
 
-              <div className="pb-8 space-y-6">
+              <div className="h-px w-full bg-[#e2e2e2] md:hidden" />
+
+              <div className="py-4 space-y-3 md:hidden">
+                <FeatureRow
+                  icon={Star}
+                  title={statusHeader}
+                  desc={statusLabel}
+                />
+                <FeatureRow
+                  icon={Phone}
+                  title="Hotline 24/7"
+                  desc="0355.885.851"
+                />
+                <FeatureRow
+                  icon={Sparkles}
+                  title="Thông tin minh bạch"
+                  desc="Hình ảnh thực tế, giá niêm yết rõ ràng, không thu phí trung gian."
+                />
+              </div>
+
+              <div className="hidden md:block pb-8 space-y-6">
                 <FeatureRow
                   icon={Star}
                   title="Dịch vụ chuyên nghiệp"
@@ -1213,18 +1326,17 @@ export default function ApartmentDetailsPageClient({
             </div>
 
             <div className="lg:col-span-4 relative">
-              <div className="lg:col-span-4 relative">
-                <BookingWidget
-                  apartment={apartment}
-                  isFavorited={isFavorited}
-                  onFavoriteToggle={handleFavoriteToggle}
-                  isFavLoading={isFavLoading}
-                  statusHeader={statusHeader}
-                  statusLabel={statusLabel}
-                  statusTextColor={statusTextColor}
-                  statusDotColor={statusDotColor}
-                />
-              </div>
+              <BookingWidget
+                apartment={apartment}
+                isFavorited={isFavorited}
+                onFavoriteToggle={handleFavoriteToggle}
+                isFavLoading={isFavLoading}
+                statusHeader={statusHeader}
+                statusLabel={statusLabel}
+                statusTextColor={statusTextColor}
+                statusDotColor={statusDotColor}
+                hideMobileBar={isGalleryLightboxOpen}
+              />
             </div>
           </div>
         </div>

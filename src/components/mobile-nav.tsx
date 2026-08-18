@@ -6,6 +6,7 @@ import { Heart, Search, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/firebase/provider";
 import { ADMIN_PATH } from "@/lib/constants";
+import { useEffect, useRef, useState } from "react";
 
 const navItems = [
   { href: "/", label: "Khám phá", icon: Search },
@@ -16,11 +17,63 @@ const navItems = [
 export default function MobileNav() {
   const pathname = usePathname();
   const { user, isUserLoading } = useUser();
+  const [hidden, setHidden] = useState(false);
+  const lastScrollY = useRef(0);
+
+  const isApartmentDetails = /^\/apartments\/[^/]+/.test(pathname);
+
+  useEffect(() => {
+    if (!isApartmentDetails) {
+      setHidden(false);
+      document.body.removeAttribute("data-listing-page");
+      document.body.removeAttribute("data-listing-nav-hidden");
+      return;
+    }
+
+    document.body.setAttribute("data-listing-page", "true");
+    lastScrollY.current = window.scrollY;
+
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      const delta = currentY - lastScrollY.current;
+
+      if (currentY < 24) {
+        setHidden(false);
+      } else if (delta > 8) {
+        setHidden(true);
+      } else if (delta < -8) {
+        setHidden(false);
+      }
+
+      lastScrollY.current = currentY;
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      document.body.removeAttribute("data-listing-page");
+      document.body.removeAttribute("data-listing-nav-hidden");
+    };
+  }, [isApartmentDetails]);
+
+  useEffect(() => {
+    if (!isApartmentDetails) return;
+    document.body.setAttribute(
+      "data-listing-nav-hidden",
+      hidden ? "true" : "false",
+    );
+  }, [hidden, isApartmentDetails]);
 
   if (pathname.startsWith(`/${ADMIN_PATH}`)) return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 md:hidden pb-safe">
+    <nav
+      className={cn(
+        "fixed bottom-0 left-0 right-0 z-50 border-t bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 md:hidden pb-[env(safe-area-inset-bottom)]",
+        "transition-transform duration-300 ease-ios-out will-change-transform",
+        hidden && "translate-y-full",
+      )}
+    >
       <div className="container mx-auto flex h-16 max-w-md items-center justify-around px-0">
         {navItems.map((item) => {
           const targetHref =

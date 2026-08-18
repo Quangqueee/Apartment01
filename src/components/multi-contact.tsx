@@ -62,6 +62,7 @@ export default function MultiContact() {
   const [isOpen, setIsOpen] = useState(false);
 
   if (pathname.startsWith(`/${ADMIN_PATH}`)) return null;
+  if (/^\/apartments\/[^/]+/.test(pathname)) return null;
 
   return (
     <>
