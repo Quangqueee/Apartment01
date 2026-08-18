@@ -15,6 +15,13 @@ export const metadata: Metadata = {
   title: "Tìm kiếm căn hộ",
   description:
     "Kết quả tìm kiếm căn hộ cho thuê tại Hà Nội theo khu vực, loại phòng và ngân sách.",
+  alternates: {
+    canonical: "/tim-kiem",
+    languages: {
+      "vi-VN": "/tim-kiem",
+      "x-default": "/tim-kiem",
+    },
+  },
 };
 
 export const revalidate = 60;

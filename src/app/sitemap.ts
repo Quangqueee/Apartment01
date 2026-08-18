@@ -1,69 +1,89 @@
-import { MetadataRoute } from 'next'
-import { collection, getDocs } from 'firebase/firestore'
-import { firestore } from '@/firebase/server-init'
+import { MetadataRoute } from "next";
+import { collection, getDocs } from "firebase/firestore";
+import { firestore } from "@/firebase/server-init";
+import { SITE, SITE_PATHS, absoluteUrl } from "@/lib/site";
 
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://hanoiresidence.site'
-
-// Lấy danh sách căn hộ từ Firestore để build URL động cho từng trang chi tiết
 async function getApartmentEntries(): Promise<MetadataRoute.Sitemap> {
   try {
-    const snapshot = await getDocs(collection(firestore, 'apartments'))
+    const snapshot = await getDocs(collection(firestore, "apartments"));
 
     return snapshot.docs.map((doc) => {
-      const data = doc.data()
+      const data = doc.data();
       const lastModified =
-        data.updatedAt?.toDate?.() ?? data.createdAt?.toDate?.() ?? new Date()
+        data.updatedAt?.toDate?.() ?? data.createdAt?.toDate?.() ?? new Date();
 
       return {
-        url: `${baseUrl}/apartments/${doc.id}`,
+        url: absoluteUrl(`/apartments/${doc.id}`),
         lastModified,
-        changeFrequency: 'weekly',
-        priority: 0.9, // Ưu tiên cao vì đây là trang chuyển đổi (conversion page)
-      }
-    })
+        changeFrequency: "weekly",
+        priority: 0.9,
+      };
+    });
   } catch (error) {
-    // Nếu fetch Firestore lỗi lúc build, không để sập toàn bộ sitemap —
-    // trả về mảng rỗng, các trang tĩnh bên dưới vẫn được tạo bình thường
-    console.error('Lỗi khi lấy danh sách căn hộ cho sitemap:', error)
-    return []
+    console.error("Lỗi khi lấy danh sách căn hộ cho sitemap:", error);
+    return [];
   }
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const apartmentEntries = await getApartmentEntries()
+  const apartmentEntries = await getApartmentEntries();
 
   const staticEntries: MetadataRoute.Sitemap = [
     {
-      url: baseUrl, // Trang chủ
+      url: SITE.url,
       lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 1, // Ưu tiên tuyệt đối
+      changeFrequency: "daily",
+      priority: 1,
     },
     {
-      url: `${baseUrl}/apartments`, // Trang danh sách căn hộ
+      url: absoluteUrl(SITE_PATHS.search),
       lastModified: new Date(),
-      changeFrequency: 'weekly',
+      changeFrequency: "daily",
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/about`, // Trang giới thiệu
+      url: absoluteUrl(SITE_PATHS.about),
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: "monthly",
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/partner-register`, // Trang ký gửi/đăng tin căn hộ (SEO để hút chủ nhà)
+      url: absoluteUrl(SITE_PATHS.faq),
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: absoluteUrl(SITE_PATHS.privacy),
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.4,
+    },
+    {
+      url: absoluteUrl(SITE_PATHS.terms),
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.4,
+    },
+    {
+      url: absoluteUrl(SITE_PATHS.partnerRegister),
+      lastModified: new Date(),
+      changeFrequency: "monthly",
       priority: 0.6,
     },
     {
-      url: `${baseUrl}/huong-dan-cong-viec`, // Trang hướng dẫn công việc cho nhân viên (SEO để hút nhân viên)
+      url: absoluteUrl("/huong-dan-cong-viec"),
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: "monthly",
       priority: 0.5,
     },
-  ]
+    {
+      url: absoluteUrl(SITE_PATHS.llms),
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+  ];
 
-  return [...staticEntries, ...apartmentEntries]
+  return [...staticEntries, ...apartmentEntries];
 }

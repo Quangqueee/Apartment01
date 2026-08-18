@@ -1,39 +1,50 @@
-import { MetadataRoute } from 'next'
+import { MetadataRoute } from "next";
+import { SITE, SITE_PATHS } from "@/lib/site";
 
 export default function robots(): MetadataRoute.Robots {
-  // Chỉ cần 1 fallback cứng tới domain production là đủ an toàn
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://hanoiresidence.site';
-
-  // Danh sách các route không cần index (tiết kiệm crawl budget)
   const disallowRoutes = [
-    '/api/',              // API routes
-    '/ctv-register',      // Trang đăng ký CTV cũ
-    '/partner-register',  // Trang đăng ký đối tác mới
-    '/admin/',            // Khu vực quản trị
-    '/login',             // Các trang Auth & Cá nhân
-    '/signup',
-    '/forgot-password',
-    '/reset-password',
-    '/profile',
-    '/favorites',
+    "/api/",
+    "/ctv-register",
+    "/admin/",
+    "/login",
+    "/signup",
+    "/forgot-password",
+    "/reset-password",
+    "/profile",
+    "/favorites",
+  ];
+
+  const aiUserAgents = [
+    "GPTBot",
+    "ChatGPT-User",
+    "OAI-SearchBot",
+    "PerplexityBot",
+    "ClaudeBot",
+    "anthropic-ai",
+    "Claude-SearchBot",
+    "Google-Extended",
+    "GoogleOther",
+    "Applebot-Extended",
+    "Amazonbot",
+    "CCBot",
+    "meta-externalagent",
+    "Bytespider",
   ];
 
   return {
     rules: [
       {
-        // Áp dụng cho tất cả bot thông thường (Googlebot, Bingbot, ...)
-        userAgent: '*',
-        allow: '/',
+        userAgent: "*",
+        allow: ["/", SITE_PATHS.llms],
         disallow: disallowRoutes,
       },
       {
-        // Kiểm soát các bot AI (ChatGPT, Perplexity, Claude...)
-        userAgent: ['GPTBot', 'ChatGPT-User', 'PerplexityBot', 'ClaudeBot', 'CCBot'],
-        allow: '/',
+        userAgent: aiUserAgents,
+        allow: ["/", SITE_PATHS.llms],
         disallow: disallowRoutes,
       },
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
-    host: baseUrl,
-  }
+    sitemap: `${SITE.url}/sitemap.xml`,
+    host: SITE.url,
+  };
 }

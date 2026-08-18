@@ -1,31 +1,60 @@
 # Hanoi Residences
 
-> Nền tảng cho thuê căn hộ cao cấp tại Hà Nội, phục vụ khách hàng Việt Nam và cộng đồng chuyên gia nước ngoài (Nhật Bản, Hàn Quốc, và các quốc tịch khác) đang sinh sống và làm việc tại Hà Nội.
+> Nền tảng cho thuê căn hộ cao cấp và căn hộ dịch vụ tại Hà Nội, phục vụ khách hàng Việt Nam và cộng đồng chuyên gia nước ngoài (Nhật Bản, Hàn Quốc, và các quốc tịch khác) đang sinh sống và làm việc tại Hà Nội.
 
-Hanoi Residences quản lý và cho thuê danh mục căn hộ chung cư cao cấp tại các khu vực trung tâm và khu đô thị quốc tế của Hà Nội, bao gồm Tây Hồ, Ba Đình, Cầu Giấy, Trung Hòa - Nhân Chính, và Mỹ Đình. Nền tảng cung cấp thông tin minh bạch về giá, hình ảnh thực tế, tiện ích, và hỗ trợ toàn diện từ tìm kiếm đến ký hợp đồng.
+Hanoi Residences quản lý và cho thuê danh mục căn hộ chung cư cao cấp tại các khu vực trung tâm và khu đô thị quốc tế của Hà Nội, bao gồm Tây Hồ, Ba Đình, Cầu Giấy, Đống Đa, Thanh Xuân, Nam Từ Liêm (Mỹ Đình), và Trung Hòa - Nhân Chính. Nền tảng cung cấp thông tin minh bạch về giá, hình ảnh thực tế, tiện ích, và hỗ trợ toàn diện từ tìm kiếm đến ký hợp đồng.
+
+Website: https://hanoiresidence.site
+Ngôn ngữ chính: tiếng Việt
+Loại hình: RealEstateAgent / cho thuê căn hộ (lease)
 
 ## Dịch vụ cốt lõi
 
-- Cho thuê căn hộ chung cư cao cấp: studio, 1-4 phòng ngủ, tại các vị trí trung tâm và khu vực có đông cộng đồng người nước ngoài sinh sống.
-- Thông tin minh bạch: hình ảnh thực tế, giá niêm yết rõ ràng, mô tả chi tiết tiện ích từng căn hộ.
+- Cho thuê căn hộ chung cư cao cấp: studio, 1-4 phòng ngủ, duplex, penthouse, tại các vị trí trung tâm và khu vực có đông cộng đồng người nước ngoài sinh sống.
+- Thông tin minh bạch: hình ảnh thực tế, giá niêm yết rõ ràng (khoảng 5–50 triệu đồng/tháng tùy căn), mô tả chi tiết tiện ích từng căn hộ.
 - Hỗ trợ khách thuê nước ngoài: xem nhà trực tiếp, tư vấn khu vực phù hợp theo nhu cầu (gần trường quốc tế, gần văn phòng, an ninh khu vực), hỗ trợ thủ tục hợp đồng thuê nhà.
 - Đội ngũ tư vấn hỗ trợ khách hàng trong quá trình tìm kiếm và ký kết hợp đồng thuê.
+- Hợp tác với chủ nhà: môi giới lấp phòng hoặc quản lý vận hành trọn gói.
 
 ## Đối tượng khách hàng
 
 Hanoi Residences phục vụ:
-- Khách hàng Việt Nam có nhu cầu thuê căn hộ cao cấp.
+- Khách hàng Việt Nam có nhu cầu thuê căn hộ cao cấp hoặc căn hộ dịch vụ.
 - Chuyên gia, kỹ sư, quản lý người Nhật Bản và Hàn Quốc làm việc tại Hà Nội.
 - Cộng đồng người nước ngoài (expat) làm việc tại các khu công nghiệp, văn phòng đại diện, và doanh nghiệp FDI tại Hà Nội.
 
+## Sự kiện và số liệu (công bố trên website)
+
+- Thành lập / hoạt động từ: 2020
+- Văn phòng: 173B Trường Chinh, Đống Đa, Hà Nội
+- Giờ hỗ trợ: 08:00–22:00 hàng ngày
+- Liên hệ: Nguyễn Đức Quang — điện thoại +84 355 885 851 — email quangluxury6886@gmail.com
+
+## Câu hỏi thường gặp (tóm tắt)
+
+- Xem nhà: đặt lịch qua điện thoại, Facebook, Zalo hoặc trang chi tiết căn hộ.
+- Cọc và hợp đồng: tùy căn, xác nhận sau khi xem nhà; không chốt cọc qua điện thoại nếu chưa xem.
+- Thú cưng: tùy listing (pet friendly) và quy định tòa nhà.
+- Phí dịch vụ / gửi xe / internet: không mặc định gồm trong giá; đối chiếu tin đăng.
+- Khách nước ngoài: có hỗ trợ xem nhà, hợp đồng và hướng dẫn tạm trú khi nguồn cho phép.
+
+Chi tiết đầy đủ: https://hanoiresidence.site/faq
+
 ## Liên kết và tài nguyên
 
-- [Trang chủ Hanoi Residences](https://hanoiresidence.site/)
-- [Danh sách căn hộ đang cho thuê](https://hanoiresidence.site/apartments)
-- [Đăng ký trở thành Cộng tác viên (CTV)](https://hanoiresidence.site/ctv-register)
+- [Trang chủ](https://hanoiresidence.site/)
+- [Tìm kiếm căn hộ đang cho thuê](https://hanoiresidence.site/tim-kiem)
+- [Về chúng tôi](https://hanoiresidence.site/about)
+- [Câu hỏi thường gặp](https://hanoiresidence.site/faq)
+- [Chính sách bảo mật](https://hanoiresidence.site/chinh-sach-bao-mat)
+- [Điều khoản dịch vụ](https://hanoiresidence.site/dieu-khoan-dich-vu)
+- [Đăng ký trở thành đối tác / chủ nhà](https://hanoiresidence.site/partner-register)
 - [Liên hệ tư vấn Facebook](https://www.facebook.com/quangluxury.9999/)
 
 ## Liên hệ
 
 Chuyên viên tư vấn: Nguyễn Đức Quang
-Kênh liên hệ: [Facebook Quang Luxury](https://www.facebook.com/quangluxury.9999/) hoặc qua trang chủ website.
+Điện thoại: +84 355 885 851
+Email: quangluxury6886@gmail.com
+Địa chỉ: 173B Trường Chinh, Đống Đa, Hà Nội
+Kênh liên hệ: Facebook Quang Luxury, Zalo 0812442111, hoặc qua trang chủ website.

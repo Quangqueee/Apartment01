@@ -94,7 +94,7 @@ export default function MultiContact() {
 
           {/* 2. Zalo Chat */}
           <a
-            href="https://zalo.me/0355885851"
+            href="https://zalo.me/0812442111"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors group"
@@ -109,14 +109,14 @@ export default function MultiContact() {
 
           {/* 3. Gọi điện thoại */}
           <a
-            href="tel:+84355885851"
+            href="tel:+84812442111"
             className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors group"
           >
             <div className="w-7 h-7 rounded-full bg-yellow-600 text-white flex items-center justify-center shrink-0 shadow-sm">
               <Phone size={14} className="animate-tada-hard" />
             </div>
             <span className="text-sm font-semibold text-gray-700 group-hover:text-yellow-600 whitespace-nowrap pr-2">
-              0355 885 851
+              081 2442 111
             </span>
           </a>
         </div>

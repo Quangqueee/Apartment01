@@ -49,3 +49,7 @@ export const APARTMENT_DELETE_WINDOW_MS = 60 * 60 * 1000;
 // This path is now dynamic and controlled by an environment variable.
 // It serves as a default/fallback if the env var is not set.
 export const ADMIN_PATH = process.env.NEXT_PUBLIC_ADMIN_SECRET_PATH || "admin";
+
+export const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID || "GTM-WBW36JRV";
+export const GA_MEASUREMENT_ID =
+  process.env.NEXT_PUBLIC_GA_ID || "G-4LXVB7FZW8";

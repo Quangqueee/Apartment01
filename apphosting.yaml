@@ -5,3 +5,7 @@ runConfig:
 environmentVariables:
   - name: NPM_CONFIG_LEGACY_PEER_DEPS
     value: "true"
+  - name: NEXT_PUBLIC_GTM_ID
+    value: "GTM-WBW36JRV"
+  - name: NEXT_PUBLIC_GA_ID
+    value: "G-4LXVB7FZW8"

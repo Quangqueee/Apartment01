@@ -1778,7 +1778,7 @@ CĂN HỘ CAO CẤP 1N1K FULL ĐỒ - VỊ TRÍ ĐẮC ĐỊA
 👉 Thanh toán linh hoạt. Ưu tiên khách thuê dài hạn.
 
 Liên hệ xem phòng ☎️
-035.5885.851 (Quang - Hỗ trợ xem phòng 24/7)`,
+081.2442.111 (Quang - Hỗ trợ xem phòng 24/7)`,
                     },
                     {
                       id: "tpl-2",
@@ -1795,7 +1795,7 @@ Thanh toán nhẹ nhàng 1 cọc 1, giá lại đang được chị chủ ưu đ
 📍 209 Đội Cấn, Ba Đình
 
 Đừng ngại ngùng hỏi giá, inbox hoặc gọi em ngay:
-☎️ 035.5885.851 (Quang)`,
+☎️ 081.2442.111 (Quang)`,
                     },
                     {
                       id: "tpl-3",

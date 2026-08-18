@@ -1,21 +1,29 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro, Playfair_Display } from "next/font/google";
+import { GoogleAnalytics, GoogleTagManager } from "@next/third-parties/google";
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import "./globals.css";
 import MobileNav from "@/components/mobile-nav";
 import MultiContact from "@/components/multi-contact";
-import Script from "next/script";
+import { JsonLd } from "@/components/json-ld";
 import { cn } from "@/lib/utils";
+import { GA_MEASUREMENT_ID, GTM_ID } from "@/lib/constants";
+import { SITE, SITE_PATHS } from "@/lib/site";
+import { buildOrganizationJsonLd } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://hanoiresidence.site"),
+  metadataBase: new URL(SITE.url),
   title: {
     default: "Hanoi Residences | Cho thuê căn hộ & Căn hộ dịch vụ tại Hà Nội",
     template: "%s | Hanoi Residences",
   },
   description:
     "Nền tảng tìm thuê căn hộ uy tín tại Hà Nội. Khám phá ngay không gian lý tưởng để an cư và làm việc với thông tin minh bạch, hỗ trợ tận tâm.",
+  applicationName: SITE.name,
+  authors: [{ name: SITE.founderName, url: SITE.sameAs[0] }],
+  creator: SITE.founderName,
+  publisher: SITE.name,
   keywords: [
     "hanoi residences",
     "thuê căn hộ hà nội",
@@ -34,17 +42,35 @@ export const metadata: Metadata = {
     "fully furnished apartment hanoi",
     "tay ho apartment for rent",
   ],
+  alternates: {
+    canonical: SITE_PATHS.home,
+    languages: {
+      "vi-VN": SITE.url,
+      "x-default": SITE.url,
+    },
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   openGraph: {
     title: "Hanoi Residences | Cho thuê căn hộ & Căn hộ dịch vụ tại Hà Nội",
     description:
       "Nền tảng tìm thuê căn hộ uy tín tại Hà Nội. Khám phá ngay không gian lý tưởng để an cư và làm việc với thông tin minh bạch, hỗ trợ tận tâm.",
-    url: "https://hanoiresidence.site",
-    siteName: "Hanoi Residences",
-    locale: "vi_VN",
+    url: SITE.url,
+    siteName: SITE.name,
+    locale: SITE.locale,
     type: "website",
     images: [
       {
-        url: "/images/hero-bg.webp",
+        url: SITE.ogImage,
         width: 1200,
         height: 630,
         alt: "Hanoi Residences - Thuê căn hộ tại Hà Nội",
@@ -56,7 +82,7 @@ export const metadata: Metadata = {
     title: "Hanoi Residences | Cho thuê căn hộ & Căn hộ dịch vụ tại Hà Nội",
     description:
       "Nền tảng tìm thuê căn hộ uy tín tại Hà Nội. Khám phá ngay không gian lý tưởng để an cư và làm việc với thông tin minh bạch, hỗ trợ tận tâm.",
-    images: ["/images/hero-bg.webp"],
+    images: [SITE.ogImage],
   },
   icons: { icon: "/favicon.ico" },
 };
@@ -79,49 +105,9 @@ const playfairDisplay = Playfair_Display({
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "RealEstateAgent",
-    name: "Hanoi Residences",
-    image: "https://hanoiresidence.site/images/hero-bg.webp",
-    "@id": "https://hanoiresidence.site",
-    url: "https://hanoiresidence.site",
-    telephone: "+84-355-885-851",
-    address: {
-      "@type": "PostalAddress",
-      addressLocality: "Hà Nội",
-      addressCountry: "VN",
-    },
-    geo: {
-      "@type": "GeoCoordinates",
-      latitude: 21.0285,
-      longitude: 105.8542,
-    },
-    openingHoursSpecification: {
-      "@type": "OpeningHoursSpecification",
-      dayOfWeek: [
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-        "Sunday",
-      ],
-      opens: "08:00",
-      closes: "22:00",
-    },
-    priceRange: "5,000,000 VND - 50,000,000 VND",
-    areaServed: [
-      "Tây Hồ, Hà Nội",
-      "Cầu Giấy, Hà Nội",
-      "Ba Đình, Hà Nội",
-      "Đống Đa, Hà Nội",
-    ],
-  };
-
   return (
     <html lang="vi" data-scroll-behavior="smooth" suppressHydrationWarning>
+      <GoogleTagManager gtmId={GTM_ID} />
       <body
         className={cn(
           "min-h-screen bg-background font-body text-foreground antialiased",
@@ -129,12 +115,7 @@ export default function RootLayout({
           playfairDisplay.variable,
         )}
       >
-        <Script
-          id="schema-real-estate"
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-          strategy="beforeInteractive"
-        />
+        <JsonLd id="schema-organization" data={buildOrganizationJsonLd()} />
 
         {/* FirebaseClientProvider already nests FirebaseProvider + AuthProvider */}
         <FirebaseClientProvider>
@@ -146,6 +127,7 @@ export default function RootLayout({
           <Toaster />
         </FirebaseClientProvider>
       </body>
+      <GoogleAnalytics gaId={GA_MEASUREMENT_ID} />
     </html>
   );
 }

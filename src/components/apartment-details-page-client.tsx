@@ -1310,7 +1310,7 @@ export default function ApartmentDetailsPageClient({
                 <FeatureRow
                   icon={Phone}
                   title="Hotline 24/7"
-                  desc="0355.885.851"
+                  desc="081.2442.111"
                 />
                 <FeatureRow
                   icon={Sparkles}

@@ -552,7 +552,7 @@ export default function BookingWidget({
                     Hotline 24/7
                   </span>
                   <span className="font-mono text-xl font-bold text-gray-900 tracking-wide">
-                    0355.885.851
+                    081.2442.111
                   </span>
                 </div>
               </div>
@@ -611,11 +611,11 @@ export default function BookingWidget({
               </Button>
 
               <a
-                href="tel:0355885851"
+                href="tel:0812442111"
                 className="flex items-center justify-center w-full h-11 rounded-xl border border-[#222222] text-[#222222] font-semibold text-sm hover:bg-gray-50 transition-colors gap-2"
               >
                 <Phone className="h-4 w-4" />
-                Gọi 0355.885.851
+                Gọi 081.2442.111
               </a>
 
               <button
