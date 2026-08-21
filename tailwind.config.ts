@@ -60,7 +60,16 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       transitionTimingFunction: {
-        'ios-out': 'cubic-bezier(0.32, 0.72, 0, 1)',
+        "ios-out": "cubic-bezier(0.32, 0.72, 0, 1)",
+      },
+      keyframes: {
+        marquee: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
+      },
+      animation: {
+        marquee: "marquee 22s linear infinite",
       },
     },
   },

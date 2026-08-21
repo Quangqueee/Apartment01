@@ -6,8 +6,8 @@ export const SITE = {
   language: "vi-VN",
   description:
     "Nền tảng cho thuê căn hộ cao cấp và căn hộ dịch vụ tại Hà Nội, phục vụ khách Việt Nam và cộng đồng chuyên gia nước ngoài.",
-  telephone: "+84-355-885-851",
-  telephoneDisplay: "+84 355 885 851",
+  telephone: "+84812442111",
+  telephoneDisplay: "081.2442.111",
   email: "quangluxury6886@gmail.com",
   founderName: "Nguyễn Đức Quang",
   founderJobTitle: "Chuyên viên tư vấn",

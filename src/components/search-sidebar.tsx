@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { HANOI_DISTRICTS, ROOM_TYPES } from "@/lib/constants";
+import {
+  buildSearchHref,
+  districtFromPathname,
+} from "@/lib/districts";
 import {
   parsePriceRange,
   serializePriceRange,
@@ -43,6 +47,7 @@ export default function SearchSidebar({
   onApplied?: () => void;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
@@ -59,14 +64,18 @@ export default function SearchSidebar({
       urlPriceRange.max === null || urlPriceRange.max === PRICE_FILTER_MAX;
 
     setQuery(searchParams.get("query") || "");
-    setDistricts(searchParams.get("district")?.split(",").filter(Boolean) || []);
+    const fromQuery =
+      searchParams.get("district")?.split(",").filter(Boolean) || [];
+    const fromPath = districtFromPathname(pathname);
+    setDistricts(
+      fromQuery.length > 0 ? fromQuery : fromPath ? [fromPath] : [],
+    );
     setRoomTypes(searchParams.get("roomType")?.split(",").filter(Boolean) || []);
     setPriceMinInput(isDefaultMin ? "" : String(urlPriceRange.min));
     setPriceMaxInput(isDefaultMax ? "" : String(urlPriceRange.max));
-  }, [searchParams]);
+  }, [pathname, searchParams]);
 
   const applyFilters = () => {
-    const params = new URLSearchParams();
     const currentSort = searchParams.get("sort");
     const minValue = parsePriceInput(priceMinInput, PRICE_FILTER_MIN);
     const maxValue = parsePriceInput(priceMaxInput, PRICE_FILTER_MAX);
@@ -77,20 +86,22 @@ export default function SearchSidebar({
     const isDefaultPrice =
       normalizedMin === PRICE_FILTER_MIN && normalizedMax === PRICE_FILTER_MAX;
 
-    if (query.trim()) params.set("query", query.trim());
-    if (districts.length > 0) params.set("district", districts.join(","));
-    if (roomTypes.length > 0) params.set("roomType", roomTypes.join(","));
-    if (!isNoPriceInput && !isDefaultPrice) {
-      params.set(
-        "price",
-        serializePriceRange({ min: normalizedMin, max: normalizedMax }),
-      );
-    }
-    if (currentSort && currentSort !== "newest") params.set("sort", currentSort);
-
     startTransition(() => {
-      const queryString = params.toString();
-      router.push(queryString ? `/tim-kiem?${queryString}` : "/tim-kiem");
+      router.push(
+        buildSearchHref({
+          query: query.trim(),
+          districts,
+          price:
+            !isNoPriceInput && !isDefaultPrice
+              ? serializePriceRange({
+                  min: normalizedMin,
+                  max: normalizedMax,
+                })
+              : undefined,
+          roomType: roomTypes.join(","),
+          sort: currentSort || undefined,
+        }),
+      );
       onApplied?.();
     });
   };

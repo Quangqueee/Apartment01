@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { districtPath } from "@/lib/districts";
 
 type DistrictStat = {
   name: string;
@@ -31,7 +32,7 @@ export default function FeaturedDistricts({
           return (
             <Link
               key={district.name}
-              href={`/tim-kiem?district=${encodeURIComponent(district.name)}`}
+              href={districtPath(district.name)}
               className="group relative h-[280px] overflow-hidden rounded-[2rem] bg-gray-200 shadow-md transition-all duration-500 md:hover:-translate-y-2 md:hover:shadow-2xl transform-gpu"
               style={{
                 WebkitMaskImage: "-webkit-radial-gradient(white, black)",

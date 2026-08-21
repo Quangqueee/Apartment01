@@ -52,8 +52,10 @@ const formatNotificationTime = (createdAt: any) => {
 
 export default function NotificationBell({
   userId,
+  triggerClassName,
 }: {
   userId?: string | null;
+  triggerClassName?: string;
 }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -91,7 +93,11 @@ export default function NotificationBell({
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <button
-          className="relative p-2 text-gray-500 hover:text-[#cda533] hover:bg-gray-50 rounded-lg transition-colors"
+          className={cn(
+            "relative rounded-lg p-2 transition-colors",
+            triggerClassName ||
+              "text-gray-500 hover:bg-gray-50 hover:text-[#cda533]",
+          )}
           aria-label="Thông báo"
         >
           <Bell className="h-5 w-5" />

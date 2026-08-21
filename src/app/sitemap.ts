@@ -10,6 +10,7 @@ import {
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
+import { DISTRICT_LANDINGS } from "@/lib/districts";
 import { SITE, SITE_PATHS, absoluteUrl } from "@/lib/site";
 
 /** ISR: Google crawls sitemap often; avoid a Firestore round-trip every hit. */
@@ -130,6 +131,12 @@ function staticEntries(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.5,
     },
+    ...DISTRICT_LANDINGS.map((district) => ({
+      url: absoluteUrl(`/${district.slug}`),
+      lastModified: now,
+      changeFrequency: "daily" as const,
+      priority: 0.85,
+    })),
   ];
 }
 

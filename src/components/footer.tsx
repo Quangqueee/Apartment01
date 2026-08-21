@@ -8,6 +8,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { SITE, SITE_PATHS } from "@/lib/site";
+import { districtPath } from "@/lib/districts";
 
 export default function Footer() {
   return (
@@ -84,6 +85,23 @@ export default function Footer() {
                   Dành cho Chủ nhà & Nhà đầu tư
                 </Link>
               </li>
+            </ul>
+            <p className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Khu vực cho thuê
+            </p>
+            <ul className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm text-muted-foreground">
+              {["Tây Hồ", "Ba Đình", "Cầu Giấy", "Đống Đa", "Thanh Xuân", "Nam Từ Liêm"].map(
+                (name) => (
+                  <li key={name}>
+                    <Link
+                      href={districtPath(name)}
+                      className="transition-colors hover:text-primary"
+                    >
+                      {name}
+                    </Link>
+                  </li>
+                ),
+              )}
             </ul>
           </div>
 

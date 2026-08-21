@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { buildDistrictLandingHref, buildSearchHref } from "@/lib/districts";
 
 type SearchPaginationProps = {
   currentPage: number;
@@ -11,6 +12,7 @@ type SearchPaginationProps = {
   price: string;
   roomType: string;
   sort: string;
+  basePath?: string;
 };
 
 const buildHref = ({
@@ -21,6 +23,7 @@ const buildHref = ({
   sort,
   page,
   cursor,
+  basePath,
 }: {
   query: string;
   district: string;
@@ -29,17 +32,24 @@ const buildHref = ({
   sort: string;
   page: number;
   cursor?: string | null;
+  basePath?: string;
 }) => {
-  const params = new URLSearchParams();
-  if (query) params.set("query", query);
-  if (district) params.set("district", district);
-  if (price) params.set("price", price);
-  if (roomType) params.set("roomType", roomType);
-  if (sort && sort !== "newest") params.set("sort", sort);
-  if (page > 1) params.set("page", String(page));
-  if (cursor && page > 1) params.set("cursor", cursor);
-  const queryString = params.toString();
-  return queryString ? `/tim-kiem?${queryString}` : "/tim-kiem";
+  if (basePath) {
+    return buildDistrictLandingHref(basePath.replace(/^\//, ""), {
+      sort,
+      page,
+      cursor,
+    });
+  }
+  return buildSearchHref({
+    query,
+    districts: district ? district.split(",").filter(Boolean) : [],
+    price,
+    roomType,
+    sort,
+    page,
+    cursor,
+  });
 };
 
 const getVisiblePages = (current: number, total: number) => {
@@ -69,10 +79,11 @@ export default function SearchPagination({
   price,
   roomType,
   sort,
+  basePath,
 }: SearchPaginationProps) {
   if (totalPages <= 1) return null;
 
-  const shared = { query, district, price, roomType, sort };
+  const shared = { query, district, price, roomType, sort, basePath };
   const pages = getVisiblePages(currentPage, totalPages);
 
   return (

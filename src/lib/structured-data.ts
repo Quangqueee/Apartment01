@@ -1,4 +1,5 @@
 import type { Apartment, RoomType } from "@/lib/types";
+import type { DistrictLanding } from "@/lib/districts";
 import { FAQ_ITEMS } from "@/lib/faq";
 import { SITE, SITE_PATHS, absoluteUrl } from "@/lib/site";
 
@@ -252,6 +253,65 @@ export function buildApartmentJsonLd(apartment: Apartment) {
             "@type": "ListItem",
             position: 3,
             name: apartment.title,
+            item: pageUrl,
+          },
+        ],
+      },
+    ],
+  };
+}
+
+export function buildDistrictSearchJsonLd({
+  landing,
+  apartments,
+  totalResults,
+  page,
+  pageSize,
+}: {
+  landing: DistrictLanding;
+  apartments: Apartment[];
+  totalResults: number;
+  page: number;
+  pageSize: number;
+}) {
+  const pageUrl = absoluteUrl(`/${landing.slug}`);
+  const startPosition = (Math.max(page, 1) - 1) * pageSize;
+
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "ItemList",
+        name: landing.title,
+        description: landing.description,
+        numberOfItems: totalResults,
+        url: pageUrl,
+        itemListElement: apartments.map((apartment, index) => ({
+          "@type": "ListItem",
+          position: startPosition + index + 1,
+          url: absoluteUrl(`/apartments/${apartment.id}`),
+          name: apartment.aiContent?.seoTitle || apartment.title,
+        })),
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          {
+            "@type": "ListItem",
+            position: 1,
+            name: "Trang chủ",
+            item: SITE.url,
+          },
+          {
+            "@type": "ListItem",
+            position: 2,
+            name: "Tìm kiếm căn hộ",
+            item: absoluteUrl(SITE_PATHS.search),
+          },
+          {
+            "@type": "ListItem",
+            position: 3,
+            name: landing.name,
             item: pageUrl,
           },
         ],

@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { HANOI_DISTRICTS, ROOM_TYPES } from "@/lib/constants";
+import { buildSearchHref } from "@/lib/districts";
 import { Button } from "./ui/button";
 import {
   MapPin,
@@ -75,8 +76,6 @@ function FilterControlsInner() {
   }, [searchParams]);
 
   const handleApply = () => {
-    const params = new URLSearchParams(searchParams.toString());
-
     const minValue = parsePriceInput(filters.priceMinInput, PRICE_FILTER_MIN);
     const maxValue = parsePriceInput(filters.priceMaxInput, PRICE_FILTER_MAX);
     const normalizedMin = Math.min(minValue, maxValue);
@@ -87,34 +86,25 @@ function FilterControlsInner() {
       max: normalizedMax,
     });
 
-    if (filters.query.trim()) params.set("query", filters.query.trim());
-    else params.delete("query");
-
-    if (filters.district.length > 0)
-      params.set("district", filters.district.join(","));
-    else params.delete("district");
-
-    if (filters.roomType.length > 0)
-      params.set("roomType", filters.roomType.join(","));
-    else params.delete("roomType");
-
     const isNoPriceInput =
       filters.priceMinInput.trim() === "" &&
       filters.priceMaxInput.trim() === "";
     const isDefaultPrice =
       normalizedMin === PRICE_FILTER_MIN && normalizedMax === PRICE_FILTER_MAX;
 
-    if (isNoPriceInput || isDefaultPrice) params.delete("price");
-    else params.set("price", serializedPrice);
-
     const currentSort = searchParams.get("sort");
-    if (currentSort) params.set("sort", currentSort);
-    params.delete("page");
-    params.delete("cursor");
 
     startTransition(() => {
-      const queryString = params.toString();
-      router.push(queryString ? `/tim-kiem?${queryString}` : "/tim-kiem");
+      router.push(
+        buildSearchHref({
+          query: filters.query.trim(),
+          districts: filters.district,
+          price:
+            isNoPriceInput || isDefaultPrice ? undefined : serializedPrice,
+          roomType: filters.roomType.join(","),
+          sort: currentSort || undefined,
+        }),
+      );
     });
   };
 
