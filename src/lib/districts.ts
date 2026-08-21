@@ -209,6 +209,7 @@ export type SearchHrefInput = {
   sort?: string;
   page?: number;
   cursor?: string | null;
+  before?: string | null;
 };
 
 export function buildSearchHref(input: SearchHrefInput): string {
@@ -226,6 +227,9 @@ export function buildSearchHref(input: SearchHrefInput): string {
   if (input.cursor && input.page && input.page > 1) {
     params.set("cursor", input.cursor);
   }
+  if (input.before && input.page && input.page > 1) {
+    params.set("before", input.before);
+  }
 
   const queryString = params.toString();
   return queryString ? `/tim-kiem?${queryString}` : "/tim-kiem";
@@ -233,13 +237,16 @@ export function buildSearchHref(input: SearchHrefInput): string {
 
 export function buildDistrictLandingHref(
   slug: string,
-  input: Pick<SearchHrefInput, "sort" | "page" | "cursor"> = {},
+  input: Pick<SearchHrefInput, "sort" | "page" | "cursor" | "before"> = {},
 ): string {
   const params = new URLSearchParams();
   if (input.sort && input.sort !== "newest") params.set("sort", input.sort);
   if (input.page && input.page > 1) params.set("page", String(input.page));
   if (input.cursor && input.page && input.page > 1) {
     params.set("cursor", input.cursor);
+  }
+  if (input.before && input.page && input.page > 1) {
+    params.set("before", input.before);
   }
   const queryString = params.toString();
   return queryString ? `/${slug}?${queryString}` : `/${slug}`;

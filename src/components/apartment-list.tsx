@@ -44,24 +44,6 @@ function getMdSnapshot() {
   return window.matchMedia("(min-width: 768px)").matches;
 }
 
-function getVisiblePages(current: number, total: number) {
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, index) => index + 1);
-  }
-
-  const pages = new Set([1, total, current, current - 1, current + 1]);
-  return Array.from(pages)
-    .filter((page) => page >= 1 && page <= total)
-    .sort((a, b) => a - b)
-    .reduce<(number | "ellipsis")[]>((items, page, index, list) => {
-      if (index > 0 && page - (list[index - 1] as number) > 1) {
-        items.push("ellipsis");
-      }
-      items.push(page);
-      return items;
-    }, []);
-}
-
 export default function ApartmentList({
   initialApartments,
   searchParams,
@@ -136,7 +118,7 @@ export default function ApartmentList({
           priceRange: searchParams.price,
           roomType: searchParams.roomType,
           sortBy: searchParams.sort,
-          page: cursor ? 1 : page,
+          page,
           cursor,
           limit: PAGE_SIZE,
           skipCount: true,
@@ -187,6 +169,7 @@ export default function ApartmentList({
   const goToPage = useCallback(
     async (page: number) => {
       if (page === currentPage) return;
+      if (Math.abs(page - currentPage) !== 1) return;
       const loaded = pageItemsRef.current[page] ?? (await loadPage(page));
       if (!loaded) return;
       shouldSnapRef.current = true;
@@ -287,7 +270,7 @@ export default function ApartmentList({
           {totalPages > 1 ? (
             <nav
               aria-label="Phân trang danh sách căn hộ"
-              className="mt-12 hidden flex-wrap items-center justify-center gap-1.5 overflow-x-hidden md:flex"
+              className="mt-12 hidden flex-wrap items-center justify-center gap-2 overflow-x-hidden md:flex"
             >
               <button
                 type="button"
@@ -303,33 +286,9 @@ export default function ApartmentList({
                 <ChevronLeft className="h-4 w-4" /> Trước
               </button>
 
-              {getVisiblePages(currentPage, totalPages).map((page, index) =>
-                page === "ellipsis" ? (
-                  <span
-                    key={`ellipsis-${index}`}
-                    className="px-1 text-gray-400"
-                    aria-hidden
-                  >
-                    …
-                  </span>
-                ) : (
-                  <button
-                    key={page}
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => goToPage(page)}
-                    aria-current={page === currentPage ? "page" : undefined}
-                    className={cn(
-                      "inline-flex h-9 min-w-9 items-center justify-center rounded-xl border px-3 text-sm font-bold transition-colors",
-                      page === currentPage
-                        ? "border-[#cda533] bg-[#cda533] text-white"
-                        : "border-gray-200 text-gray-700 hover:border-[#cda533] hover:text-[#cda533]",
-                    )}
-                  >
-                    {page}
-                  </button>
-                ),
-              )}
+              <span className="min-w-[7.5rem] px-2 text-center text-sm font-semibold text-gray-600">
+                Trang {currentPage} / {totalPages}
+              </span>
 
               <button
                 type="button"

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import SearchResults from "@/components/search-results";
 import { SITE_PATHS } from "@/lib/site";
+import { LISTING_REVALIDATE } from "@/lib/cache-policy";
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export const revalidate = 60;
+export const revalidate = LISTING_REVALIDATE;
 
 export const generateMetadata = async (): Promise<Metadata> => ({
   title: "Tìm kiếm căn hộ",

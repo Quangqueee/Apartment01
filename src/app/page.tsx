@@ -9,10 +9,11 @@ import SortControls from "@/components/sort-controls";
 import ApartmentList from "@/components/apartment-list";
 import Hero from "@/components/hero";
 import FeaturedDistricts from "@/components/featured-districts";
+import { LISTING_REVALIDATE } from "@/lib/cache-policy";
 import AboutSection from "@/app/about/page";
 
-/** ISR: homepage must stay free of searchParams so CDN can cache. */
-export const revalidate = 600;
+/** ISR vô hạn: chỉ làm mới khi revalidateApartmentListings() (push/sửa/xóa). Trang chủ không dùng searchParams. */
+export const revalidate = LISTING_REVALIDATE;
 
 export default async function Home() {
   const [{ apartments, totalResults }, districtStats] = await Promise.all([

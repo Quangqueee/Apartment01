@@ -21,7 +21,7 @@ import {
   Dog,
   Waves,
 } from "lucide-react";
-import { formatRelativeTime, formatPrice, cn } from "@/lib/utils";
+import { formatRelativeTime, formatPrice, cn, timestampSeconds } from "@/lib/utils";
 import { getDisplaySourceCode } from "@/lib/source-code";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -197,7 +197,7 @@ export default memo(function ApartmentCard({
   };
 
   const displayCommission = formatCommission(apartment.commission);
-  const timeToDisplay = apartment.updatedAt?.seconds
+  const timeToDisplay = timestampSeconds(apartment.updatedAt)
     ? apartment.updatedAt
     : apartment.createdAt;
 

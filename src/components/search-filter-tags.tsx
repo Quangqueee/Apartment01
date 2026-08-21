@@ -97,6 +97,7 @@ export default function SearchFilterTags() {
     updater(params);
     params.delete("page");
     params.delete("cursor");
+    params.delete("before");
     const queryString = params.toString();
     router.push(queryString ? `/tim-kiem?${queryString}` : "/tim-kiem");
   };

@@ -38,9 +38,9 @@ function SortControlsInner() {
 
   const handleSortChange = (value: string) => {
     const params = new URLSearchParams(searchParams);
-    params.set("sort", value);
     params.delete("page");
     params.delete("cursor");
+    params.delete("before");
 
     // Keep `/` static: sort changes go to the search page.
     const targetPath = pathname === "/" ? "/tim-kiem" : pathname;

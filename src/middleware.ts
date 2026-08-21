@@ -11,6 +11,7 @@ const SEARCH_KEYS = [
   "sort",
   "page",
   "cursor",
+  "before",
 ] as const;
 
 export function middleware(request: NextRequest) {

@@ -24,6 +24,7 @@ export default async function DistrictLandingPage({
 }) {
   const sort = toParamString(searchParams.sort);
   const cursor = toParamString(searchParams.cursor);
+  const before = toParamString(searchParams.before);
   const requestedPage = Math.max(
     1,
     Number(toParamString(searchParams.page) || "1") || 1,
@@ -36,10 +37,11 @@ export default async function DistrictLandingPage({
   try {
     const result = await getApartments({
       district: landing.name,
-      page: cursor ? 1 : requestedPage,
+      page: cursor || before ? 1 : requestedPage,
       limit: SEARCH_PAGE_SIZE,
       sortBy: sort,
       cursor: cursor || undefined,
+      before: before || undefined,
     });
     apartments = JSON.parse(JSON.stringify(result.apartments)) as Apartment[];
     totalResults = result.totalResults;
@@ -117,6 +119,7 @@ export default async function DistrictLandingPage({
             currentPage={currentPage}
             totalPages={totalPages}
             nextCursor={nextCursor}
+            prevAnchor={apartments[0]?.id ?? null}
             query=""
             district={landing.name}
             price=""

@@ -15,11 +15,22 @@ export function formatPrice(price: number) {
     .replace(" ₫", "  VND/tháng");
 }
 
+export function timestampSeconds(timestamp: {
+  seconds?: number;
+  _seconds?: number;
+  nanoseconds?: number;
+} | null | undefined): number | null {
+  if (!timestamp) return null;
+  const seconds = timestamp.seconds ?? timestamp._seconds;
+  return typeof seconds === "number" ? seconds : null;
+}
+
 export function formatDate(timestamp: { seconds: number; nanoseconds: number }): string {
-  if (!timestamp || typeof timestamp.seconds !== 'number') {
+  const seconds = timestampSeconds(timestamp);
+  if (seconds === null) {
     return "";
   }
-  const date = new Date(timestamp.seconds * 1000);
+  const date = new Date(seconds * 1000);
 
   // Return an ISO 8601 format string (e.g., "2023-11-15"). This is timezone-agnostic and consistent.
   const year = date.getUTCFullYear();
@@ -45,10 +56,11 @@ export function removeVietnameseTones(str: string) {
 }
 
 export function formatRelativeTime(timestamp: { seconds: number } | any) {
-  if (!timestamp || !timestamp.seconds) return "N/A";
+  const seconds = timestampSeconds(timestamp);
+  if (seconds === null || seconds === 0) return "N/A";
 
   const now = new Date();
-  const updateDate = new Date(timestamp.seconds * 1000);
+  const updateDate = new Date(seconds * 1000);
   const diffInMs = now.getTime() - updateDate.getTime();
   const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
   const diffInDays = Math.floor(diffInHours / 24);

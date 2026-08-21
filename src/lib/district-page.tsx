@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import DistrictLandingPage from "@/components/district-landing-page";
 import { districtMetadata, getDistrictBySlug } from "@/lib/districts";
 
+export { LISTING_REVALIDATE as revalidate } from "@/lib/cache-policy";
+
 export function districtGenerateMetadata(slug: string) {
   return async function generateMetadata(): Promise<Metadata> {
     const landing = getDistrictBySlug(slug);

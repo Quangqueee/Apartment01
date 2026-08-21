@@ -3,6 +3,6 @@ import {
   districtGenerateMetadata,
 } from "@/lib/district-page";
 
-export const revalidate = 60;
+export { revalidate } from "@/lib/district-page";
 export const generateMetadata = districtGenerateMetadata("ha-dong");
 export default DistrictSlugPage("ha-dong");

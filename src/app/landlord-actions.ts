@@ -545,6 +545,7 @@ export async function requestPushApartmentAction(uid: string, apartmentId: strin
       updatedAt: Timestamp.now(),
       createdAt: Timestamp.now(),
     });
+    revalidateApartmentListings(apartmentId);
     return { success: true };
   } catch (error) {
     console.error("Error requesting push:", error);

@@ -29,6 +29,7 @@ export default async function SearchResults({
   const roomType = toParamString(searchParams.roomType);
   const sort = toParamString(searchParams.sort);
   const cursor = toParamString(searchParams.cursor);
+  const before = toParamString(searchParams.before);
   const requestedPage = Math.max(
     1,
     Number(toParamString(searchParams.page) || "1") || 1,
@@ -44,10 +45,11 @@ export default async function SearchResults({
       district,
       priceRange: price,
       roomType,
-      page: cursor ? 1 : requestedPage,
+      page: cursor || before ? 1 : requestedPage,
       limit: SEARCH_PAGE_SIZE,
       sortBy: sort,
       cursor: cursor || undefined,
+      before: before || undefined,
     });
     apartments = JSON.parse(JSON.stringify(result.apartments)) as Apartment[];
     totalResults = result.totalResults;
@@ -121,6 +123,7 @@ export default async function SearchResults({
                 currentPage={currentPage}
                 totalPages={totalPages}
                 nextCursor={nextCursor}
+                prevAnchor={apartments[0]?.id ?? null}
                 query={query}
                 district={district}
                 price={price}

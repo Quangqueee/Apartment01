@@ -29,6 +29,7 @@ export default async function LegacyDistrictRedirect({
       sort: toParamString(sParams.sort),
       page: Number(toParamString(sParams.page) || "1") || 1,
       cursor: toParamString(sParams.cursor) || null,
+      before: toParamString(sParams.before) || null,
     }),
   );
 }

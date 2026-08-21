@@ -11,10 +11,11 @@ import {
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
 import { DISTRICT_LANDINGS } from "@/lib/districts";
+import { LISTING_REVALIDATE } from "@/lib/cache-policy";
 import { SITE, SITE_PATHS, absoluteUrl } from "@/lib/site";
 
-/** ISR: Google crawls sitemap often; avoid a Firestore round-trip every hit. */
-export const revalidate = 3600;
+/** Giữ sitemap đến khi có thay đổi tin (revalidateApartmentListings). */
+export const revalidate = LISTING_REVALIDATE;
 
 const PAGE_SIZE = 100;
 const MAX_PAGES = 20;

@@ -13,6 +13,7 @@ import {
   deleteApartment as deleteApartmentFromDb,
   getApartmentById,
   getApartments,
+  getCachedHomeApartmentsPage,
   addFavorite,
   removeFavorite,
   isApartmentFavorited,
@@ -301,18 +302,35 @@ export async function fetchApartmentsAction(options: {
   totalHint?: number;
 }) {
   try {
-    const { apartments, totalResults, nextCursor } = await getApartments({
-      query: options.query,
-      district: options.district,
-      priceRange: options.priceRange,
-      roomType: options.roomType,
-      page: options.page,
-      limit: options.limit,
-      sortBy: options.sortBy,
-      cursor: options.cursor,
-      skipCount: options.skipCount,
-      totalHint: options.totalHint,
-    });
+    const page = options.page ?? 1;
+    const isHomeDefault =
+      !options.query &&
+      !options.district &&
+      !options.priceRange &&
+      !options.roomType &&
+      (!options.sortBy || options.sortBy === "newest");
+
+    const result =
+      isHomeDefault && !options.cursor && page > 1
+        ? await getCachedHomeApartmentsPage(
+            page,
+            options.limit ?? 12,
+            options.totalHint ?? 0,
+          )
+        : await getApartments({
+            query: options.query,
+            district: options.district,
+            priceRange: options.priceRange,
+            roomType: options.roomType,
+            page,
+            limit: options.limit,
+            sortBy: options.sortBy,
+            cursor: options.cursor,
+            skipCount: options.skipCount,
+            totalHint: options.totalHint,
+          });
+
+    const { apartments, totalResults, nextCursor } = result;
 
     return JSON.parse(
       JSON.stringify({ apartments, totalResults, nextCursor }),
