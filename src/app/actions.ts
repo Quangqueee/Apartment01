@@ -296,25 +296,40 @@ export async function fetchApartmentsAction(options: {
   page?: number;
   limit?: number;
   sortBy?: string;
-  userId?: string;
+  cursor?: string;
+  skipCount?: boolean;
+  totalHint?: number;
 }) {
-  const { apartments, totalResults } = await getApartments(options);
+  try {
+    const { apartments, totalResults, nextCursor } = await getApartments({
+      query: options.query,
+      district: options.district,
+      priceRange: options.priceRange,
+      roomType: options.roomType,
+      page: options.page,
+      limit: options.limit,
+      sortBy: options.sortBy,
+      cursor: options.cursor,
+      skipCount: options.skipCount,
+      totalHint: options.totalHint,
+    });
 
-  if (options.userId) {
-    const userRef = doc(firestore, "users", options.userId);
-    const userSnapshot = await getDoc(userRef);
-    const rawFavoriteIds = userSnapshot.exists() ? userSnapshot.data().favorites : [];
-    const favoriteIds = Array.isArray(rawFavoriteIds) ? rawFavoriteIds : [];
-    const favoriteIdSet = new Set<string>(favoriteIds);
-    const apartmentsWithFavorites = apartments.map(apt => ({
-      ...apt,
-      isFavorited: favoriteIdSet.has(apt.id)
-    }));
-    
-    return JSON.parse(JSON.stringify({ apartments: apartmentsWithFavorites, totalResults }));
+    return JSON.parse(
+      JSON.stringify({ apartments, totalResults, nextCursor }),
+    ) as {
+      apartments: Apartment[];
+      totalResults: number;
+      nextCursor: string | null;
+    };
+  } catch (error) {
+    console.error("Lỗi khi tải danh sách căn hộ:", error);
+    return {
+      apartments: [] as Apartment[],
+      totalResults: 0,
+      nextCursor: null,
+      error: "Không tải được danh sách căn hộ. Vui lòng thử lại.",
+    };
   }
-  
-  return JSON.parse(JSON.stringify({ apartments, totalResults }));
 }
 
 export async function toggleFavoriteAction({

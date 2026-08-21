@@ -13,21 +13,9 @@ export type DistrictLanding = {
 };
 
 /**
- * Ảnh hero: sửa field `image` trỏ tới file trong `public/images/`.
- * Repo hiện chỉ có 5 ảnh — các quận đang xoay vòng để không trùng nhau.
- * Nên thêm ảnh riêng từng quận, ví dụ `/images/districts/tay-ho.webp`.
+ * Ảnh hero đã crop 2400×800 (3:1) từ Wikimedia Commons, nén WebP.
+ * Tái tạo: `node scripts/optimize-district-heroes.mjs`
  */
-const HERO_IMAGES = [
-  "/images/hero-bg.webp",
-  "/images/photo-1741776326857-0f5859c55370.webp",
-  "/images/cau-giay.webp",
-  "/images/lotte-lieu-giai.webp",
-  "/images/van-mieu-quoc-tu-giam-9.webp",
-] as const;
-
-function heroImage(index: number) {
-  return HERO_IMAGES[index % HERO_IMAGES.length];
-}
 
 export const DISTRICT_LANDINGS: DistrictLanding[] = [
   {
@@ -35,132 +23,156 @@ export const DISTRICT_LANDINGS: DistrictLanding[] = [
     name: "Ba Đình",
     title: "Cho thuê căn hộ Ba Đình, Hà Nội",
     description:
-      "Căn hộ và căn hộ dịch vụ cho thuê tại quận Ba Đình, Hà Nội. Giá niêm yết, hình ảnh thực tế, hỗ trợ xem nhà.",
+      "Căn hộ và căn hộ dịch vụ cao cấp cho thuê tại Ba Đình. Tận hưởng không gian sống yên tĩnh, an ninh, giao thoa giữa nét cổ kính và tiện ích hiện đại.",
     intro:
-      "Ba Đình là quận trung tâm Hà Nội, có nhiều khu dân cư và căn hộ cho thuê với nhiều loại phòng, mức giá. Hanoi Residences đăng tin còn trống tại Ba Đình; khách nên xem nhà trực tiếp trước khi đặt cọc.",
-    image: heroImage(0),
-    highlights: ["Quận trung tâm", "Nhiều loại căn hộ", "Xem nhà trước khi cọc"],
+      "Ba Đình mang đến nhịp sống thanh bình giữa lòng thủ đô với những tuyến phố rợp bóng cây xanh và mạng lưới tiện ích đa dạng. Khu vực này luôn thu hút giới chuyên gia và người nước ngoài nhờ môi trường an ninh tuyệt đối, vị trí đắc địa cùng hệ thống nhà hàng, dịch vụ chuẩn quốc tế.",
+    image: "/images/districts/ba-dinh.webp",
+    highlights: [
+      "Trung tâm hành chính",
+      "Môi trường sống yên tĩnh",
+      "Nhiều tiện ích quốc tế",
+    ],
   },
   {
     slug: "hoan-kiem",
     name: "Hoàn Kiếm",
     title: "Cho thuê căn hộ Hoàn Kiếm, Hà Nội",
     description:
-      "Căn hộ cho thuê tại quận Hoàn Kiếm, Hà Nội. Thông tin giá, diện tích và tiện ích ghi trên từng tin đăng.",
+      "Cho thuê căn hộ quận Hoàn Kiếm vị trí đắc địa. Trải nghiệm nhịp sống sôi động, đậm chất văn hóa ngay trái tim thủ đô Hà Nội.",
     intro:
-      "Hoàn Kiếm nằm ở trung tâm Hà Nội, nhu cầu thuê căn hộ khá đa dạng. Nguồn căn thường ít hơn các quận khác. Hanoi Residences lọc tin còn trống và ghi rõ diện tích, chi phí khi có dữ liệu.",
-    image: heroImage(1),
-    highlights: ["Trung tâm thành phố", "Nguồn căn hạn chế", "Giá ghi trên từng tin"],
+      "Là trái tim của thủ đô, Hoàn Kiếm mang đến trải nghiệm sống độc đáo giữa không gian văn hóa di sản và nhịp sống đô thị nhộn nhịp. Khu vực này luôn được săn đón gắt gao nhờ hệ thống tiện ích đẳng cấp, ẩm thực tinh hoa và khả năng kết nối không thể hoàn hảo hơn.",
+    image: "/images/districts/hoan-kiem.webp",
+    highlights: ["Trái tim thủ đô", "Không gian văn hóa", "Tiện ích đẳng cấp"],
   },
   {
     slug: "tay-ho",
     name: "Tây Hồ",
     title: "Cho thuê căn hộ Tây Hồ, Hà Nội",
     description:
-      "Thuê căn hộ tại quận Tây Hồ, Hà Nội: studio đến nhiều phòng ngủ, căn hộ dịch vụ. Hỗ trợ khách Việt Nam và người nước ngoài.",
+      "Khám phá căn hộ cho thuê quận Tây Hồ với tầm nhìn hồ thoáng đãng. Không gian sống lý tưởng, cộng đồng tinh hoa, trọn vẹn tiện ích nội khu.",
     intro:
-      "Tây Hồ là quận phía tây Hà Nội, có nhiều khu dân cư và căn hộ cho thuê. Hanoi Residences hỗ trợ xem nhà, hợp đồng và hướng dẫn thủ tục khi nguồn cho phép. Giá từng căn ghi theo tháng trên trang chi tiết.",
-    image: heroImage(2),
-    highlights: ["Đa dạng loại phòng", "Phù hợp ở dài hạn", "Hỗ trợ khách thuê"],
+      "Được mệnh danh là 'đất vàng' của cộng đồng quốc tế, Tây Hồ sở hữu không gian sống trong lành với tầm nhìn đắt giá ra mặt hồ. Nơi đây hội tụ phong cách sống thư thái, tách biệt khỏi sự ồn ào nhưng vẫn đầy đủ các tiện ích giải trí, ẩm thực và nghệ thuật cao cấp.",
+    image: "/images/districts/tay-ho.webp",
+    highlights: [
+      "Không gian trong lành",
+      "Cộng đồng quốc tế",
+      "Tiện ích nội khu",
+    ],
   },
   {
     slug: "cau-giay",
     name: "Cầu Giấy",
     title: "Cho thuê căn hộ Cầu Giấy, Hà Nội",
     description:
-      "Căn hộ cho thuê tại quận Cầu Giấy, Hà Nội. Phù hợp người đi làm và chuyên gia, giá niêm yết trên từng tin.",
+      "Thuê căn hộ quận Cầu Giấy với thiết kế hiện đại, tiện nghi tối ưu. Vị trí thuận tiện, lý tưởng cho giới văn phòng và chuyên gia trẻ.",
     intro:
-      "Cầu Giấy là quận phía tây Hà Nội, tập trung nhiều khu dân cư và căn hộ cho thuê. Tin đăng Hanoi Residences nêu loại phòng, diện tích và chi phí; không mặc định giá đã gồm phí dịch vụ hay gửi xe.",
-    image: heroImage(3),
-    highlights: ["Nhiều khu dân cư", "Phù hợp người đi làm", "Chi phí ghi rõ từng căn"],
+      "Cầu Giấy là cực phát triển năng động bậc nhất thủ đô, tập trung hàng loạt tòa nhà văn phòng, khu công nghệ cao và hệ thống giáo dục đa dạng. Không gian sống tại đây mang hơi thở hiện đại, tiện lợi với mạng lưới giao thông đồng bộ cùng vô vàn trung tâm thương mại sầm uất.",
+    image: "/images/districts/cau-giay.webp",
+    highlights: [
+      "Trung tâm văn phòng",
+      "Nhịp sống năng động",
+      "Tiện ích hiện đại",
+    ],
   },
   {
     slug: "dong-da",
     name: "Đống Đa",
     title: "Cho thuê căn hộ Đống Đa, Hà Nội",
     description:
-      "Thuê căn hộ tại quận Đống Đa, Hà Nội: căn hộ dịch vụ và chung cư, hình ảnh thực tế, tư vấn xem nhà.",
+      "Danh sách căn hộ và chung cư cho thuê tại Đống Đa. Vị trí trung tâm kết nối linh hoạt, nhịp sống sầm uất với vô vàn tiện ích bao quanh.",
     intro:
-      "Đống Đa nằm ở trung tâm Hà Nội, kết nối thuận với nhiều quận lân cận. Danh mục gồm căn hộ dịch vụ và chung cư cho thuê, phù hợp khách ở dài hạn. Nên xem nhà để đối chiếu với mô tả trên tin đăng.",
-    image: heroImage(4),
-    highlights: ["Trung tâm Hà Nội", "Căn hộ dịch vụ & chung cư", "Ở dài hạn"],
+      "Sở hữu mật độ dân cư đông đúc và nhịp sống sầm uất, Đống Đa là điểm nút giao thông quan trọng kết nối linh hoạt tới mọi khu vực của thành phố. Nơi đây mang đến sự tiện lợi tối đa với mạng lưới tiện ích dày đặc từ y tế, giáo dục đến các khu vui chơi, giải trí đa dạng.",
+    image: "/images/districts/dong-da.webp",
+    highlights: ["Giao thông kết nối", "Nhịp sống sầm uất", "Tiện ích dày đặc"],
   },
   {
     slug: "hai-ba-trung",
     name: "Hai Bà Trưng",
     title: "Cho thuê căn hộ Hai Bà Trưng, Hà Nội",
     description:
-      "Căn hộ cho thuê tại quận Hai Bà Trưng, Hà Nội. Giá và tiện ích ghi trên trang chi tiết từng căn.",
+      "Cho thuê căn hộ cao cấp và dịch vụ tại Hai Bà Trưng. Tận hưởng không gian sống cân bằng giữa nét đô thị truyền thống và khu đô thị kiểu mới.",
     intro:
-      "Hai Bà Trưng có cả khu đô thị và khu dân cư hiện hữu. Hanoi Residences đăng tin căn hộ cho thuê tại đây với diện tích, số phòng ngủ và tình trạng còn trống; khách nên xem nhà trước khi chốt cọc.",
-    image: heroImage(0),
-    highlights: ["Khu đô thị & dân cư", "Nhiều loại căn hộ", "Xem nhà trước khi cọc"],
+      "Sự giao thoa hoàn hảo giữa những khu phố sầm uất truyền thống và các đại đô thị quy mô tạo nên sức hút riêng cho Hai Bà Trưng. Nơi đây cung cấp môi trường sống chất lượng cao với các công viên lớn, trung tâm thương mại hiện đại và hệ thống dịch vụ thiết yếu hàng đầu.",
+    image: "/images/districts/hai-ba-trung.webp",
+    highlights: [
+      "Giao thoa cũ & mới",
+      "Đại đô thị hiện đại",
+      "Hệ thống y tế & giáo dục",
+    ],
   },
   {
     slug: "thanh-xuan",
     name: "Thanh Xuân",
     title: "Cho thuê căn hộ Thanh Xuân, Hà Nội",
     description:
-      "Thuê căn hộ tại quận Thanh Xuân, Hà Nội: căn hộ dịch vụ và chung cư, hỗ trợ khách Việt Nam và người nước ngoài.",
+      "Tìm thuê căn hộ quận Thanh Xuân với đa dạng lựa chọn từ studio đến chung cư cao cấp. Vị trí thuận lợi, hạ tầng đồng bộ, tiện nghi đầy đủ.",
     intro:
-      "Thanh Xuân là quận phía tây nam Hà Nội, có nhiều tòa căn hộ và chung cư cho thuê. Hanoi Residences ghi rõ giá theo tháng; phí quản lý, gửi xe, internet đối chiếu trên từng tin đăng.",
-    image: heroImage(1),
-    highlights: ["Phía tây nam thành phố", "Chung cư & căn hộ dịch vụ", "Giá theo tháng"],
+      "Là một trong những khu vực phát triển hạ tầng mạnh mẽ, Thanh Xuân mang đến trải nghiệm sống tiện nghi với hàng loạt tổ hợp chung cư thương mại quy mô lớn. Vị trí cửa ngõ giúp cư dân dễ dàng di chuyển, đồng thời tận hưởng trọn vẹn các tiện ích sống nội khu phong phú.",
+    image: "/images/districts/thanh-xuan.webp",
+    highlights: ["Hạ tầng đồng bộ", "Tổ hợp chung cư lớn", "Tiện ích trọn vẹn"],
   },
   {
     slug: "hoang-mai",
     name: "Hoàng Mai",
     title: "Cho thuê căn hộ Hoàng Mai, Hà Nội",
     description:
-      "Căn hộ cho thuê tại quận Hoàng Mai, Hà Nội. Giá minh bạch, ảnh thực tế, đặt lịch xem nhà qua Hanoi Residences.",
+      "Căn hộ cho thuê quận Hoàng Mai view hồ thoáng mát, không gian sống xanh. Đa dạng phân khúc, thiết kế tối ưu cho gia đình và cá nhân.",
     intro:
-      "Hoàng Mai có quỹ căn hộ chung cư lớn, nhiều mức giá. Hanoi Residences lọc tin đã đăng, mô tả loại phòng; xác nhận tình trạng còn trống khi xem nhà.",
-    image: heroImage(2),
-    highlights: ["Nhiều lựa chọn chung cư", "Nhiều mức giá", "Xác nhận khi xem nhà"],
+      "Được thiên nhiên ưu ái với nhiều hồ điều hòa và công viên cây xanh quy mô lớn, Hoàng Mai mang đến không gian sống thoáng đãng, gần gũi với thiên nhiên. Quỹ căn hộ tại đây đa dạng, đáp ứng hoàn hảo nhu cầu của những cư dân mong muốn một môi trường sống cân bằng và trong lành.",
+    image: "/images/districts/hoang-mai.webp",
+    highlights: ["Không gian xanh", "Nhiều hồ điều hòa", "Phù hợp an cư"],
   },
   {
     slug: "long-bien",
     name: "Long Biên",
     title: "Cho thuê căn hộ Long Biên, Hà Nội",
     description:
-      "Thuê căn hộ tại quận Long Biên, Hà Nội: căn hộ cho thuê dài hạn, thông tin giá và tiện ích trên từng listing.",
+      "Thuê căn hộ quận Long Biên không gian rộng rãi, quy hoạch chuẩn mực. Trải nghiệm cuộc sống thanh bình chỉ cách phố cổ một cây cầu.",
     intro:
-      "Long Biên nằm phía đông Hà Nội, có nhiều khu dân cư và căn hộ cho thuê. Hanoi Residences đăng tin khi có nguồn; khách xem nhà trực tiếp để kiểm tra nội thất và phí tòa nhà.",
-    image: heroImage(3),
-    highlights: ["Phía đông thành phố", "Căn hộ dài hạn", "Xem nhà trực tiếp"],
+      "Long Biên nổi bật với quy hoạch hạ tầng rộng rãi, hiện đại cùng bầu không khí trong lành, thoáng đãng. Chỉ cách trung tâm phố cổ một cây cầu, nơi đây là lựa chọn lý tưởng cho những ai tìm kiếm sự bình yên, tách biệt khỏi khói bụi nhưng vẫn sở hữu hệ thống tiện ích chuẩn quốc tế.",
+    image: "/images/districts/long-bien.webp",
+    highlights: ["Quy hoạch rộng rãi", "Không gian bình yên", "Tiện ích quốc tế"],
   },
   {
     slug: "nam-tu-liem",
     name: "Nam Từ Liêm",
     title: "Cho thuê căn hộ Nam Từ Liêm, Hà Nội",
     description:
-      "Căn hộ cho thuê tại quận Nam Từ Liêm, Hà Nội: studio đến nhiều phòng ngủ, hỗ trợ người đi làm và khách nước ngoài.",
+      "Cho thuê chung cư và căn hộ quận Nam Từ Liêm. Tâm điểm phát triển mới với hạ tầng thông minh, kiến trúc hiện đại và cộng đồng văn minh.",
     intro:
-      "Nam Từ Liêm là quận phía tây Hà Nội, có nhiều khu đô thị và căn hộ cho thuê. Giá trên Hanoi Residences niêm yết theo tháng; thủ tục hợp đồng hỗ trợ khi chủ nhà cho phép.",
-    image: heroImage(4),
-    highlights: ["Phía tây Hà Nội", "Đa dạng loại phòng", "Giá niêm yết theo tháng"],
+      "Là tâm điểm phát triển mới của thủ đô, Nam Từ Liêm quy tụ hàng loạt biểu tượng kiến trúc và các khu đô thị thông minh mang tầm vóc quốc tế. Khu vực này thu hút tầng lớp trí thức trẻ và cộng đồng cư dân đa quốc gia nhờ môi trường sống văn minh, không gian mở và hạ tầng giao thông xuất sắc.",
+    image: "/images/districts/nam-tu-liem.webp",
+    highlights: [
+      "Tâm điểm mới",
+      "Cộng đồng đa quốc gia",
+      "Khu đô thị thông minh",
+    ],
   },
   {
     slug: "bac-tu-liem",
     name: "Bắc Từ Liêm",
     title: "Cho thuê căn hộ Bắc Từ Liêm, Hà Nội",
     description:
-      "Thuê căn hộ tại quận Bắc Từ Liêm, Hà Nội. Tin đăng có giá, diện tích và ảnh thực tế.",
+      "Khám phá căn hộ cho thuê quận Bắc Từ Liêm. Môi trường sống trong lành, quy hoạch hiện đại, không gian lý tưởng để an cư và làm việc.",
     intro:
-      "Bắc Từ Liêm phục vụ nhu cầu thuê ở phía tây bắc Hà Nội, với nhiều khu dân cư và căn hộ. Hanoi Residences chỉ hiển thị tin đã đăng; chi tiết phí dịch vụ và nội thất nằm trên trang căn hộ.",
-    image: heroImage(0),
-    highlights: ["Phía tây bắc Hà Nội", "Nhiều khu dân cư", "Chi tiết trên từng tin"],
+      "Bắc Từ Liêm đang chuyển mình mạnh mẽ với các đại đô thị được quy hoạch bài bản và mật độ cây xanh cao. Sự hiện diện của các khu ngoại giao và công viên rộng lớn giúp nơi đây duy trì được nhịp sống thanh bình, an ninh đảm bảo cùng một không gian an cư lý tưởng.",
+    image: "/images/districts/bac-tu-liem.webp",
+    highlights: [
+      "Quy hoạch bài bản",
+      "Mật độ cây xanh cao",
+      "Không gian an ninh",
+    ],
   },
   {
     slug: "ha-dong",
     name: "Hà Đông",
     title: "Cho thuê căn hộ Hà Đông, Hà Nội",
     description:
-      "Căn hộ cho thuê tại quận Hà Đông, Hà Nội: chung cư và căn hộ dịch vụ, giá ghi rõ trên từng tin.",
+      "Cho thuê căn hộ quận Hà Đông đa dạng diện tích. Vị trí kết nối thuận tiện qua tuyến metro, tiện ích nội khu phong phú cho cuộc sống năng động.",
     intro:
-      "Hà Đông có nhiều chung cư và căn hộ cho thuê, kết nối về các quận trung tâm. Hanoi Residences cập nhật tin còn trống; khách xem nhà để đối chiếu thực tế với mô tả.",
-    image: heroImage(1),
-    highlights: ["Nhiều chung cư", "Kết nối trung tâm", "Đối chiếu khi xem nhà"],
+      "Hà Đông vươn mình trở thành một cực an cư sầm uất với nhịp sống trẻ trung và năng động. Hệ thống tiện ích phong phú từ các trung tâm thương mại lớn đến sự tiện lợi của tuyến đường sắt trên cao giúp cư dân tại đây tận hưởng một cuộc sống trọn vẹn, dễ dàng kết nối tới muôn nơi.",
+    image: "/images/districts/ha-dong.webp",
+    highlights: ["Nhịp sống trẻ trung", "Kết nối Metro", "Tiện ích phong phú"],
   },
 ];
 

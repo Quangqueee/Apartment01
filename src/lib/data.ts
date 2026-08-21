@@ -88,6 +88,8 @@ export async function getApartments(
     limit?: number;
     sortBy?: string;
     cursor?: string;
+    skipCount?: boolean;
+    totalHint?: number;
     searchBy?: "title" | "sourceCode" | "sourceCodeOrAddress" | "titleOrSourceCode";
   } = {}
 ) {
@@ -100,6 +102,8 @@ export async function getApartments(
     limit: pageSize = 9,
     sortBy = "newest",
     cursor,
+    skipCount = false,
+    totalHint,
   } = options;
 
   let whereClauses: any[] = [];
@@ -236,10 +240,14 @@ export async function getApartments(
   }
 
   const baseQuery = buildSortedQuery(searchPlan?.firestoreValue);
-  const countSnapshot = await getCountFromServer(baseQuery);
-  const totalResults = countSnapshot.data().count;
+  let totalResults = skipCount ? (totalHint ?? 0) : 0;
 
-  if (totalResults === 0) {
+  if (!skipCount) {
+    const countSnapshot = await getCountFromServer(baseQuery);
+    totalResults = countSnapshot.data().count;
+  }
+
+  if (!skipCount && totalResults === 0) {
     return { apartments: [], totalResults: 0, nextCursor: null as string | null };
   }
 

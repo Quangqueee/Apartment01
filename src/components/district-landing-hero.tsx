@@ -18,16 +18,16 @@ export default function DistrictLandingHero({
 
   return (
     <section>
-      <div className="relative h-[316px] w-full overflow-hidden sm:h-[372px] md:h-[416px]">
+      <div className="relative h-[280px] w-full overflow-hidden sm:h-[360px] md:h-[440px] lg:h-[520px] xl:h-[580px]">
         <Image
           src={landing.image}
           alt={`Căn hộ cho thuê tại ${landing.name}, Hà Nội`}
           fill
           priority
           fetchPriority="high"
-          quality={60}
+          quality={75}
           sizes="100vw"
-          className="object-cover object-center"
+          className="object-cover object-[center_40%]"
         />
         <div className="absolute inset-0 bg-black/45 bg-gradient-to-t from-black/70 via-black/35 to-black/20" />
 
@@ -70,7 +70,7 @@ export default function DistrictLandingHero({
                 {landing.intro} Hiện có {totalResults} căn đang đăng.
               </p>
               <ul className="mt-4 flex flex-wrap gap-2">
-                {landing.highlights.map((item) => (
+                {(landing.highlights ?? []).map((item) => (
                   <li
                     key={item}
                     className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-gray-800 sm:text-sm"
