@@ -1,7 +1,7 @@
 rules_version = '2';
 
 /**
- * Hanoi Residences — Storage rules (P0 draft, CHƯA deploy).
+ * Hanoi Residences — Storage rules (P0).
  *
  * NGUỒN SỰ THẬT: file này phải GIỐNG
  * `hanoi-residences-app/storage.rules`. Copy hai chiều khi sửa.
