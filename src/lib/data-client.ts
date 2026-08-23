@@ -56,6 +56,7 @@ export async function getApartments(
     limit?: number;
     sortBy?: string;
     searchBy?: "title" | "sourceCode" | "sourceCodeOrAddress" | "titleOrSourceCode";
+    landlordId?: string;
   } = {}
 ) {
   const {
@@ -67,12 +68,16 @@ export async function getApartments(
     limit: pageSize = 1000, // Default to a large number for admin
     sortBy = "newest",
     searchBy = "sourceCodeOrAddress",
+    landlordId,
   } = options;
 
   let baseQuery: Query = apartmentsCollection;
   let whereClauses = [];
 
   // --- Build Where Clauses (excluding price) ---
+  if (landlordId) {
+    whereClauses.push(where("landlordId", "==", landlordId));
+  }
   if (district) {
     whereClauses.push(where("district", "==", district));
   }

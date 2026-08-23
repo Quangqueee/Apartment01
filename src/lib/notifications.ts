@@ -1,14 +1,7 @@
 "use client";
 
-import { db } from "@/firebase";
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "@/firebase";
 
 export type NotificationType =
   | "new_booking"
@@ -29,41 +22,35 @@ export interface CreateNotificationInput {
 }
 
 /**
- * Ghi một thông báo mới vào collection `notifications`.
- * Lỗi được nuốt (log ra console) để không làm gián đoạn luồng nghiệp vụ chính
- * (VD: đổi trạng thái lịch hẹn vẫn thành công dù gửi thông báo thất bại).
+ * P0: notifications.create = false trên client SDK.
+ * Ghi qua callable `createNotification` (Admin SDK, repo mobile/functions).
+ * Auth bắt buộc; recipientId phải là uid hiện tại hoặc caller là admin.
  */
 export async function createNotification(data: CreateNotificationInput) {
   try {
-    await addDoc(collection(db, "notifications"), {
-      recipientId: data.recipientId,
-      title: data.title,
-      message: data.message,
-      type: data.type,
-      isRead: false,
-      link: data.link,
-      createdAt: serverTimestamp(),
-    });
+    const callable = httpsCallable<
+      CreateNotificationInput,
+      { ok: boolean }
+    >(functions, "createNotification");
+    await callable(data);
   } catch (error) {
     console.error("Lỗi tạo thông báo:", error);
   }
 }
 
 /**
- * Gửi thông báo tới toàn bộ user có role "admin".
+ * Gửi thông báo tới mọi user role admin.
+ * Guest cũng gọi được (Function không bắt buộc auth).
  */
 export async function notifyAdmins(
   data: Omit<CreateNotificationInput, "recipientId">,
 ) {
   try {
-    const adminsSnap = await getDocs(
-      query(collection(db, "users"), where("role", "==", "admin")),
-    );
-    await Promise.all(
-      adminsSnap.docs.map((adminDoc) =>
-        createNotification({ ...data, recipientId: adminDoc.id }),
-      ),
-    );
+    const callable = httpsCallable<
+      Omit<CreateNotificationInput, "recipientId">,
+      { ok: boolean; count: number }
+    >(functions, "notifyAdmins");
+    await callable(data);
   } catch (error) {
     console.error("Lỗi gửi thông báo cho admin:", error);
   }

@@ -4,6 +4,8 @@
 
 Skill cho agent: `.cursor/skills/mobile-firebase-sync/`.
 
+Đã có khung Expo riêng: làm theo [HANDOFF.md](HANDOFF.md) (chat Agent mới trên folder app, copy skill/docs sang đó).
+
 ## Đọc theo thứ tự
 
 1. [GRAPH_REPORT.md](GRAPH_REPORT.md) — bản đồ kiến trúc web ↔ app

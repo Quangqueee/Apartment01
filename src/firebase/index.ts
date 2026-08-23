@@ -7,6 +7,7 @@ export {
   auth,
   db,
   storage,
+  functions,
   initializeFirebase,
   getSdks,
 } from './app';

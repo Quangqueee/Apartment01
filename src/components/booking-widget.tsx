@@ -167,7 +167,7 @@ export default function BookingWidget({
       let payload: any = {
         apartmentId: apartment.id,
         apartmentCode: apartment.sourceCode,
-        apartmentLink: window.location.href,
+        apartmentLink: window.location.href.slice(0, 500),
         notes: formData.notes,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

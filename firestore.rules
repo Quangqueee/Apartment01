@@ -1,38 +1,328 @@
 rules_version = '2';
 
+/**
+ * Hanoi Residences — Firestore rules (P0 draft, CHƯA deploy).
+ *
+ * NGUỒN SỰ THẬT: giữ nguyên với `hanoi-residences-app/firestore.rules`.
+ * Deploy MỘT LẦN (`firebase deploy --only firestore:rules`) trên project
+ * `quang-apartment` — áp cho cả website và app. Callable chuông:
+ * `notifyAdmins` / `createNotification` trong repo mobile `functions`.
+ *
+ * Prototype: siết write/delete theo ownership + role. Review trước khi
+ * `firebase deploy --only firestore:rules`.
+ *
+ * DEPLOY BLOCKERS
+ * - `notifications` create = false. Client `createNotification` /
+ *   `notifyAdmins` sẽ fail cho đến khi có Cloud Function (Admin SDK).
+ * - Đọc `apartments` vẫn trả CẢ document (PII còn trong cùng doc).
+ *   Rule KHÔNG mask field. Chọn phương án (a) subcollection hoặc
+ *   (b) callable view — xem comment khối apartments.
+ *
+ * Website production hiện chỉ match `apartments` + `users` (thiếu lịch
+ * và notifications). File này là nguồn cho cả web và app.
+ *
+ * ===============================================================
+ * Assumed data model (rút gọn)
+ * ===============================================================
+ * apartments/{id}: title, roomType, district, area, price, details,
+ *   imageUrls, tags, status, submissionStatus, searchKeywords, aiContent,
+ *   sourceCode, address, landlordPhoneNumber, contactPhone, commission,
+ *   landlordId, adminNotes, createdAt, updatedAt, pushRequestedAt, …
+ * users/{uid}: email, displayName, role, favorites[], phone, … +
+ *   users/{uid}/favorites/{apartmentId} (legacy; app đang dùng array)
+ * notifications/{id}: recipientId, title, message, type, isRead, link, createdAt
+ * user_bookings/{id}: userId, status, name, phone, apartmentId, dateTime, …
+ * ctv_bookings/{id}: ctvId, status, clientName, clientPhone, …
+ * guest_consultations/{id}: name, phone, apartmentId, dateTime, status, …
+ * ===============================================================
+ */
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow public read access (get and list) to apartment listings
-    match /apartments/{apartmentId} {
-      allow get, list: if true;
-      // Allow writes only for authenticated users who are admins.
-      // This is a placeholder for real admin role-based security.
-      allow write: if request.auth != null; 
+    function signedIn() {
+      return request.auth != null;
     }
-    
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      // A user can only be created if the requesting user's ID matches the document ID.
-      // This prevents users from creating documents for others.
-      allow create: if request.auth != null && request.auth.uid == userId;
 
-      // A user can only read their own document.
-      allow get: if request.auth != null && request.auth.uid == userId;
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
 
-      // Allow users to update their own document (e.g., display name, photo URL)
-      allow update: if request.auth != null && request.auth.uid == userId;
-      
-      // Users cannot delete their own user document.
-      allow delete: if false;
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
 
-      // Rules for the 'favorites' subcollection
-      match /favorites/{apartmentId} {
-        // A user can read their own list of favorites.
-        allow get, list: if request.auth != null && request.auth.uid == userId;
+    function userRole() {
+      return signedIn() && userDoc().data.role;
+    }
 
-        // A user can add (create) or remove (delete) a favorite from their own list.
-        allow create, delete: if request.auth != null && request.auth.uid == userId;
+    function isAdmin() {
+      return signedIn() && userRole() == 'admin';
+    }
+
+    function isLandlord() {
+      return signedIn() && userRole() == 'landlord';
+    }
+
+    function isCollaborator() {
+      return signedIn() && userRole() == 'collaborator';
+    }
+
+    function isPublished() {
+      return resource.data.submissionStatus == 'published';
+    }
+
+    function stringLen(value, minLen, maxLen) {
+      return value is string
+        && value.size() >= minLen
+        && value.size() <= maxLen;
+    }
+
+    function isValidPhone(value) {
+      return value is string
+        && value.size() >= 8
+        && value.size() <= 20
+        && value.matches('^[0-9+() \\-]{8,20}$');
+    }
+
+    function roleUnchanged() {
+      return !('role' in request.resource.data)
+        || request.resource.data.role == resource.data.role;
+    }
+
+    function notSelfAdminEscalation() {
+      return !('role' in request.resource.data)
+        || request.resource.data.role != 'admin'
+        || isAdmin();
+    }
+
+    function isValidUserCreate(data) {
+      return data.role == 'user'
+        && (!('email' in data) || data.email is string)
+        && (!('displayName' in data) || data.displayName is string);
+    }
+
+    function guestHasOnlyAllowedKeys() {
+      return request.resource.data.keys().hasOnly([
+        'apartmentId',
+        'apartmentCode',
+        'apartmentLink',
+        'notes',
+        'createdAt',
+        'updatedAt',
+        'status',
+        'name',
+        'phone',
+        'budget',
+        'dateTime',
+      ]);
+    }
+
+    function isValidGuestConsultation(data) {
+      return guestHasOnlyAllowedKeys()
+        && data.status == 'pending'
+        && stringLen(data.name, 2, 80)
+        && isValidPhone(data.phone)
+        && stringLen(data.apartmentId, 1, 128)
+        && stringLen(data.dateTime, 8, 40)
+        && (!('notes' in data) || data.notes is string && data.notes.size() <= 2000)
+        && (!('budget' in data) || data.budget is string && data.budget.size() <= 200)
+        && (!('apartmentCode' in data) || data.apartmentCode is string && data.apartmentCode.size() <= 80)
+        && (!('apartmentLink' in data) || data.apartmentLink is string && data.apartmentLink.size() <= 500);
+    }
+
+    function userBookingCreateOk(data) {
+      return data.userId == request.auth.uid
+        && data.status == 'pending'
+        && stringLen(data.apartmentId, 1, 128);
+    }
+
+    function ctvBookingCreateOk(data) {
+      return data.ctvId == request.auth.uid
+        && data.status == 'pending'
+        && stringLen(data.apartmentId, 1, 128);
+    }
+
+    function userBookingMutableKeysOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'dateTime',
+          'notes',
+          'budget',
+          'name',
+          'phone',
+          'consultationPrice',
+          'updatedAt',
+        ]);
+    }
+
+    function ctvBookingMutableKeysOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly([
+          'dateTime',
+          'notes',
+          'budget',
+          'clientName',
+          'clientPhone',
+          'consultationPrice',
+          'address',
+          'updatedAt',
+        ]);
+    }
+
+    function landlordKeepsOwnership() {
+      return resource.data.landlordId == request.auth.uid
+        && request.resource.data.landlordId == resource.data.landlordId;
+    }
+
+    function landlordDoesNotSelfPublish() {
+      return !('submissionStatus' in request.resource.data)
+        || request.resource.data.submissionStatus == resource.data.submissionStatus
+        || request.resource.data.submissionStatus == 'pending';
+    }
+
+    // ——— apartments ———
+    // Firestore không ẩn từng field trên cùng 1 document.
+    // INTERIM: public chỉ đọc tin published (cả doc, gồm PII).
+    // Chọn (a) private subcollection hoặc (b) callable filtered view
+    // trước khi coi P0 field-mask là xong.
+    match /apartments/{apartmentId} {
+      // Guest/user: chỉ tin published (vẫn là FULL document — PII chưa tách).
+      // Chủ nhà: tin của mình (kể cả pending). Admin: tất cả.
+      allow get, list: if isPublished()
+        || isAdmin()
+        || (signedIn() && resource.data.landlordId == request.auth.uid);
+
+      allow create: if isAdmin()
+        || (
+          isLandlord()
+          && request.resource.data.landlordId == request.auth.uid
+          && request.resource.data.submissionStatus == 'pending'
+        );
+
+      allow update: if isAdmin()
+        || (
+          isLandlord()
+          && landlordKeepsOwnership()
+          && landlordDoesNotSelfPublish()
+        );
+
+      allow delete: if isAdmin()
+        || (
+          isLandlord()
+          && resource.data.landlordId == request.auth.uid
+        );
+
+      // Skeleton cho phương án (a) — trống cho đến khi migrate.
+      // contact: address / SĐT / adminNotes / landlordId
+      // staff: commission / sourceCode nội bộ (admin + CTV)
+      match /private/{docId} {
+        allow read: if isAdmin()
+          || (
+            signedIn()
+            && get(/databases/$(database)/documents/apartments/$(apartmentId)).data.landlordId
+              == request.auth.uid
+          )
+          || (docId == 'staff' && isCollaborator());
+
+        allow create, update: if isAdmin()
+          || (
+            isLandlord()
+            && get(/databases/$(database)/documents/apartments/$(apartmentId)).data.landlordId
+              == request.auth.uid
+            && docId == 'contact'
+          );
+
+        allow delete: if isAdmin();
       }
+    }
+
+    // ——— users ———
+    match /users/{userId} {
+      allow create: if isOwner(userId)
+        && notSelfAdminEscalation()
+        && isValidUserCreate(request.resource.data);
+
+      allow get: if isOwner(userId) || isAdmin();
+
+      allow list: if isAdmin();
+
+      allow update: if isAdmin()
+        || (
+          isOwner(userId)
+          && roleUnchanged()
+          && notSelfAdminEscalation()
+        );
+
+      allow delete: if isAdmin();
+
+      match /favorites/{apartmentId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create, delete: if isOwner(userId);
+        allow update: if false;
+      }
+    }
+
+    // ——— notifications ———
+    // Create chỉ Admin SDK / Cloud Function (bỏ qua rules).
+    match /notifications/{notificationId} {
+      allow read: if signedIn()
+        && (
+          resource.data.recipientId == request.auth.uid
+          || isAdmin()
+        );
+
+      allow create: if false;
+
+      allow update: if signedIn()
+        && resource.data.recipientId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['isRead']);
+
+      allow delete: if isAdmin();
+    }
+
+    // ——— user_bookings ———
+    match /user_bookings/{bookingId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if isAdmin()
+        || (signedIn() && userBookingCreateOk(request.resource.data));
+
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.userId == request.auth.uid
+          && userBookingMutableKeysOnly()
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    // ——— ctv_bookings ———
+    match /ctv_bookings/{bookingId} {
+      allow read: if isAdmin()
+        || (isCollaborator() && resource.data.ctvId == request.auth.uid);
+
+      allow create: if isAdmin()
+        || (isCollaborator() && ctvBookingCreateOk(request.resource.data));
+
+      allow update: if isAdmin()
+        || (
+          isCollaborator()
+          && resource.data.ctvId == request.auth.uid
+          && ctvBookingMutableKeysOnly()
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    // ——— guest_consultations ———
+    // Create ẩn danh + validate field. KHÔNG rate-limit được ở rules.
+    // Bổ sung App Check (app) / reCAPTCHA (web) + callable nếu spam.
+    match /guest_consultations/{bookingId} {
+      allow create: if isValidGuestConsultation(request.resource.data);
+      allow read, update, delete: if isAdmin();
     }
   }
 }

@@ -3,8 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getStorage, ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
-import { v4 as uuidv4 } from 'uuid';
+import { getStorage, ref, deleteObject } from "firebase/storage";
 import { generateSearchKeywords } from "@/lib/utils";
 import { revalidateApartmentListings } from "@/lib/apartment-cache";
 import {
@@ -136,10 +135,11 @@ async function uploadAndCleanupImages(currentImageUrls: string[], existingImageU
 
   for (const url of currentImageUrls) {
     if (url.startsWith('data:')) {
-      const storageRef = ref(storage, `apartments/${uuidv4()}`);
-      const snapshot = await uploadString(storageRef, url, 'data_url');
-      const downloadUrl = await getDownloadURL(snapshot.ref);
-      newImageUrls.push(downloadUrl);
+      // P0 storage: path phải là apartments/{request.auth.uid}/...
+      // Server Action này không có request.auth.uid — không đoán uid.
+      throw new Error(
+        "Server Action không có request.auth.uid nên không upload được ảnh theo P0. Hãy upload từ form client (apartments/{uid}/{ts}-{id}.jpg).",
+      );
     } else {
       newImageUrls.push(url);
     }

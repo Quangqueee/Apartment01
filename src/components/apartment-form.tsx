@@ -830,7 +830,7 @@ export default function ApartmentForm({
       return;
     }
 
-    if (mode === "landlord" && !user?.uid) {
+    if (!user?.uid) {
       toast({
         variant: "destructive",
         title: "Chưa đăng nhập",
@@ -845,7 +845,7 @@ export default function ApartmentForm({
       const uploadResults = await Promise.allSettled(
         previewItems.map(async (item) => {
           if (item.blob) {
-            const fileName = `apartments/${Date.now()}-${item.id}.jpg`;
+            const fileName = `apartments/${user.uid}/${Date.now()}-${item.id}.jpg`;
             return await uploadBlobWithRetry(item.blob, fileName);
           }
           if (item.src.startsWith("blob:") || item.src.startsWith("data:")) {

@@ -1,13 +1,5 @@
-import { firestore } from "@/firebase/server-init";
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
 import type { NotificationType } from "./notifications";
+import { callCloudFunction } from "./callable-http";
 
 export interface CreateNotificationServerInput {
   recipientId: string;
@@ -18,42 +10,40 @@ export interface CreateNotificationServerInput {
 }
 
 /**
- * Server-side twin of createNotification() in notifications.ts.
- * Writes the same document shape but via @/firebase/server-init, never the
- * client @/firebase barrel — that barrel re-exports client-provider.tsx,
- * which imports AuthProvider from auth-context.tsx, closing the known
- * useAuth import cycle. Server Actions must not import that barrel.
+ * Server twin of createNotification().
+ * P0: không addDoc client SDK (create: false). Callable yêu cầu auth —
+ * Server Action không có token user nên lệnh này sẽ fail cho đến khi
+ * action chạy từ client đã login (httpsCallable) hoặc có ID token.
  */
 export async function createNotificationServer(
   data: CreateNotificationServerInput,
 ) {
   try {
-    await addDoc(collection(firestore, "notifications"), {
+    await callCloudFunction("createNotification", {
       recipientId: data.recipientId,
       title: data.title,
       message: data.message,
       type: data.type,
-      isRead: false,
       link: data.link ?? "",
-      createdAt: serverTimestamp(),
     });
   } catch (error) {
     console.error("Lỗi tạo thông báo (server):", error);
   }
 }
 
+/**
+ * Guest + Server Action đều gọi được: notifyAdmins không bắt buộc auth.
+ */
 export async function notifyAdminsServer(
   data: Omit<CreateNotificationServerInput, "recipientId">,
 ) {
   try {
-    const adminsSnap = await getDocs(
-      query(collection(firestore, "users"), where("role", "==", "admin")),
-    );
-    await Promise.all(
-      adminsSnap.docs.map((adminDoc) =>
-        createNotificationServer({ ...data, recipientId: adminDoc.id }),
-      ),
-    );
+    await callCloudFunction("notifyAdmins", {
+      title: data.title,
+      message: data.message,
+      type: data.type,
+      link: data.link ?? "",
+    });
   } catch (error) {
     console.error("Lỗi gửi thông báo cho admin (server):", error);
   }

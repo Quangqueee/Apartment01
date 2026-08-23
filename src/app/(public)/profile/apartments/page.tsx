@@ -130,6 +130,7 @@ function LandlordApartmentsContent() {
           page: currentPage,
           limit: 10,
           searchBy: "sourceCodeOrAddress",
+          landlordId: user.uid,
         });
         const myApartments = result.apartments.filter(
           (apt: any) => apt.landlordId === user.uid,

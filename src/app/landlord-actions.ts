@@ -16,7 +16,6 @@ import {
   where,
   getDocs,
   deleteDoc,
-  addDoc,
   writeBatch,
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
@@ -706,22 +705,13 @@ export async function updateLandlordApartmentStatusAction(
       updatedAt: Timestamp.now(), // Đồng bộ kiểu dữ liệu Timestamp
     });
 
-    // Tạo thông báo cho Admin
     const statusText = newStatus === "available" ? "Còn trống" : "Tạm hết";
-    const notificationPayload = {
-      type: "APARTMENT_STATUS_UPDATE",
+    await notifyAdminsServer({
       title: "Chủ nhà cập nhật trạng thái phòng",
       message: `Căn hộ "${apartmentData.address || apartmentData.title}" (Mã: ${apartmentData.sourceCode || apartmentId}) vừa được đổi trạng thái thành: ${statusText}.`,
-      apartmentId,
-      landlordId,
-      createdAt: Timestamp.now(),
-      isRead: false,
-      recipientRole: "admin",
-    };
-
-    // FIX: Sử dụng `firestore` từ server-init
-    const notificationsRef = collection(firestore, "notifications");
-    await addDoc(notificationsRef, notificationPayload);
+      type: "system",
+      link: `/${ADMIN_PATH}/apartments`,
+    });
 
     revalidatePath("/profile/apartments");
     revalidatePath(`/${ADMIN_PATH}/apartments`);
