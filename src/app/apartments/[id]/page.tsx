@@ -6,7 +6,6 @@ import { Home, SearchX, ArrowLeft } from "lucide-react";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import { JsonLd } from "@/components/json-ld";
-import { LISTING_REVALIDATE } from "@/lib/cache-policy";
 import { SITE } from "@/lib/site";
 import { buildApartmentJsonLd } from "@/lib/structured-data";
 
@@ -14,7 +13,8 @@ type PageProps = {
   params: Promise<{ id: string }>;
 };
 
-export const revalidate = LISTING_REVALIDATE;
+/** Literal bắt buộc — Next.js không theo dõi import (invalid-page-config). Đồng bộ với LISTING_REVALIDATE. */
+export const revalidate = false;
 
 export async function generateMetadata({
   params,

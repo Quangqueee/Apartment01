@@ -9,11 +9,10 @@ import SortControls from "@/components/sort-controls";
 import ApartmentList from "@/components/apartment-list";
 import Hero from "@/components/hero";
 import FeaturedDistricts from "@/components/featured-districts";
-import { LISTING_REVALIDATE } from "@/lib/cache-policy";
 import AboutSection from "@/app/about/page";
 
-/** ISR vô hạn: chỉ làm mới khi revalidateApartmentListings() (push/sửa/xóa). Trang chủ không dùng searchParams. */
-export const revalidate = LISTING_REVALIDATE;
+/** ISR vô hạn: chỉ làm mới khi revalidateApartmentListings() (push/sửa/xóa). Trang chủ không dùng searchParams. Literal bắt buộc — Next.js không theo dõi import (invalid-page-config). */
+export const revalidate = false;
 
 export default async function Home() {
   const [{ apartments, totalResults }, districtStats] = await Promise.all([

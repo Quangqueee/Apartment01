@@ -11,11 +11,10 @@ import {
 } from "firebase/firestore";
 import { firestore } from "@/firebase/server-init";
 import { DISTRICT_LANDINGS } from "@/lib/districts";
-import { LISTING_REVALIDATE } from "@/lib/cache-policy";
 import { SITE, SITE_PATHS, absoluteUrl } from "@/lib/site";
 
-/** Giữ sitemap đến khi có thay đổi tin (revalidateApartmentListings). */
-export const revalidate = LISTING_REVALIDATE;
+/** Giữ sitemap đến khi có thay đổi tin (revalidateApartmentListings). Literal bắt buộc — Next.js không theo dõi import (invalid-page-config). */
+export const revalidate = false;
 
 const PAGE_SIZE = 100;
 const MAX_PAGES = 20;
