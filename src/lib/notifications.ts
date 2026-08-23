@@ -28,12 +28,70 @@ export interface CreateNotificationInput {
  */
 export async function createNotification(data: CreateNotificationInput) {
   try {
+    // #region agent log
+    fetch("http://127.0.0.1:7735/ingest/430bf72e-726d-46db-8508-3f965df7f6a5", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "59fc6f",
+      },
+      body: JSON.stringify({
+        sessionId: "59fc6f",
+        hypothesisId: "A",
+        location: "src/lib/notifications.ts:createNotification",
+        message: "createNotification call start",
+        data: {
+          type: data.type,
+          titleLen: data.title?.length ?? 0,
+          messageLen: data.message?.length ?? 0,
+          linkLen: data.link?.length ?? 0,
+          hasRecipient: Boolean(data.recipientId),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     const callable = httpsCallable<
       CreateNotificationInput,
       { ok: boolean }
     >(functions, "createNotification");
-    await callable(data);
+    const result = await callable(data);
+    // #region agent log
+    fetch("http://127.0.0.1:7735/ingest/430bf72e-726d-46db-8508-3f965df7f6a5", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "59fc6f",
+      },
+      body: JSON.stringify({
+        sessionId: "59fc6f",
+        hypothesisId: "B",
+        location: "src/lib/notifications.ts:createNotification",
+        message: "createNotification success",
+        data: { type: data.type, result: result.data ?? null },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
   } catch (error) {
+    const err = error as { code?: string; message?: string };
+    // #region agent log
+    fetch("http://127.0.0.1:7735/ingest/430bf72e-726d-46db-8508-3f965df7f6a5", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "59fc6f",
+      },
+      body: JSON.stringify({
+        sessionId: "59fc6f",
+        hypothesisId: "A",
+        location: "src/lib/notifications.ts:createNotification",
+        message: "createNotification failed",
+        data: { type: data.type, code: err.code ?? "none", errMsg: err.message ?? String(error) },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     console.error("Lỗi tạo thông báo:", error);
   }
 }
@@ -46,12 +104,69 @@ export async function notifyAdmins(
   data: Omit<CreateNotificationInput, "recipientId">,
 ) {
   try {
+    // #region agent log
+    fetch("http://127.0.0.1:7735/ingest/430bf72e-726d-46db-8508-3f965df7f6a5", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "59fc6f",
+      },
+      body: JSON.stringify({
+        sessionId: "59fc6f",
+        hypothesisId: "A",
+        location: "src/lib/notifications.ts:notifyAdmins",
+        message: "notifyAdmins call start",
+        data: {
+          type: data.type,
+          titleLen: data.title?.length ?? 0,
+          messageLen: data.message?.length ?? 0,
+          linkLen: data.link?.length ?? 0,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     const callable = httpsCallable<
       Omit<CreateNotificationInput, "recipientId">,
       { ok: boolean; count: number }
     >(functions, "notifyAdmins");
-    await callable(data);
+    const result = await callable(data);
+    // #region agent log
+    fetch("http://127.0.0.1:7735/ingest/430bf72e-726d-46db-8508-3f965df7f6a5", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "59fc6f",
+      },
+      body: JSON.stringify({
+        sessionId: "59fc6f",
+        hypothesisId: "C",
+        location: "src/lib/notifications.ts:notifyAdmins",
+        message: "notifyAdmins success",
+        data: { type: data.type, result: result.data ?? null },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
   } catch (error) {
+    const err = error as { code?: string; message?: string };
+    // #region agent log
+    fetch("http://127.0.0.1:7735/ingest/430bf72e-726d-46db-8508-3f965df7f6a5", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "59fc6f",
+      },
+      body: JSON.stringify({
+        sessionId: "59fc6f",
+        hypothesisId: "A",
+        location: "src/lib/notifications.ts:notifyAdmins",
+        message: "notifyAdmins failed",
+        data: { type: data.type, code: err.code ?? "none", errMsg: err.message ?? String(error) },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     console.error("Lỗi gửi thông báo cho admin:", error);
   }
 }
