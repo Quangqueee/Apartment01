@@ -52,7 +52,7 @@ service cloud.firestore {
     }
 
     function userRole() {
-      return signedIn() && userDoc().data.role;
+      return userDoc().data.role;
     }
 
     function isAdmin() {

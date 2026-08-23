@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createLandlordRequest } from "@/app/landlord-actions";
+import { createLandlordRequestClient } from "@/lib/landlord-admin-client";
 import { useToast } from "@/hooks/use-toast";
 import { HANOI_DISTRICTS } from "@/lib/constants";
 
@@ -172,7 +172,7 @@ export default function PartnerRegisterPage() {
         district: values.district.join(", "),
       };
 
-      const res = await createLandlordRequest(user!.uid, payload);
+      const res = await createLandlordRequestClient(user!.uid, payload);
       if (res.error) {
         toast({ variant: "destructive", title: "Lỗi", description: res.error });
       } else {

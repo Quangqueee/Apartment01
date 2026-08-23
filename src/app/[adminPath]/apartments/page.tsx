@@ -43,13 +43,19 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import {
-  deleteApartmentAction,
-  pushApartmentAction,
-  pushApartmentsBatchAction,
-  getUnmigratedAiApartmentsAction,
-  migrateAiApartmentsBatchAction,
-  backfillSubmissionStatusAction,
+  revalidateApartmentCacheAction,
+  generateSummaryAction,
 } from "../../actions";
+import {
+  deleteApartmentClient,
+  pushApartmentClient,
+  pushApartmentsBatchClient,
+  approveAndResolvePushClient,
+  approveAndResolvePushBatchClient,
+  backfillSubmissionStatusClient,
+  listUnmigratedAiApartmentsClient,
+  applyAiMigrationClient,
+} from "@/lib/apartments-write-client";
 import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useState, useEffect, useTransition, FormEvent, useMemo } from "react";
@@ -62,10 +68,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ADMIN_PATH } from "@/lib/constants";
-import {
-  approveAndResolvePushAction,
-  approveAndResolvePushBatchAction,
-} from "@/app/landlord-actions";
 import { useAuth as useAuthContext } from "@/context/auth-context";
 import { db } from "@/firebase";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
@@ -247,19 +249,13 @@ export default function ApartmentsPage() {
           return;
         }
 
-        const result = await deleteApartmentAction(apartmentToDelete);
-        if (result?.error) {
-          toast({
-            variant: "destructive",
-            title: "Lỗi!",
-            description: result.error,
-          });
-        } else {
-          toast({
-            title: "Thành công!",
-            description: `Đã xóa căn hộ. Còn ${quota.remaining} lượt xóa trong giờ này.`,
-          });
-        }
+        const target = apartments.find((item) => item.id === apartmentToDelete);
+        await deleteApartmentClient(apartmentToDelete, target?.imageUrls);
+        await revalidateApartmentCacheAction(apartmentToDelete);
+        toast({
+          title: "Thành công!",
+          description: `Đã xóa căn hộ. Còn ${quota.remaining} lượt xóa trong giờ này.`,
+        });
       } catch (error) {
         console.error("Lỗi xóa căn hộ:", error);
         toast({
@@ -282,7 +278,8 @@ export default function ApartmentsPage() {
   // Nút Push thủ công chuẩn của Admin
   const handlePushClick = async (id: string) => {
     startTransition(async () => {
-      const result = await pushApartmentAction(id);
+      const result = await pushApartmentClient(id);
+      if (!result.error) await revalidateApartmentCacheAction(id);
       if (result?.error) {
         toast({
           variant: "destructive",
@@ -302,7 +299,8 @@ export default function ApartmentsPage() {
   const handleAcceptPush = async (id: string) => {
     if (!authUser) return;
     startTransition(async () => {
-      const result = await approveAndResolvePushAction(authUser.uid, id);
+      const result = await approveAndResolvePushClient(id);
+      if (!result.error) await revalidateApartmentCacheAction(id);
       if (result?.error) {
         toast({
           variant: "destructive",
@@ -325,10 +323,8 @@ export default function ApartmentsPage() {
     startTransition(async () => {
       if (activeTab === "push_requests") {
         if (!authUser) return;
-        const result = await approveAndResolvePushBatchAction(
-          authUser.uid,
-          ids,
-        );
+        const result = await approveAndResolvePushBatchClient(ids);
+        if (!result.error) await revalidateApartmentCacheAction();
         if (result?.error) {
           toast({
             variant: "destructive",
@@ -343,7 +339,8 @@ export default function ApartmentsPage() {
           clearSelection();
         }
       } else {
-        const result = await pushApartmentsBatchAction(ids);
+        const result = await pushApartmentsBatchClient(ids);
+        if (!result.error) await revalidateApartmentCacheAction();
         if (result?.error) {
           toast({
             variant: "destructive",
@@ -375,7 +372,8 @@ export default function ApartmentsPage() {
     });
 
     // Gọi trực tiếp server action backfillSubmissionStatusAction có sẵn trong actions.ts
-    const res = await backfillSubmissionStatusAction();
+    const res = await backfillSubmissionStatusClient();
+    if (!res.error) await revalidateApartmentCacheAction();
 
     if (res?.error) {
       update({
@@ -411,7 +409,7 @@ export default function ApartmentsPage() {
       description: "Đang kiểm tra dữ liệu cũ.",
       duration: 100000,
     });
-    const res = await getUnmigratedAiApartmentsAction();
+    const res = await listUnmigratedAiApartmentsClient();
 
     if (res?.error || !res.data) {
       update({
@@ -468,20 +466,77 @@ export default function ApartmentsPage() {
 
     for (let i = 0; i < totalAi; i += BATCH_SIZE_AI) {
       const batch = unmigratedAi.slice(i, i + BATCH_SIZE_AI);
-      const batchRes = await migrateAiApartmentsBatchAction(batch);
+      for (const item of batch) {
+        const data = item.aptData;
+        const hasLegacyRootData =
+          !!data.listingSummary || !!data.seoTitle || !!data.seoDescription;
+        if (hasLegacyRootData) {
+          const parsedHighlights: string[] = Array.isArray(data.highlights)
+            ? data.highlights
+            : typeof data.highlights === "string"
+              ? data.highlights.split("\n").filter((h: string) => h.trim())
+              : [];
+          const writeRes = await applyAiMigrationClient(
+            item.id,
+            {
+              seoTitle: data.seoTitle || data.title || "",
+              seoDescription: data.seoDescription || "",
+              description: data.listingSummary || "",
+              highlights: parsedHighlights,
+            },
+            true,
+          );
+          if (writeRes.error) {
+            update({
+              id,
+              variant: "destructive",
+              title: "Lỗi",
+              description: "Tiến trình AI bị gián đoạn.",
+            });
+            return;
+          }
+          continue;
+        }
 
-      if (batchRes?.error) {
-        update({
-          id,
-          variant: "destructive",
-          title: "Lỗi",
-          description: "Tiến trình AI bị gián đoạn.",
+        const ai = await generateSummaryAction({
+          title: data.title,
+          roomType: data.roomType,
+          district: data.district,
+          address: data.address,
+          price: Number(data.price) || 0,
+          area: Number(data.area) || 0,
+          detailedInformation: data.detailedInformation,
         });
-        return;
+        if ("error" in ai && ai.error) {
+          update({
+            id,
+            variant: "destructive",
+            title: "Lỗi",
+            description: "Tiến trình AI bị gián đoạn.",
+          });
+          return;
+        }
+        const writeRes = await applyAiMigrationClient(item.id, {
+          seoTitle: ai.seoTitle,
+          seoDescription: ai.seoDescription,
+          description: ai.description,
+          highlights: ai.highlights,
+        });
+        if (writeRes.error) {
+          update({
+            id,
+            variant: "destructive",
+            title: "Lỗi",
+            description: "Tiến trình AI bị gián đoạn.",
+          });
+          return;
+        }
       }
       processedAi += batch.length;
       updateAiProgressToast(processedAi);
     }
+
+    await revalidateApartmentCacheAction();
 
     setTimeout(() => {
       update({

@@ -41,8 +41,9 @@ import {
 } from "lucide-react";
 import { getApartments } from "@/lib/data-client";
 import Link from "next/link";
-import { deleteApartmentAction } from "@/app/actions";
+import { revalidateApartmentCacheAction } from "@/app/actions";
 import { consumeApartmentDeleteQuota } from "@/lib/apartment-delete-quota";
+import { deleteApartmentClient } from "@/lib/apartments-write-client";
 import { db } from "@/firebase";
 import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -66,9 +67,9 @@ import { useAuth } from "@/context/auth-context";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import {
-  requestPushApartmentAction,
-  updateLandlordApartmentStatusAction,
-} from "@/app/landlord-actions";
+  requestPushApartmentClient,
+  updateLandlordApartmentStatusClient,
+} from "@/lib/apartments-write-client";
 
 // Hàm xử lý hiển thị thời gian tương đối
 function formatRelativeTime(timestamp: any) {
@@ -175,7 +176,7 @@ function LandlordApartmentsContent() {
     if (!user) return;
     setUpdatingStatusId(apartmentId);
     try {
-      const result = await updateLandlordApartmentStatusAction(
+      const result = await updateLandlordApartmentStatusClient(
         user.uid,
         apartmentId,
         newStatus,
@@ -217,8 +218,9 @@ function LandlordApartmentsContent() {
           return;
         }
 
-        const result = await deleteApartmentAction(apartmentToDelete);
-        if (result?.error) throw new Error(result.error);
+        const target = apartments.find((item) => item.id === apartmentToDelete);
+        await deleteApartmentClient(apartmentToDelete, target?.imageUrls);
+        await revalidateApartmentCacheAction(apartmentToDelete);
         toast({
           title: "Thành công!",
           description: `Đã xóa căn hộ. Còn ${quota.remaining} lượt xóa trong giờ này.`,
@@ -240,7 +242,7 @@ function LandlordApartmentsContent() {
   const handlePushClick = async (id: string) => {
     startTransition(async () => {
       try {
-        const result = await requestPushApartmentAction(user!.uid, id);
+        const result = await requestPushApartmentClient(id);
         if (result?.error) throw new Error(result.error);
         toast({
           title: "Đã gửi yêu cầu!",

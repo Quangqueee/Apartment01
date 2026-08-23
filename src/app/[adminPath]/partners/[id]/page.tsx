@@ -7,9 +7,9 @@ import { useAuth } from "@/context/auth-context";
 import { useParams, useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import {
-  getPartnerByIdAction,
-  getLandlordApartmentsAction,
-} from "@/app/landlord-actions";
+  fetchPartnerByIdClient,
+  fetchLandlordApartmentsClient,
+} from "@/lib/landlord-admin-client";
 import { formatDate } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -50,8 +50,8 @@ export default function PartnerDetailPage() {
     setIsLoading(true);
 
     const [partnerRes, aptsRes] = await Promise.all([
-      getPartnerByIdAction(user.uid, partnerId),
-      getLandlordApartmentsAction(user.uid, partnerId),
+      fetchPartnerByIdClient(partnerId),
+      fetchLandlordApartmentsClient(partnerId),
     ]);
 
     if (partnerRes.error) {

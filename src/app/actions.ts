@@ -250,6 +250,12 @@ export async function deleteApartmentAction(id: string) {
   }
 }
 
+/** Chỉ revalidate cache Next — ghi Firestore phải làm trên client đã login. */
+export async function revalidateApartmentCacheAction(apartmentId?: string) {
+  revalidateApartmentListings(apartmentId);
+  return { success: true };
+}
+
 const generateSummarySchema = z.object({
   title: z.string(),
   roomType: z.string(),

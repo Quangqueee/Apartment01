@@ -6,12 +6,13 @@ import { useState, useEffect, useTransition, useCallback } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import {
-  getPartnersAction,
-  approveLandlord,
-  rejectLandlord,
-  getLandlordApartmentStats,
-  terminatePartnershipAction,
-} from "@/app/landlord-actions";
+  fetchPartnersClient,
+  approveLandlordClient,
+  rejectLandlordClient,
+  fetchLandlordApartmentStatsClient,
+  terminatePartnershipClient,
+} from "@/lib/landlord-admin-client";
+import { revalidateApartmentCacheAction } from "@/app/actions";
 import {
   Table,
   TableBody,
@@ -75,7 +76,7 @@ export default function AdminPartnersPage() {
   const fetchPartners = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
-    const res = await getPartnersAction(user.uid);
+    const res = await fetchPartnersClient();
     if (res.error) {
       toast({ variant: "destructive", title: "Lỗi", description: res.error });
     } else {
@@ -99,7 +100,7 @@ export default function AdminPartnersPage() {
     setDetailsModalOpen(true);
 
     setIsLoadingStats(true);
-    const res = await getLandlordApartmentStats(user!.uid, partner.id);
+    const res = await fetchLandlordApartmentStatsClient(partner.id);
     if (res.stats) {
       setPartnerStats(res.stats);
     }
@@ -109,7 +110,7 @@ export default function AdminPartnersPage() {
   const handleApprove = () => {
     if (!user || !selectedPartner) return;
     startTransition(async () => {
-      const res = await approveLandlord(user.uid, selectedPartner.id);
+      const res = await approveLandlordClient(selectedPartner.id);
       if (res?.error) {
         toast({ variant: "destructive", title: "Lỗi", description: res.error });
       } else {
@@ -126,8 +127,7 @@ export default function AdminPartnersPage() {
   const handleRejectConfirm = () => {
     if (!user || !selectedPartner) return;
     startTransition(async () => {
-      const res = await rejectLandlord(
-        user.uid,
+      const res = await rejectLandlordClient(
         selectedPartner.id,
         rejectReason.trim(),
       );
@@ -152,10 +152,10 @@ export default function AdminPartnersPage() {
     if (!user || !selectedPartner) return;
 
     startTransition(async () => {
-      const res = await terminatePartnershipAction(
-        user.uid,
-        selectedPartner.id,
-      );
+      const res = await terminatePartnershipClient(selectedPartner.id);
+      if (!res.error) {
+        await revalidateApartmentCacheAction();
+      }
       if (res?.error) {
         toast({ variant: "destructive", title: "Lỗi", description: res.error });
       } else {

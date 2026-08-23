@@ -3,7 +3,11 @@
 import { useState, useEffect, useTransition, useCallback } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { getPendingSubmissionsAction, reviewApartmentSubmission } from "@/app/landlord-actions";
+import { revalidateApartmentCacheAction } from "@/app/actions";
+import {
+  fetchPendingSubmissionsClient,
+  reviewApartmentSubmissionClient,
+} from "@/lib/landlord-admin-client";
 import { Apartment } from "@/lib/types";
 import {
   Table,
@@ -45,7 +49,7 @@ export default function AdminSubmissionsPage() {
   const fetchSubmissions = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
-    const res = await getPendingSubmissionsAction(user.uid);
+    const res = await fetchPendingSubmissionsClient();
     if (res.error) {
       toast({ variant: "destructive", title: "Lỗi", description: res.error });
     } else {
@@ -86,12 +90,19 @@ export default function AdminSubmissionsPage() {
     }
 
     startTransition(async () => {
-      const res = await reviewApartmentSubmission(user.uid, selectedSubmission.id, decision, {
-        sourceCode: sourceCode.trim(),
-        address: address.trim(),
-        landlordPhoneNumber: landlordPhoneNumber.trim(),
-        adminNotes: adminNotes.trim(),
-      });
+      const res = await reviewApartmentSubmissionClient(
+        selectedSubmission.id,
+        decision,
+        {
+          sourceCode: sourceCode.trim(),
+          address: address.trim(),
+          landlordPhoneNumber: landlordPhoneNumber.trim(),
+          adminNotes: adminNotes.trim(),
+        },
+      );
+      if (!res.error) {
+        await revalidateApartmentCacheAction(selectedSubmission.id);
+      }
 
       if (res?.error) {
         toast({ variant: "destructive", title: "Lỗi", description: res.error });

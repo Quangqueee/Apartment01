@@ -32,10 +32,14 @@ import {
 } from "@/lib/constants";
 import { Apartment, ApartmentStatus, FeatureTag } from "@/lib/types";
 import {
-  createOrUpdateApartmentAction,
   generateSummaryAction,
+  revalidateApartmentCacheAction,
 } from "@/app/actions";
-import { submitApartmentByLandlord } from "@/app/landlord-actions";
+import {
+  saveAdminApartmentClient,
+  saveLandlordApartmentClient,
+} from "@/lib/apartments-write-client";
+import { notifyAdmins } from "@/lib/notifications";
 import { useAuth as useAppAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -936,21 +940,29 @@ export default function ApartmentForm({
         },
       };
 
-      const result =
-        mode === "landlord"
-          ? await submitApartmentByLandlord(
-              user?.uid as string,
-              landlordPayload as any,
-              apartment?.id,
-            )
-          : await createOrUpdateApartmentAction(
-              apartment?.id,
-              adminPayload as any,
-            );
-
-      if (result?.error) {
-        throw new Error(result.error);
+      if (mode === "landlord") {
+        await saveLandlordApartmentClient(
+          user.uid,
+          landlordPayload,
+          apartment?.id,
+        );
+        if (!apartment?.id) {
+          await notifyAdmins({
+            title: "Tin đăng mới cần duyệt",
+            message: `Chủ nhà vừa gửi tin đăng "${values.title}" - ${values.district} chờ duyệt.`,
+            type: "new_submission",
+            link: `/${ADMIN_PATH}/submissions`,
+          });
+        }
+      } else {
+        const { imageUrlsJson: _imageUrlsJson, ...adminFields } = adminPayload;
+        await saveAdminApartmentClient(
+          { ...adminFields, imageUrls: uploadedUrls },
+          apartment?.id,
+        );
       }
+
+      await revalidateApartmentCacheAction(apartment?.id);
 
       if (mode === "landlord") {
         toast({
