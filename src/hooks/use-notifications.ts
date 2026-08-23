@@ -48,47 +48,12 @@ export function useNotifications(userId?: string | null) {
     const unsubscribe = onSnapshot(
       q,
       (snap) => {
-        // #region agent log
-        fetch("http://127.0.0.1:7735/ingest/430bf72e-726d-46db-8508-3f965df7f6a5", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Debug-Session-Id": "59fc6f",
-          },
-          body: JSON.stringify({
-            sessionId: "59fc6f",
-            hypothesisId: "D",
-            location: "src/hooks/use-notifications.ts:onSnapshot",
-            message: "notifications snapshot",
-            data: { size: snap.size, empty: snap.empty, hasUserId: Boolean(userId) },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         setNotifications(
           snap.docs.map((d) => ({ id: d.id, ...d.data() }) as AppNotification),
         );
         setIsLoading(false);
       },
       (error) => {
-        const err = error as { code?: string; message?: string };
-        // #region agent log
-        fetch("http://127.0.0.1:7735/ingest/430bf72e-726d-46db-8508-3f965df7f6a5", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Debug-Session-Id": "59fc6f",
-          },
-          body: JSON.stringify({
-            sessionId: "59fc6f",
-            hypothesisId: "D",
-            location: "src/hooks/use-notifications.ts:onSnapshot",
-            message: "notifications snapshot error",
-            data: { code: err.code ?? "none", errMsg: err.message ?? String(error) },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         console.error("Lỗi lắng nghe thông báo:", error);
         setIsLoading(false);
       },
