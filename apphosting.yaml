@@ -1,4 +1,6 @@
 # apphosting.yaml
+# Optional: set REVALIDATE_SECRET in App Hosting console (same value as local
+# .env) so localhost admin can bust production via POST /api/revalidate.
 runConfig:
   maxInstances: 1
 

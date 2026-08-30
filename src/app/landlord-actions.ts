@@ -353,7 +353,7 @@ export async function reviewApartmentSubmission(
     }
 
     revalidatePath(`/${ADMIN_PATH}/submissions`);
-    revalidateApartmentListings(
+    await revalidateApartmentListings(
       decision === "published" ? apartmentId : undefined,
     );
 
@@ -544,7 +544,7 @@ export async function requestPushApartmentAction(uid: string, apartmentId: strin
       updatedAt: Timestamp.now(),
       createdAt: Timestamp.now(),
     });
-    revalidateApartmentListings(apartmentId);
+    await revalidateApartmentListings(apartmentId);
     return { success: true };
   } catch (error) {
     console.error("Error requesting push:", error);
@@ -582,7 +582,7 @@ export async function approveAndResolvePushAction(adminUid: string, apartmentId:
       updatedAt: Timestamp.now(),
       createdAt: Timestamp.now(),
     });
-    revalidateApartmentListings(apartmentId);
+    await revalidateApartmentListings(apartmentId);
     return { success: true };
   } catch (error) {
     console.error("Error approving push:", error);
@@ -620,7 +620,7 @@ export async function approveAndResolvePushBatchAction(
       });
       await batch.commit();
     }
-    revalidateApartmentListings();
+    await revalidateApartmentListings();
     return { success: true, pushedCount: uniqueIds.length };
   } catch (error) {
     console.error("Error approving batch push:", error);
@@ -664,7 +664,7 @@ export async function terminatePartnershipAction(adminUid: string, targetUid: st
     });
 
     revalidatePath(`/${ADMIN_PATH}/partners`);
-    revalidateApartmentListings();
+    await revalidateApartmentListings();
 
     return { success: true, deletedApartmentsCount: snapshot.size };
   } catch (error) {

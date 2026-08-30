@@ -37,14 +37,21 @@ function SortControlsInner() {
   const currentSort = searchParams.get("sort") || "newest";
 
   const handleSortChange = (value: string) => {
-    const params = new URLSearchParams(searchParams);
+    const params = new URLSearchParams(searchParams.toString());
     params.delete("page");
     params.delete("cursor");
     params.delete("before");
 
+    if (value && value !== "newest") {
+      params.set("sort", value);
+    } else {
+      params.delete("sort");
+    }
+
     // Keep `/` static: sort changes go to the search page.
     const targetPath = pathname === "/" ? "/tim-kiem" : pathname;
-    router.push(targetPath + "?" + params.toString(), { scroll: false });
+    const query = params.toString();
+    router.push(query ? `${targetPath}?${query}` : targetPath, { scroll: false });
   };
 
   // 3. Nếu chưa mount xong, hiển thị khung giữ chỗ (Skeleton) để tránh lỗi Hydration

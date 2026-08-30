@@ -221,7 +221,7 @@ export async function createOrUpdateApartmentAction(
     return { error: "Database error. Failed to save apartment." };
   }
 
-  revalidateApartmentListings(apartmentId);
+  await revalidateApartmentListings(apartmentId);
   return { success: true };
 }
 
@@ -242,7 +242,7 @@ export async function deleteApartmentAction(id: string) {
       }));
     }
     await deleteApartmentFromDb(id);
-    revalidateApartmentListings(id);
+    await revalidateApartmentListings(id);
     return { success: true };
   } catch (error) {
     console.error("Database error on delete:", error);
@@ -250,9 +250,9 @@ export async function deleteApartmentAction(id: string) {
   }
 }
 
-/** Chỉ revalidate cache Next — ghi Firestore phải làm trên client đã login. */
+/** Chỉ revalidate cache Next (local + production khi có REVALIDATE_SECRET). Ghi Firestore phải làm trên client đã login. */
 export async function revalidateApartmentCacheAction(apartmentId?: string) {
-  revalidateApartmentListings(apartmentId);
+  await revalidateApartmentListings(apartmentId);
   return { success: true };
 }
 
@@ -591,7 +591,7 @@ export async function pushApartmentAction(id: string) {
   try {
     const docRef = doc(firestore, "apartments", id);
     await updateDoc(docRef, { updatedAt: Timestamp.now(), createdAt: Timestamp.now() });
-    revalidateApartmentListings(id);
+    await revalidateApartmentListings(id);
     return { success: true };
   } catch (error) {
     console.error("Database error on push:", error);
@@ -621,7 +621,7 @@ export async function pushApartmentsBatchAction(ids: string[]) {
       });
       await batch.commit();
     }
-    revalidateApartmentListings();
+    await revalidateApartmentListings();
     return { success: true, pushedCount: uniqueIds.length };
   } catch (error) {
     console.error("Database error on batch push:", error);

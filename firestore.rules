@@ -1,10 +1,10 @@
 rules_version = '2';
 
 /**
- * Hanoi Residences — Firestore rules (P0 draft, CHƯA deploy).
+ * Hanoi Residences — Firestore rules (P0).
  *
- * NGUỒN SỰ THẬT: giữ nguyên với `hanoi-residences-app/firestore.rules`.
- * Deploy MỘT LẦN (`firebase deploy --only firestore:rules`) trên project
+ * File này và `hanoi-residences-app/firestore.rules` phải GIỐNG NHAU.
+ * Deploy một lần (`firebase deploy --only firestore:rules`) trên project
  * `quang-apartment` — áp cho cả website và app. Callable chuông:
  * `notifyAdmins` / `createNotification` trong repo mobile `functions`.
  *
@@ -34,6 +34,7 @@ rules_version = '2';
  * user_bookings/{id}: userId, status, name, phone, apartmentId, dateTime, …
  * ctv_bookings/{id}: ctvId, status, clientName, clientPhone, …
  * guest_consultations/{id}: name, phone, apartmentId, dateTime, status, …
+ * listingCache/{docId}: snapshot card public (Cloud Functions ghi). home_newest
  * ===============================================================
  */
 
@@ -323,6 +324,13 @@ service cloud.firestore {
     match /guest_consultations/{bookingId} {
       allow create: if isValidGuestConsultation(request.resource.data);
       allow read, update, delete: if isAdmin();
+    }
+
+    // Card-sized public feed snapshot. Admin SDK writes only.
+    // Not the source of truth — `apartments` remains canonical.
+    match /listingCache/{docId} {
+      allow read: if true;
+      allow write: if false;
     }
   }
 }

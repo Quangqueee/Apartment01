@@ -403,7 +403,7 @@ export const getCachedHomeApartments = unstable_cache(
     });
     return JSON.parse(JSON.stringify(result)) as HomeApartmentsPage;
   },
-  ["home-apartments-v1"],
+  ["home-apartments-v2"],
   { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
 );
 
@@ -419,7 +419,7 @@ export const getCachedHomeApartmentsPage = unstable_cache(
     });
     return JSON.parse(JSON.stringify(result)) as HomeApartmentsPage;
   },
-  ["home-apartments-page-v1"],
+  ["home-apartments-page-v2"],
   { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
 );
 
@@ -433,7 +433,7 @@ export const getCachedFeaturedDistrictStats = unstable_cache(
     );
     return stats;
   },
-  ["featured-district-stats-v1"],
+  ["featured-district-stats-v2"],
   { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
 );
 

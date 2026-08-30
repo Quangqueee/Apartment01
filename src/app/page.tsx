@@ -11,7 +11,7 @@ import Hero from "@/components/hero";
 import FeaturedDistricts from "@/components/featured-districts";
 import AboutSection from "@/app/about/page";
 
-/** ISR vô hạn: chỉ làm mới khi revalidateApartmentListings() (push/sửa/xóa). Trang chủ không dùng searchParams. Literal bắt buộc — Next.js không theo dõi import (invalid-page-config). */
+/** Cache vô hạn: chỉ làm mới khi revalidateApartmentListings() (push/sửa/xóa). Literal bắt buộc — Next.js không theo dõi import (invalid-page-config). */
 export const revalidate = false;
 
 export default async function Home() {

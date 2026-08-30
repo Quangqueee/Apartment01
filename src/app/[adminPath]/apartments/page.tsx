@@ -40,6 +40,7 @@ import {
   CheckCircle,
   Loader2,
   X,
+  RefreshCcw,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -139,6 +140,11 @@ export default function ApartmentsPage() {
 
   const pushRequestCount = useMemo(() => {
     return apartments.filter((apt: any) => apt.isPushRequested === true).length;
+  }, [apartments]);
+
+  const publishedCount = useMemo(() => {
+    return apartments.filter((apt: any) => apt.submissionStatus === "published")
+      .length;
   }, [apartments]);
 
   const totalPages = Math.max(
@@ -398,6 +404,26 @@ export default function ApartmentsPage() {
     }, 500);
   };
 
+  const handleRefreshPublicCache = () => {
+    startTransition(async () => {
+      try {
+        await revalidateApartmentCacheAction();
+        toast({
+          title: "Đã làm mới cache website",
+          description:
+            "Trang chủ, tìm kiếm và trang quận sẽ lấy số liệu mới từ Firestore.",
+        });
+      } catch (error) {
+        console.error("Làm mới cache:", error);
+        toast({
+          variant: "destructive",
+          title: "Lỗi",
+          description: "Không thể làm mới cache website.",
+        });
+      }
+    });
+  };
+
   const handleAiMigrate = async () => {
     const confirmwindow = window.confirm(
       "Tự động viết lại nội dung chuẩn SEO cho tất cả căn hộ cũ bằng AI? Quá trình này sẽ gọi AI và mất chút thời gian.",
@@ -565,10 +591,24 @@ export default function ApartmentsPage() {
             Quản lý Căn hộ
           </h2>
           <p className="text-gray-500">
-            Danh sách tất cả các căn hộ ({apartments.length}).
+            Danh sách tất cả các căn hộ ({apartments.length}). Public:{" "}
+            {publishedCount}.
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Button
+            onClick={handleRefreshPublicCache}
+            variant="outline"
+            disabled={isPending}
+            className="text-emerald-700 border-emerald-600 hover:bg-emerald-50"
+          >
+            {isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCcw className="mr-2 h-4 w-4" />
+            )}
+            Làm mới cache website
+          </Button>
           <Button
             onClick={handleMigrate}
             variant="outline"
