@@ -6,6 +6,7 @@ import { FirebaseClientProvider } from "@/firebase/client-provider";
 import "./globals.css";
 import MobileNav from "@/components/mobile-nav";
 import MultiContact from "@/components/multi-contact";
+import { NavigationProgressProvider } from "@/components/navigation-progress";
 import { JsonLd } from "@/components/json-ld";
 import { PwaHead } from "@/components/pwa-head";
 import { cn } from "@/lib/utils";
@@ -156,14 +157,16 @@ export default function RootLayout({
 
         {/* FirebaseClientProvider already nests FirebaseProvider + AuthProvider */}
         <FirebaseClientProvider>
-          <div className="relative flex min-h-dvh flex-col overflow-x-clip">
-            <main className="flex-1 overflow-x-clip pb-[calc(6rem+var(--safe-bottom))] md:pb-0">
-              {children}
-            </main>
-          </div>
-          <MultiContact />
-          <MobileNav />
-          <ClientToaster />
+          <NavigationProgressProvider>
+            <div className="relative flex min-h-dvh flex-col overflow-x-clip">
+              <main className="flex-1 overflow-x-clip pb-[calc(6rem+var(--safe-bottom))] md:pb-0">
+                {children}
+              </main>
+            </div>
+            <MultiContact />
+            <MobileNav />
+            <ClientToaster />
+          </NavigationProgressProvider>
         </FirebaseClientProvider>
       </body>
       <GoogleAnalytics gaId={GA_MEASUREMENT_ID} />

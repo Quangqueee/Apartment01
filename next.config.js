@@ -1,5 +1,14 @@
 /** @type {import('next').NextConfig} */
+const isTurbopack =
+  Boolean(process.env.TURBOPACK) ||
+  process.argv.includes("--turbo") ||
+  process.argv.includes("--turbopack");
+
 const nextConfig = {
+  // Isolate `next dev --turbo` from `next build` / `next start`.
+  // Sharing `.next` lets Turbopack overwrite routes-manifest.json
+  // (no dataRoutes) and pages/_document.js, which then crash production.
+  distDir: isTurbopack ? ".next-turbo" : ".next",
   typescript: {
     ignoreBuildErrors: false, // Có thể chuyển thành true nếu muốn bỏ qua lỗi TypeScript trong quá trình build
   },

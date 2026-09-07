@@ -52,23 +52,23 @@ export default memo(function ApartmentCard({
     : ({ target: "_blank", rel: "noopener noreferrer" } as const);
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const indexRef = useRef(0);
-
-  const [isMouseDragging, setIsMouseDragging] = useState(false);
+  const [loadAllImages, setLoadAllImages] = useState(false);
+  const [mountedImageIndexes, setMountedImageIndexes] = useState<Set<number>>(
+    () => new Set([0, 1]),
+  );
+  const [readyImageIndexes, setReadyImageIndexes] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const [hasDragged, setHasDragged] = useState(false);
   const hasDraggedRef = useRef(false);
-  const dragRef = useRef({
-    pointer: "none" as "none" | "mouse" | "touch",
+  const mouseDragRef = useRef<{ x: number; left: number } | null>(null);
+  const gestureRef = useRef({
     x: 0,
     y: 0,
-    startTranslate: 0,
-    startIndex: 0,
-    axis: null as null | "x" | "y",
-    lastX: 0,
-    lastT: 0,
-    vx: 0,
+    t: 0,
+    moved: false,
+    scrollLeft: 0,
   });
 
   const markDragged = (next: boolean) => {
@@ -76,57 +76,57 @@ export default memo(function ApartmentCard({
     setHasDragged(next);
   };
 
-  const getViewportWidth = () => viewportRef.current?.clientWidth ?? 0;
-
-  const readTrackX = () => {
-    const track = trackRef.current;
-    if (!track) return 0;
-    const raw = getComputedStyle(track).transform;
-    if (!raw || raw === "none") return 0;
-    return new DOMMatrix(raw).m41;
+  const unlockAllImages = () => {
+    if (imageUrls.length <= 1 || loadAllImages) return;
+    setLoadAllImages(true);
+    setMountedImageIndexes(new Set(imageUrls.map((_, index) => index)));
   };
 
-  const applyTrackX = (x: number, animate: boolean) => {
-    const track = trackRef.current;
-    if (!track) return;
-    track.style.transition = animate
-      ? "transform 280ms cubic-bezier(0.32, 0.72, 0, 1)"
-      : "none";
-    track.style.transform = `translate3d(${x}px, 0, 0)`;
+  const keepImageMounted = (index: number) => {
+    setMountedImageIndexes((prev) => {
+      if (prev.has(index)) return prev;
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
   };
 
-  const rubberBandX = (x: number, width: number, length: number) => {
-    if (length <= 1 || !width) return 0;
-    const minX = -width * (length - 1);
-    if (x > 0) return x * 0.28;
-    if (x < minX) return minX + (x - minX) * 0.28;
-    return x;
-  };
+  const getSlideWidth = () => scrollerRef.current?.clientWidth ?? 0;
 
-  const goToImageIndex = (index: number, animate = true) => {
-    const width = getViewportWidth();
+  const scrollToIndex = (index: number, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const scroller = scrollerRef.current;
+    const width = getSlideWidth();
+    if (!scroller || !width) return;
     const last = Math.max(0, imageUrls.length - 1);
     const nextIndex = Math.max(0, Math.min(last, index));
-    indexRef.current = nextIndex;
+    if (nextIndex !== currentImageIndex) unlockAllImages();
+    keepImageMounted(nextIndex);
     setCurrentImageIndex(nextIndex);
-    applyTrackX(-nextIndex * width, animate);
+    scroller.scrollTo({
+      left: nextIndex * width,
+      behavior: "smooth",
+    });
   };
 
-  const settleSlider = (velocityX: number) => {
-    const width = getViewportWidth();
-    const length = imageUrls.length;
-    if (!width || length <= 0) return;
-    const dx = readTrackX() - dragRef.current.startTranslate;
-    const startIndex = dragRef.current.startIndex;
-    const commitDistance = width * 0.1;
-    const flick = 0.2;
-    let nextIndex = startIndex;
-    if (dx < -commitDistance || velocityX < -flick) {
-      nextIndex = Math.min(length - 1, startIndex + 1);
-    } else if (dx > commitDistance || velocityX > flick) {
-      nextIndex = Math.max(0, startIndex - 1);
+  const handleSliderScroll = () => {
+    const scroller = scrollerRef.current;
+    const width = scroller?.clientWidth ?? 0;
+    if (!scroller || !width) return;
+    const nextIndex = Math.round(scroller.scrollLeft / width);
+    if (nextIndex !== currentImageIndex) {
+      keepImageMounted(nextIndex);
+      setCurrentImageIndex(nextIndex);
     }
-    goToImageIndex(nextIndex, true);
+    if (
+      Math.abs(scroller.scrollLeft - gestureRef.current.scrollLeft) > 10
+    ) {
+      unlockAllImages();
+      markDragged(true);
+    }
   };
 
   const isCollaborator =
@@ -190,62 +190,6 @@ export default memo(function ApartmentCard({
     }
   };
 
-  const beginDrag = (
-    pointer: "mouse" | "touch",
-    clientX: number,
-    clientY: number,
-  ) => {
-    const width = getViewportWidth();
-    const visualX = readTrackX();
-    applyTrackX(visualX, false);
-    const startIndex = width
-      ? Math.round(-visualX / width)
-      : indexRef.current;
-    const now = performance.now();
-    dragRef.current = {
-      pointer,
-      x: clientX,
-      y: clientY,
-      startTranslate: visualX,
-      startIndex: Math.max(0, Math.min(imageUrls.length - 1, startIndex)),
-      axis: pointer === "mouse" ? "x" : null,
-      lastX: clientX,
-      lastT: now,
-      vx: 0,
-    };
-  };
-
-  const dragByClientX = (clientX: number) => {
-    const now = performance.now();
-    const dt = now - dragRef.current.lastT;
-    if (dt > 48) {
-      dragRef.current.vx = 0;
-    } else {
-      dragRef.current.vx =
-        (clientX - dragRef.current.lastX) / Math.max(8, dt);
-    }
-    dragRef.current.lastX = clientX;
-    dragRef.current.lastT = now;
-    const dx = clientX - dragRef.current.x;
-    const width = getViewportWidth();
-    applyTrackX(
-      rubberBandX(
-        dragRef.current.startTranslate + dx,
-        width,
-        imageUrls.length,
-      ),
-      false,
-    );
-  };
-
-  const scrollToIndex = (index: number, e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    goToImageIndex(index, true);
-  };
-
   const handleNextImage = (e?: React.MouseEvent) => {
     const nextIndex =
       currentImageIndex === imageUrls.length - 1
@@ -262,97 +206,53 @@ export default memo(function ApartmentCard({
     scrollToIndex(prevIndex, e);
   };
 
-  const onMouseDown = (e: React.MouseEvent) => {
-    if (imageUrls.length <= 1) return;
-    setIsMouseDragging(true);
+  const rememberGestureStart = (event: React.PointerEvent<HTMLDivElement>) => {
     markDragged(false);
-    beginDrag("mouse", e.clientX, e.clientY);
-  };
-
-  const stopDragging = () => {
-    if (dragRef.current.pointer !== "mouse") return;
-    const velocityX = dragRef.current.vx;
-    dragRef.current.pointer = "none";
-    setIsMouseDragging(false);
-    settleSlider(velocityX);
-  };
-
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (dragRef.current.pointer !== "mouse") return;
-    e.preventDefault();
-    const walk = e.clientX - dragRef.current.x;
-    if (Math.abs(walk) > 5) markDragged(true);
-    dragByClientX(e.clientX);
-  };
-
-  const onSliderTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    const firstTouch = e.touches[0];
-    if (!firstTouch || imageUrls.length <= 1) return;
-    markDragged(false);
-    beginDrag("touch", firstTouch.clientX, firstTouch.clientY);
-  };
-
-  const onSliderTouchEnd = () => {
-    if (dragRef.current.pointer !== "touch") return;
-    const now = performance.now();
-    if (now - dragRef.current.lastT > 48) {
-      dragRef.current.vx = 0;
-    }
-    const axis = dragRef.current.axis;
-    const velocityX = dragRef.current.vx;
-    dragRef.current.pointer = "none";
-    dragRef.current.axis = null;
-    if (axis === "x") {
-      settleSlider(velocityX);
-    } else {
-      goToImageIndex(dragRef.current.startIndex, true);
+    gestureRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      t: Date.now(),
+      moved: false,
+      scrollLeft: scrollerRef.current?.scrollLeft ?? 0,
+    };
+    if (event.pointerType === "mouse" && imageUrls.length > 1) {
+      mouseDragRef.current = {
+        x: event.clientX,
+        left: scrollerRef.current?.scrollLeft ?? 0,
+      };
     }
   };
 
-  const dragByClientXRef = useRef(dragByClientX);
-  dragByClientXRef.current = dragByClientX;
+  const rememberGestureMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const dx = event.clientX - gestureRef.current.x;
+    const dy = event.clientY - gestureRef.current.y;
+    if (Math.hypot(dx, dy) > 12) {
+      gestureRef.current.moved = true;
+      markDragged(true);
+    }
 
-  useEffect(() => {
-    indexRef.current = 0;
-    setCurrentImageIndex(0);
-    applyTrackX(0, false);
-  }, [apartment.id]);
-
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-
-    const onTouchMove = (event: TouchEvent) => {
-      if (dragRef.current.pointer !== "touch") return;
-      const firstTouch = event.touches[0];
-      if (!firstTouch) return;
-      const dx = firstTouch.clientX - dragRef.current.x;
-      const dy = firstTouch.clientY - dragRef.current.y;
-
-      if (!dragRef.current.axis) {
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-        dragRef.current.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
-      }
-      if (dragRef.current.axis !== "x") return;
+    if (!mouseDragRef.current || event.pointerType !== "mouse") return;
+    if (Math.abs(dx) > 5) {
       event.preventDefault();
-      hasDraggedRef.current = true;
-      dragByClientXRef.current(firstTouch.clientX);
-    };
+      markDragged(true);
+      const scroller = scrollerRef.current;
+      if (scroller) {
+        scroller.scrollLeft = mouseDragRef.current.left - dx;
+      }
+    }
+  };
 
-    const syncTrackToWidth = () => {
-      if (dragRef.current.pointer !== "none") return;
-      const width = viewport.clientWidth;
-      applyTrackX(-indexRef.current * width, false);
-    };
+  const endGesture = () => {
+    mouseDragRef.current = null;
+  };
 
-    viewport.addEventListener("touchmove", onTouchMove, { passive: false });
-    const resizeObserver = new ResizeObserver(syncTrackToWidth);
-    resizeObserver.observe(viewport);
-    return () => {
-      viewport.removeEventListener("touchmove", onTouchMove);
-      resizeObserver.disconnect();
-    };
-  }, []);
+  useEffect(() => {
+    setCurrentImageIndex(0);
+    setLoadAllImages(false);
+    setMountedImageIndexes(new Set([0, 1]));
+    setReadyImageIndexes(new Set());
+    scrollerRef.current?.scrollTo({ left: 0, behavior: "auto" });
+  }, [apartment.id]);
 
   const openDetails = () => {
     const href = `/apartments/${apartment.id}`;
@@ -371,7 +271,16 @@ export default memo(function ApartmentCard({
   };
 
   const handleImageAreaClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (hasDraggedRef.current || hasDragged) {
+    const scroller = scrollerRef.current;
+    const scrolled = Math.abs(
+      (scroller?.scrollLeft ?? 0) - gestureRef.current.scrollLeft,
+    );
+    if (
+      hasDraggedRef.current ||
+      hasDragged ||
+      gestureRef.current.moved ||
+      scrolled > 10
+    ) {
       e.preventDefault();
       e.stopPropagation();
       return;
@@ -537,53 +446,59 @@ export default memo(function ApartmentCard({
             }}
           >
             <div
-              ref={viewportRef}
-              onMouseDown={onMouseDown}
-              onMouseLeave={stopDragging}
-              onMouseUp={stopDragging}
-              onMouseMove={onMouseMove}
-              onTouchStart={onSliderTouchStart}
-              onTouchEnd={onSliderTouchEnd}
-              onTouchCancel={onSliderTouchEnd}
-              className={`h-full w-full overflow-hidden [touch-action:pan-y] select-none [-webkit-touch-callout:none] ${
-                isMouseDragging ? "cursor-grabbing" : "cursor-grab"
-              }`}
+              ref={scrollerRef}
+              onScroll={handleSliderScroll}
+              onPointerDown={rememberGestureStart}
+              onPointerMove={rememberGestureMove}
+              onPointerUp={endGesture}
+              onPointerCancel={endGesture}
+              onPointerLeave={endGesture}
+              className="flex h-full w-full cursor-grab overflow-x-auto overscroll-x-contain snap-x snap-mandatory [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] select-none [-webkit-touch-callout:none] active:cursor-grabbing"
             >
-              <div
-                ref={trackRef}
-                className="flex h-full will-change-transform"
-              >
-                {imageUrls.map((url, idx) => {
-                  const shouldLoadImage =
-                    Math.abs(idx - currentImageIndex) <= 1;
-                  return (
-                    <div
-                      key={idx}
-                      className="relative h-full w-full shrink-0 grow-0 basis-full bg-gray-100"
-                    >
-                      {shouldLoadImage ? (
-                        <Image
-                          src={url}
-                          alt={`${displayTitle} - ảnh ${idx + 1}`}
-                          fill
-                          sizes={
-                            isCompact
-                              ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 28vw"
-                              : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                          }
-                          quality={60}
-                          priority={imagePriority && idx === 0}
-                          loading={
-                            imagePriority && idx === 0 ? "eager" : "lazy"
-                          }
-                          draggable={false}
-                          className="object-cover pointer-events-none select-none [-webkit-touch-callout:none]"
-                        />
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
+              {imageUrls.map((url, idx) => {
+                const shouldLoadImage =
+                  loadAllImages ||
+                  mountedImageIndexes.has(idx) ||
+                  Math.abs(idx - currentImageIndex) <= 1;
+                const imageReady = idx === 0 || readyImageIndexes.has(idx);
+                return (
+                  <div
+                    key={idx}
+                    className="relative h-full w-full shrink-0 grow-0 basis-full snap-center snap-always bg-gray-200"
+                  >
+                    {shouldLoadImage ? (
+                      <Image
+                        src={url}
+                        alt={`${displayTitle} - ảnh ${idx + 1}`}
+                        fill
+                        sizes={
+                          isCompact
+                            ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 28vw"
+                            : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                        }
+                        quality={60}
+                        priority={imagePriority && idx === 0}
+                        loading={
+                          loadAllImages || idx === 0 ? "eager" : "lazy"
+                        }
+                        draggable={false}
+                        onLoad={() => {
+                          setReadyImageIndexes((prev) => {
+                            if (prev.has(idx)) return prev;
+                            const next = new Set(prev);
+                            next.add(idx);
+                            return next;
+                          });
+                        }}
+                        className={cn(
+                          "object-cover pointer-events-none select-none [-webkit-touch-callout:none] transition-opacity duration-200",
+                          imageReady ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

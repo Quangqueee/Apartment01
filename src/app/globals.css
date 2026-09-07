@@ -251,6 +251,36 @@ body[data-scroll-locked] {
   }
 }
 
+@keyframes nav-progress-load {
+  0% {
+    width: 8%;
+  }
+  20% {
+    width: 42%;
+  }
+  50% {
+    width: 68%;
+  }
+  80% {
+    width: 82%;
+  }
+  100% {
+    width: 90%;
+  }
+}
+
+.nav-progress-bar {
+  width: 90%;
+  animation: nav-progress-load 3.2s cubic-bezier(0.12, 0.4, 0.2, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress-bar {
+    animation: none;
+    width: 100%;
+  }
+}
+
 @media (max-width: 1023px) {
   body[data-listing-page="true"]:not([data-listing-nav-hidden="true"])
     .listing-sticky-cta {

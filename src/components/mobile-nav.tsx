@@ -1,17 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   CalendarDays,
   Heart,
   Home,
+  Loader2,
   Search,
   User,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUser } from "@/firebase/provider";
+import { useNavProgress } from "@/components/navigation-progress";
 import { ADMIN_PATH } from "@/lib/constants";
 import { SITE_PATHS } from "@/lib/site";
 import { districtFromPathname } from "@/lib/districts";
@@ -77,9 +79,28 @@ function isNavActive(id: NavId, pathname: string): boolean {
 
 export default function MobileNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isUserLoading } = useUser();
+  const { start, pendingPath } = useNavProgress();
   const [hidden, setHidden] = useState(false);
   const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    [
+      SITE_PATHS.home,
+      SITE_PATHS.search,
+      "/favorites",
+      "/profile",
+      "/profile/bookings",
+      "/login",
+    ].forEach((href) => {
+      try {
+        router.prefetch(href);
+      } catch {
+        /* prefetch is best-effort */
+      }
+    });
+  }, [router]);
 
   const isApartmentDetails = /^\/(apartments|can-ho-ngan-han)\/[^/]+/.test(
     pathname,
@@ -132,7 +153,7 @@ export default function MobileNav() {
   return (
     <nav
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-30 overflow-x-hidden border-t border-gray-100 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 md:hidden pb-[var(--safe-bottom)]",
+        "fixed bottom-0 left-0 right-0 z-[65] overflow-x-hidden border-t border-gray-100 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 md:hidden pb-[var(--safe-bottom)]",
         "transition-transform duration-300 ease-ios-out will-change-transform",
         hidden && "translate-y-full",
       )}
@@ -154,25 +175,41 @@ export default function MobileNav() {
               : item.label;
 
           const isActive = isNavActive(item.id, pathname);
+          const isPending = Boolean(
+            pendingPath && isNavActive(item.id, pendingPath),
+          );
 
           return (
             <Link
               key={item.id}
               href={targetHref}
+              prefetch
               aria-current={isActive ? "page" : undefined}
+              aria-busy={isPending || undefined}
               aria-label={label}
+              onPointerDown={(event) => {
+                if (event.pointerType === "touch" || event.pointerType === "pen") {
+                  start(targetHref);
+                }
+              }}
               className={cn(
                 "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5",
                 "text-[10px] font-semibold leading-none tracking-tight",
                 "transition-colors duration-200",
-                isActive ? "text-[#cda533]" : "text-gray-400",
+                isActive || isPending ? "text-[#cda533]" : "text-gray-400",
               )}
             >
-              <item.icon
-                className="h-[22px] w-[22px]"
-                strokeWidth={isActive ? 2.25 : 1.85}
-                fill={item.id === "favorites" && isActive ? "currentColor" : "none"}
-              />
+              {isPending ? (
+                <Loader2 className="h-[22px] w-[22px] animate-spin" aria-hidden />
+              ) : (
+                <item.icon
+                  className="h-[22px] w-[22px]"
+                  strokeWidth={isActive ? 2.25 : 1.85}
+                  fill={
+                    item.id === "favorites" && isActive ? "currentColor" : "none"
+                  }
+                />
+              )}
               <span className="max-w-full truncate">{label}</span>
             </Link>
           );

@@ -12,6 +12,7 @@ import {
   Heart,
   Hash,
   Share,
+  Share2,
   Check,
   Link as LinkIcon,
   Clock,
@@ -48,6 +49,16 @@ import {
 import { setApartmentFavorite } from "@/lib/favorites-client";
 import ApartmentCard from "@/components/apartment-card";
 import ApartmentImageGallery from "@/components/apartment-image-gallery";
+import {
+  canUseWebShare,
+  copyToClipboard,
+  getPageShareUrl,
+  isStandalonePwa,
+  openExternalUrl,
+  shareViaSystem,
+  shouldUseSystemShare,
+  type SharePayload,
+} from "@/lib/web-share";
 
 const MessengerSvgIcon = ({ className }: { className?: string }) => (
   <svg
@@ -117,54 +128,111 @@ const getRoomTypeLabel = (value: string) => {
 function ShareModal({
   isOpen,
   onClose,
-  title,
+  payload,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  payload: SharePayload;
 }) {
   const [copied, setCopied] = useState(false);
+  const [showSystemShare, setShowSystemShare] = useState(false);
   const { toast } = useToast();
 
-  const handleCopyLink = () => {
-    if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(window.location.href);
+  useEffect(() => {
+    setShowSystemShare(canUseWebShare());
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) setCopied(false);
+  }, [isOpen]);
+
+  const shareUrl = () => payload.url || getPageShareUrl();
+
+  const handleCopyLink = async () => {
+    const url = shareUrl();
+    const ok = await copyToClipboard(url);
+    if (ok) {
       setCopied(true);
       toast({
         title: "Đã sao chép liên kết!",
         className: "bg-black text-white border-none",
       });
       setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const handleMessengerShare = () => {
-    handleCopyLink();
-
-    if (typeof window !== "undefined") {
-      const url = encodeURIComponent(window.location.href);
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-      if (isMobile) {
-        window.open(`fb-messenger://share/?link=${url}`, "_blank");
-      } else {
-        window.open(`https://www.messenger.com/`, "_blank");
-      }
+      return true;
     }
 
     toast({
-      title: "Đã sao chép link!",
-      description: "Đang mở Messenger để bạn dán gửi bạn bè.",
+      variant: "destructive",
+      title: "Không sao chép được",
+      description: "Hãy nhấn giữ ô địa chỉ hoặc dùng Chia sẻ hệ thống.",
+    });
+    return false;
+  };
+
+  const handleSystemShare = async () => {
+    const result = await shareViaSystem({
+      ...payload,
+      url: shareUrl(),
+    });
+    if (result === "shared" || result === "cancelled") {
+      onClose();
+      return;
+    }
+    await handleCopyLink();
+  };
+
+  const handleMessengerShare = async () => {
+    const url = shareUrl();
+    const copiedOk = await copyToClipboard(url);
+
+    if (isStandalonePwa() && canUseWebShare()) {
+      const result = await shareViaSystem({
+        ...payload,
+        url,
+      });
+      if (result === "shared" || result === "cancelled") {
+        onClose();
+        return;
+      }
+    } else if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      openExternalUrl(`fb-messenger://share/?link=${encodeURIComponent(url)}`);
+    } else {
+      openExternalUrl("https://www.messenger.com/");
+    }
+
+    toast({
+      title: copiedOk ? "Đã sao chép link!" : "Mở Messenger",
+      description: copiedOk
+        ? "Dán link vào Messenger nếu ứng dụng không tự điền."
+        : "Nếu Messenger không mở, hãy sao chép liên kết thủ công.",
       className: "bg-purple-50 text-purple-900 border-purple-200",
     });
   };
 
-  const handleZaloShare = () => {
-    handleCopyLink();
-    window.open(`https://chat.zalo.me/`, "_blank");
+  const handleZaloShare = async () => {
+    const url = shareUrl();
+    const copiedOk = await copyToClipboard(url);
+
+    if (isStandalonePwa() && canUseWebShare()) {
+      const result = await shareViaSystem({
+        ...payload,
+        url,
+      });
+      if (result === "shared" || result === "cancelled") {
+        onClose();
+        return;
+      }
+    }
+
+    const opened = openExternalUrl(
+      `https://zalo.me/share?url=${encodeURIComponent(url)}`,
+    );
+
     toast({
-      title: "Đã sao chép link!",
-      description: "Đang mở Zalo web để bạn dán link.",
+      title: copiedOk ? "Đã sao chép link!" : "Chia sẻ Zalo",
+      description: opened
+        ? "Dán link vào Zalo nếu trang chia sẻ không tự điền."
+        : "Link đã sẵn sàng — mở Zalo và dán để gửi bạn bè.",
       className: "bg-blue-50 text-blue-900 border-blue-100",
     });
   };
@@ -198,7 +266,29 @@ function ShareModal({
 
         {/* 🚀 FIX LỖI NỀN XÁM ĐÁY: Bo tròn nhẹ phần đáy hoặc đồng bộ màu nền container */}
         <div className="flex flex-col gap-3 p-5 bg-white rounded-b-[2rem]">
+          {showSystemShare && (
+            <button
+              type="button"
+              onClick={handleSystemShare}
+              aria-label="Chia sẻ qua ứng dụng trên máy"
+              className="flex items-center gap-4 p-3.5 rounded-[1.25rem] bg-white border border-primary/20 shadow-[0_2px_15px_rgba(224,122,47,0.08)] hover:border-primary/40 transition-all group"
+            >
+              <div className="p-2.5 rounded-full text-white bg-primary">
+                <Share2 className="h-5 w-5" />
+              </div>
+              <div className="text-left">
+                <p className="font-bold text-gray-900 text-[15px] mb-0.5">
+                  Chia sẻ qua ứng dụng
+                </p>
+                <p className="text-[13px] text-gray-500 leading-snug">
+                  Zalo, Messenger, tin nhắn…
+                </p>
+              </div>
+            </button>
+          )}
+
           <button
+            type="button"
             onClick={handleCopyLink}
             aria-label="Sao chép liên kết căn hộ"
             className="flex items-center gap-4 p-3.5 rounded-[1.25rem] bg-white border border-gray-100 shadow-[0_2px_15px_rgba(0,0,0,0.03)] hover:border-gray-300 transition-all group"
@@ -226,6 +316,7 @@ function ShareModal({
           </button>
 
           <button
+            type="button"
             onClick={handleMessengerShare}
             aria-label="Chia sẻ qua Facebook Messenger"
             className="flex items-center gap-4 p-3.5 rounded-[1.25rem] bg-white border border-purple-100 shadow-[0_2px_15px_rgba(160,51,255,0.06)] hover:border-purple-300 transition-all"
@@ -244,6 +335,7 @@ function ShareModal({
           </button>
 
           <button
+            type="button"
             onClick={handleZaloShare}
             aria-label="Chia sẻ qua Zalo"
             className="flex items-center gap-4 p-3.5 rounded-[1.25rem] bg-white border border-[#0068FF]/20 shadow-[0_2px_15px_rgba(0,104,255,0.05)] hover:border-[#0068FF]/40 transition-all"
@@ -256,7 +348,7 @@ function ShareModal({
                 Zalo
               </p>
               <p className="text-[13px] text-[#0068FF]/70 leading-snug">
-                Sao chép & Mở Zalo web
+                Sao chép & mở Zalo
               </p>
             </div>
           </button>
@@ -438,6 +530,25 @@ export default function ApartmentDetailsPageClient({
   const [isFavLoading, setIsFavLoading] = useState(false);
 
   const [shareOpen, setShareOpen] = useState(false);
+  const sharePayload: SharePayload = {
+    title: apartment.title,
+    text: `${apartment.title} — ${formatPrice(apartment.price)}`,
+    url: "",
+  };
+
+  const handleOpenShare = async () => {
+    const payload: SharePayload = {
+      ...sharePayload,
+      url: getPageShareUrl(),
+    };
+
+    if (shouldUseSystemShare()) {
+      const result = await shareViaSystem(payload);
+      if (result === "shared" || result === "cancelled") return;
+    }
+
+    setShareOpen(true);
+  };
   const [isGalleryLightboxOpen, setIsGalleryLightboxOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDescModalOpen, setIsDescModalOpen] = useState(false);
@@ -765,19 +876,9 @@ export default function ApartmentDetailsPageClient({
     }
 
     try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(copyText);
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = copyText;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand("copy");
-        textArea.remove();
+      const copiedOk = await copyToClipboard(copyText);
+      if (!copiedOk) {
+        throw new Error("clipboard-failed");
       }
       toast({
         title: "Đã copy thông tin!",
@@ -907,7 +1008,7 @@ export default function ApartmentDetailsPageClient({
       <ShareModal
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
-        title={apartment.title}
+        payload={sharePayload}
       />
 
       <Dialog open={isDescModalOpen} onOpenChange={setIsDescModalOpen}>
@@ -1025,7 +1126,8 @@ export default function ApartmentDetailsPageClient({
 
               <div className="md:hidden absolute top-4 right-4 z-10 flex items-center gap-2">
                 <button
-                  onClick={() => setShareOpen(true)}
+                  type="button"
+                  onClick={handleOpenShare}
                   className="h-10 w-10 bg-white/90 backdrop-blur-md rounded-full shadow-sm active:scale-95 transition-all flex items-center justify-center"
                 >
                   <Share className="h-5 w-5 text-gray-700" />
@@ -1080,7 +1182,7 @@ export default function ApartmentDetailsPageClient({
                     <Button
                       variant="outline"
                       className="rounded-full border-gray-200 hover:bg-gray-100 hover:text-green-800 gap-2 font-bold text-gray-600 transition-all h-10 px-4"
-                      onClick={() => setShareOpen(true)}
+                      onClick={handleOpenShare}
                     >
                       <Share className="h-4 w-4 shrink-0" /> Chia sẻ
                     </Button>

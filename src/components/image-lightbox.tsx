@@ -41,6 +41,59 @@ function pointerDistance(
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+function pointerMidpoint(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+) {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+function stageCenter(stage: HTMLElement) {
+  const rect = stage.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+
+function translateForZoom(
+  nextScale: number,
+  currentScale: number,
+  currentTranslate: { x: number; y: number },
+  focus: { x: number; y: number },
+  stage: HTMLElement,
+) {
+  const center = stageCenter(stage);
+  const ratio = nextScale / Math.max(currentScale, 0.001);
+  const px = focus.x - center.x;
+  const py = focus.y - center.y;
+  return {
+    x: px - ratio * (px - currentTranslate.x),
+    y: py - ratio * (py - currentTranslate.y),
+  };
+}
+
+function clampTranslate(
+  nextScale: number,
+  nextTranslate: { x: number; y: number },
+  stage: HTMLElement,
+) {
+  if (nextScale <= 1.01) return { x: 0, y: 0 };
+  const image = stage.querySelector("img");
+  const maxX = Math.max(
+    0,
+    ((image?.clientWidth ?? stage.clientWidth) * nextScale - stage.clientWidth) /
+      2,
+  );
+  const maxY = Math.max(
+    0,
+    ((image?.clientHeight ?? stage.clientHeight) * nextScale -
+      stage.clientHeight) /
+      2,
+  );
+  return {
+    x: clamp(nextTranslate.x, -maxX, maxX),
+    y: clamp(nextTranslate.y, -maxY, maxY),
+  };
+}
+
 function LightboxZoomImage({
   src,
   alt,
@@ -54,7 +107,12 @@ function LightboxZoomImage({
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
-  const pinchRef = useRef<{ distance: number; scale: number } | null>(null);
+  const pinchRef = useRef<{
+    distance: number;
+    scale: number;
+    translate: { x: number; y: number };
+    mid: { x: number; y: number };
+  } | null>(null);
   const panRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(
     null,
   );
@@ -79,8 +137,13 @@ function LightboxZoomImage({
       LIGHTBOX_MAX_SCALE,
     );
     const snappedScale = normalizedScale <= 1.01 ? 1 : normalizedScale;
+    const stage = stageRef.current;
     const normalizedTranslate =
-      snappedScale <= 1 ? { x: 0, y: 0 } : nextTranslate;
+      snappedScale <= 1
+        ? { x: 0, y: 0 }
+        : stage
+          ? clampTranslate(snappedScale, nextTranslate, stage)
+          : nextTranslate;
     scaleRef.current = snappedScale;
     translateRef.current = normalizedTranslate;
     setScale(snappedScale);
@@ -90,6 +153,24 @@ function LightboxZoomImage({
       lastZoomedRef.current = zoomed;
       onZoomChange?.(zoomed);
     }
+  };
+
+  const zoomAtClientPoint = (nextScale: number, clientX: number, clientY: number) => {
+    const stage = stageRef.current;
+    if (!stage) {
+      applyTransform(nextScale, { x: 0, y: 0 });
+      return;
+    }
+    applyTransform(
+      nextScale,
+      translateForZoom(
+        nextScale,
+        scaleRef.current,
+        translateRef.current,
+        { x: clientX, y: clientY },
+        stage,
+      ),
+    );
   };
 
   useEffect(() => {
@@ -117,7 +198,7 @@ function LightboxZoomImage({
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
       const next = scaleRef.current * (event.deltaY < 0 ? 1.08 : 0.92);
-      applyTransform(next, translateRef.current);
+      zoomAtClientPoint(next, event.clientX, event.clientY);
     };
 
     stage.addEventListener("touchmove", onTouchMove, { passive: false });
@@ -144,6 +225,8 @@ function LightboxZoomImage({
       pinchRef.current = {
         distance: pointerDistance(first, second),
         scale: scaleRef.current,
+        translate: { ...translateRef.current },
+        mid: pointerMidpoint(first, second),
       };
       panRef.current = null;
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -184,10 +267,28 @@ function LightboxZoomImage({
       const [first, second] = [...pointersRef.current.values()];
       const distance = pointerDistance(first, second);
       if (pinchRef.current.distance <= 0) return;
-      applyTransform(
-        pinchRef.current.scale * (distance / pinchRef.current.distance),
-        translateRef.current,
-      );
+      const nextScale =
+        pinchRef.current.scale * (distance / pinchRef.current.distance);
+      const stage = stageRef.current;
+      const mid = pointerMidpoint(first, second);
+      if (!stage) {
+        applyTransform(nextScale, translateRef.current);
+        return;
+      }
+      const center = stageCenter(stage);
+      const ratio = nextScale / Math.max(pinchRef.current.scale, 0.001);
+      applyTransform(nextScale, {
+        x:
+          mid.x -
+          center.x -
+          ratio *
+            (pinchRef.current.mid.x - center.x - pinchRef.current.translate.x),
+        y:
+          mid.y -
+          center.y -
+          ratio *
+            (pinchRef.current.mid.y - center.y - pinchRef.current.translate.y),
+      });
       return;
     }
 
@@ -228,7 +329,8 @@ function LightboxZoomImage({
     }
     if (!isTap) return;
     if (now - lastTapRef.current < 280) {
-      applyTransform(wasZoomed ? 1 : 2.4, { x: 0, y: 0 });
+      if (wasZoomed) applyTransform(1, { x: 0, y: 0 });
+      else zoomAtClientPoint(2.4, startPointRef.current.x, startPointRef.current.y);
       lastTapRef.current = 0;
       return;
     }
@@ -238,7 +340,7 @@ function LightboxZoomImage({
   const onDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     if (scaleRef.current > 1.01) applyTransform(1, { x: 0, y: 0 });
-    else applyTransform(2.4, { x: 0, y: 0 });
+    else zoomAtClientPoint(2.4, event.clientX, event.clientY);
   };
 
   return (
@@ -262,13 +364,9 @@ function LightboxZoomImage({
           WebkitTouchCallout: "default",
           WebkitUserSelect: "auto",
           userSelect: "auto",
-          ...(scale > 1.01
-            ? {
-                transform: `translate3d(${translate.x}px, ${translate.y}px, 0) scale(${scale})`,
-                transformOrigin: "center center",
-                transition: gesturing ? "none" : "transform 160ms ease-out",
-              }
-            : undefined),
+          transform: `translate3d(${translate.x}px, ${translate.y}px, 0) scale(${scale})`,
+          transformOrigin: "center center",
+          transition: gesturing ? "none" : "transform 160ms ease-out",
         }}
       />
     </div>
