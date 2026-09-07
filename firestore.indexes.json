@@ -142,6 +142,39 @@
         { "fieldPath": "landlordApprovalStatus", "order": "ASCENDING" },
         { "fieldPath": "landlordRequestSubmittedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "short_term_apartments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "submissionStatus", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "short_term_apartments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "landlordId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "stay_bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "stay_bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "apartmentId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "checkIn", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

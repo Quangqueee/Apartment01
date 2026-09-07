@@ -2,8 +2,8 @@
 import { useEffect, useState, memo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { db } from "@/firebase";
-import { doc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { setApartmentFavorite } from "@/lib/favorites-client";
+import { useToast } from "@/hooks/use-toast";
 import AuthModal from "./auth-modal";
 import Link from "next/link";
 import { Apartment } from "@/lib/types";
@@ -37,8 +37,12 @@ export default memo(function ApartmentCard({
   /** Only the first visible card(s) should set this to protect LCP. */
   imagePriority?: boolean;
 }) {
-  const { user, userData } = useAuth();
+  const { user, userData, favoriteIds } = useAuth();
+  const { toast } = useToast();
   const router = useRouter();
+  const imageUrls = Array.isArray(apartment.imageUrls)
+    ? apartment.imageUrls
+    : [];
   const isMobile = useIsMobile();
   const [showModal, setShowModal] = useState(false);
   const [isFavoriteUpdating, setIsFavoriteUpdating] = useState(false);
@@ -56,6 +60,18 @@ export default memo(function ApartmentCard({
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [hasDragged, setHasDragged] = useState(false);
+  const hasDraggedRef = useRef(false);
+  const touchSwipeRef = useRef<{
+    x: number;
+    y: number;
+    scrollLeft: number;
+    axis: null | "x" | "y";
+  }>({ x: 0, y: 0, scrollLeft: 0, axis: null });
+
+  const markDragged = (next: boolean) => {
+    hasDraggedRef.current = next;
+    setHasDragged(next);
+  };
 
   const isCollaborator =
     userData?.role === "collaborator" || userData?.role === "admin";
@@ -64,16 +80,16 @@ export default memo(function ApartmentCard({
   const initialFavoriteState =
     typeof apartment.isFavorited === "boolean"
       ? apartment.isFavorited
-      : userData?.favorites?.includes(apartment.id) || false;
+      : favoriteIds.includes(apartment.id);
   const [isFavorite, setIsFavorite] = useState(initialFavoriteState);
 
   useEffect(() => {
     const nextFavoriteState =
       typeof apartment.isFavorited === "boolean"
         ? apartment.isFavorited
-        : userData?.favorites?.includes(apartment.id) || false;
+        : favoriteIds.includes(apartment.id);
     setIsFavorite(nextFavoriteState);
-  }, [apartment.id, apartment.isFavorited, userData?.favorites]);
+  }, [apartment.id, apartment.isFavorited, favoriteIds]);
 
   const formatCommission = (commissionValue: Apartment["commission"]) => {
     if (
@@ -98,25 +114,21 @@ export default memo(function ApartmentCard({
       return;
     }
 
-    const userRef = doc(db, "users", user.uid);
     const nextIsFavorite = !isFavorite;
     setIsFavoriteUpdating(true);
     setIsFavorite(nextIsFavorite);
     onFavoriteToggle?.(apartment.id, nextIsFavorite);
 
     try {
-      await setDoc(
-        userRef,
-        {
-          favorites: nextIsFavorite
-            ? arrayUnion(apartment.id)
-            : arrayRemove(apartment.id),
-        },
-        { merge: true },
-      );
+      await setApartmentFavorite(user, apartment.id, nextIsFavorite);
     } catch (err) {
       setIsFavorite(!nextIsFavorite);
       onFavoriteToggle?.(apartment.id, !nextIsFavorite);
+      toast({
+        variant: "destructive",
+        title: "Không thể lưu yêu thích",
+        description: "Vui lòng thử lại sau.",
+      });
     } finally {
       setIsFavoriteUpdating(false);
     }
@@ -143,7 +155,7 @@ export default memo(function ApartmentCard({
 
   const handleNextImage = (e?: React.MouseEvent) => {
     const nextIndex =
-      currentImageIndex === apartment.imageUrls.length - 1
+      currentImageIndex === imageUrls.length - 1
         ? 0
         : currentImageIndex + 1;
     scrollToIndex(nextIndex, e);
@@ -152,14 +164,14 @@ export default memo(function ApartmentCard({
   const handlePrevImage = (e?: React.MouseEvent) => {
     const prevIndex =
       currentImageIndex === 0
-        ? apartment.imageUrls.length - 1
+        ? imageUrls.length - 1
         : currentImageIndex - 1;
     scrollToIndex(prevIndex, e);
   };
 
   const onMouseDown = (e: React.MouseEvent) => {
     setIsMouseDragging(true);
-    setHasDragged(false);
+    markDragged(false);
     if (scrollRef.current) {
       setStartX(e.pageX - scrollRef.current.offsetLeft);
       setScrollLeft(scrollRef.current.scrollLeft);
@@ -185,15 +197,75 @@ export default memo(function ApartmentCard({
     e.preventDefault();
     const x = e.pageX - scrollRef.current.offsetLeft;
     const walk = x - startX;
-    if (Math.abs(walk) > 5) setHasDragged(true);
+    if (Math.abs(walk) > 5) markDragged(true);
     scrollRef.current.scrollLeft = scrollLeft - walk;
   };
 
+  const onSliderTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const firstTouch = e.touches[0];
+    if (!firstTouch) return;
+    setIsHovered(true);
+    markDragged(false);
+    touchSwipeRef.current = {
+      x: firstTouch.clientX,
+      y: firstTouch.clientY,
+      scrollLeft: scrollRef.current?.scrollLeft ?? 0,
+      axis: null,
+    };
+  };
+
+  const onSliderTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const firstTouch = e.touches[0];
+    if (!firstTouch || !scrollRef.current) return;
+    const dx = firstTouch.clientX - touchSwipeRef.current.x;
+    const dy = firstTouch.clientY - touchSwipeRef.current.y;
+    if (!touchSwipeRef.current.axis) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      touchSwipeRef.current.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      markDragged(true);
+    }
+    if (touchSwipeRef.current.axis !== "x") return;
+    markDragged(true);
+    scrollRef.current.scrollLeft = touchSwipeRef.current.scrollLeft - dx;
+  };
+
+  const onSliderTouchEnd = () => {
+    if (touchSwipeRef.current.axis === "x" && scrollRef.current) {
+      const width = scrollRef.current.clientWidth;
+      if (width) {
+        const targetIndex = Math.round(scrollRef.current.scrollLeft / width);
+        scrollRef.current.scrollTo({
+          left: targetIndex * width,
+          behavior: "smooth",
+        });
+      }
+    }
+    touchSwipeRef.current.axis = null;
+  };
+
+  const openDetails = () => {
+    const href = `/apartments/${apartment.id}`;
+    if (isMobile) {
+      router.push(href);
+      return;
+    }
+    window.open(href, "_blank", "noopener,noreferrer");
+  };
+
   const handleLinkClick = (e: React.MouseEvent) => {
-    if (hasDragged) {
+    if (hasDraggedRef.current || hasDragged) {
       e.preventDefault();
       e.stopPropagation();
     }
+  };
+
+  const handleImageAreaClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (hasDraggedRef.current || hasDragged) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    openDetails();
   };
 
   const displayCommission = formatCommission(apartment.commission);
@@ -341,12 +413,19 @@ export default memo(function ApartmentCard({
             ID: {getDisplaySourceCode(apartment.sourceCode, userData?.role)}
           </div>
 
-          <Link
-            href={`/apartments/${apartment.id}`}
-            className="absolute inset-0 z-0 block"
-            onClick={handleLinkClick}
-            draggable={false}
-            {...detailsLinkTarget}
+          <div
+            role="link"
+            tabIndex={0}
+            aria-label={displayTitle}
+            className="absolute inset-0 z-0 block select-none [-webkit-touch-callout:none] [touch-action:pan-y]"
+            onClick={handleImageAreaClick}
+            onContextMenu={(e) => e.preventDefault()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openDetails();
+              }
+            }}
           >
             <div
               ref={scrollRef}
@@ -355,13 +434,17 @@ export default memo(function ApartmentCard({
               onMouseLeave={stopDragging}
               onMouseUp={stopDragging}
               onMouseMove={onMouseMove}
-              className={`flex h-full w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${
+              onTouchStart={onSliderTouchStart}
+              onTouchMove={onSliderTouchMove}
+              onTouchEnd={onSliderTouchEnd}
+              onTouchCancel={onSliderTouchEnd}
+              className={`flex h-full w-full overflow-x-auto overscroll-x-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-y] select-none [-webkit-touch-callout:none] ${
                 isMouseDragging
                   ? "snap-none cursor-grabbing"
                   : "snap-x snap-mandatory scroll-smooth"
               }`}
             >
-              {apartment.imageUrls.map((url, idx) => {
+              {imageUrls.map((url, idx) => {
                 if (idx > 0 && !isHovered) {
                   return (
                     <div
@@ -388,15 +471,15 @@ export default memo(function ApartmentCard({
                       priority={imagePriority && idx === 0}
                       loading={imagePriority && idx === 0 ? "eager" : "lazy"}
                       draggable={false}
-                      className="object-cover pointer-events-none select-none"
+                      className="object-cover pointer-events-none select-none [-webkit-touch-callout:none]"
                     />
                   </div>
                 );
               })}
             </div>
-          </Link>
+          </div>
 
-          {apartment.imageUrls.length > 1 && (
+          {imageUrls.length > 1 && (
             <>
               <div
                 onClick={handlePrevImage}
@@ -413,9 +496,9 @@ export default memo(function ApartmentCard({
             </>
           )}
 
-          {apartment.imageUrls.length > 1 && (
+          {imageUrls.length > 1 && (
             <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-1.5 drop-shadow-md pointer-events-none">
-              {apartment.imageUrls.map((_, idx) => (
+              {imageUrls.map((_, idx) => (
                 <div
                   key={idx}
                   className={`h-1.5 rounded-full transition-all duration-300 ${

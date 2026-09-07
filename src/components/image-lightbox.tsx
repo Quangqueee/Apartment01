@@ -326,7 +326,7 @@ export default function ImageLightbox({
           {isMobile ? (
             <div
               ref={mobileScrollerRef}
-              className="h-full w-full flex overflow-x-auto snap-x snap-mandatory select-none touch-pan-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              className="h-full w-full flex overflow-x-auto snap-x snap-mandatory touch-pan-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
               onScroll={(event) => {
                 const width = event.currentTarget.clientWidth;
                 if (!width) return;
@@ -339,21 +339,13 @@ export default function ImageLightbox({
               {images.map((url, index) => (
                 <div
                   key={index}
-                  className="h-full w-full shrink-0 snap-center flex items-center justify-center select-none touch-pan-x"
+                  className="h-full w-full shrink-0 snap-center flex items-center justify-center touch-pan-x"
                 >
                   <img
                     src={url}
                     alt={`Ảnh ${index + 1}`}
-                    draggable={false}
-                    // Thêm pointer-events-none và select-none
-                    className="max-h-full max-w-full object-contain pointer-events-none select-none"
-                    // Đổi WebkitTouchCallout thành "none"
-                    style={{
-                      WebkitTouchCallout: "none",
-                      WebkitUserSelect: "none",
-                    }}
-                    // Chặn menu chuột phải / nhấn giữ Android
-                    onContextMenu={(e) => e.preventDefault()}
+                    className="max-h-full max-w-full object-contain select-auto"
+                    style={{ WebkitTouchCallout: "default" }}
                   />
                 </div>
               ))}
@@ -361,10 +353,10 @@ export default function ImageLightbox({
           ) : (
             <Carousel
               setApi={setApi}
-              className="w-full h-full select-none touch-pan-y"
+              className="w-full h-full touch-pan-y"
               opts={{ startIndex: selectedIndex, loop: true }}
             >
-              <CarouselContent className="h-[100vh] -ml-0 select-none touch-pan-y">
+              <CarouselContent className="h-[100vh] -ml-0 touch-pan-y">
                 {images.map((url, index) => (
                   <CarouselItem key={index} className="h-full pl-0 relative">
                     <div className="w-full h-[100vh] flex items-center justify-center">
@@ -374,17 +366,10 @@ export default function ImageLightbox({
                           alt={`Image ${index + 1}`}
                           fill
                           priority={index === selectedIndex}
-                          // Thêm pointer-events-none và select-none
-                          className="object-contain p-0 md:p-12 pointer-events-none select-none"
+                          className="object-contain p-0 md:p-12 select-auto"
                           sizes="100vw"
                           quality={100}
-                          draggable={false}
-                          // Chặn menu chuột phải / nhấn giữ
-                          onContextMenu={(e) => e.preventDefault()}
-                          style={{
-                            WebkitTouchCallout: "none",
-                            WebkitUserSelect: "none",
-                          }}
+                          style={{ WebkitTouchCallout: "default" }}
                         />
                       </div>
                     </div>

@@ -32,7 +32,6 @@ import { Apartment } from "@/lib/types";
 import ClientFormattedDate from "@/components/client-formatted-date";
 import { useAuth } from "@/context/auth-context";
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -46,8 +45,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { db } from "@/firebase";
-import { arrayUnion, arrayRemove, setDoc, doc } from "firebase/firestore";
+import { setApartmentFavorite } from "@/lib/favorites-client";
 import ApartmentCard from "@/components/apartment-card";
 import ApartmentImageGallery from "@/components/apartment-image-gallery";
 
@@ -423,24 +421,6 @@ function RelatedApartments({ related }: { related: Apartment[] }) {
   );
 }
 
-function ApartmentDetailsSkeleton() {
-  return (
-    <div className="container mx-auto px-4 py-8 animate-pulse">
-      <Skeleton className="w-full aspect-[16/9] md:aspect-[21/9] rounded-[1.5rem] mb-8" />
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-        <div className="lg:col-span-8 space-y-6">
-          <Skeleton className="h-10 w-3/4" />
-          <Skeleton className="h-16 w-1/3" />
-          <Skeleton className="h-32 w-full" />
-        </div>
-        <div className="lg:col-span-4">
-          <Skeleton className="h-64 w-full rounded-2xl" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function ApartmentDetailsPageClient({
   initialApartment,
   initialRelated,
@@ -448,7 +428,7 @@ export default function ApartmentDetailsPageClient({
   initialApartment: Apartment;
   initialRelated: Apartment[];
 }) {
-  const { user, userData, loading: authLoading } = useAuth();
+  const { user, userData, favoriteIds, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -702,9 +682,8 @@ export default function ApartmentDetailsPageClient({
       setIsFavorited(false);
       return;
     }
-    const currentFavorites = userData?.favorites ?? [];
-    setIsFavorited(currentFavorites.includes(apartmentId));
-  }, [user, userData?.favorites, apartmentId]);
+    setIsFavorited(favoriteIds.includes(apartmentId));
+  }, [user, favoriteIds, apartmentId]);
 
   useLayoutEffect(() => {
     if (authLoading || isCollaborator) {
@@ -752,15 +731,7 @@ export default function ApartmentDetailsPageClient({
     }
     setIsFavLoading(true);
     const nextIsFavorited = !isFavorited;
-    setDoc(
-      doc(db, "users", user.uid),
-      {
-        favorites: nextIsFavorited
-          ? arrayUnion(apartmentId)
-          : arrayRemove(apartmentId),
-      },
-      { merge: true },
-    )
+    setApartmentFavorite(user, apartmentId, nextIsFavorited)
       .then(() => {
         setIsFavorited(nextIsFavorited);
         toast({
@@ -821,16 +792,6 @@ export default function ApartmentDetailsPageClient({
       });
     }
   };
-
-  if (authLoading) {
-    return (
-      <>
-        <Header />
-        <ApartmentDetailsSkeleton />
-        <Footer />
-      </>
-    );
-  }
 
   const isRented = apartment.status === "rented";
   const formattedPrice =

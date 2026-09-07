@@ -111,7 +111,7 @@ export default function ApartmentImageGallery({
                       alt={`View ${idx}`}
                       fill
                       draggable={false}
-                      className="object-cover pointer-events-none select-none"
+                      className="object-cover pointer-events-none select-none [-webkit-touch-callout:none]"
                       priority={idx === 0}
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     />

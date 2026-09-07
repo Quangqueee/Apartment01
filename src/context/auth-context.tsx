@@ -3,12 +3,14 @@ import { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 // BỔ SUNG: import thêm updateDoc và serverTimestamp
 import {
+  collection,
   doc,
   onSnapshot,
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "@/firebase/app";
+import { mergeFavoriteIds } from "@/lib/favorites";
 
 export type UserRole = "user" | "collaborator" | "admin" | "landlord";
 
@@ -32,22 +34,31 @@ export type UserData = {
 type AuthContextValue = {
   user: User | null;
   userData: UserData | null;
+  favoriteIds: string[];
+  favoritesReady: boolean;
   loading: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   userData: null,
+  favoriteIds: [],
+  favoritesReady: false,
   loading: true,
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [subcollectionFavoriteIds, setSubcollectionFavoriteIds] = useState<
+    string[]
+  >([]);
+  const [subcollectionReady, setSubcollectionReady] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | null = null;
+    let unsubscribeFavorites: (() => void) | null = null;
     let activityInterval: NodeJS.Timeout | null = null; // BỔ SUNG: Biến lưu trữ bộ đếm thời gian
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -58,6 +69,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         unsubscribeUserDoc();
         unsubscribeUserDoc = null;
       }
+      if (unsubscribeFavorites) {
+        unsubscribeFavorites();
+        unsubscribeFavorites = null;
+      }
       if (activityInterval) {
         clearInterval(activityInterval);
         activityInterval = null;
@@ -65,6 +80,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (currentUser) {
         const userDocRef = doc(db, "users", currentUser.uid);
+        setSubcollectionReady(false);
+        setSubcollectionFavoriteIds([]);
 
         // 1. Lắng nghe dữ liệu User
         unsubscribeUserDoc = onSnapshot(
@@ -80,6 +97,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           (error) => {
             console.error("Auth Snapshot Error:", error);
             setLoading(false);
+          },
+        );
+
+        unsubscribeFavorites = onSnapshot(
+          collection(db, "users", currentUser.uid, "favorites"),
+          (favSnap) => {
+            setSubcollectionFavoriteIds(favSnap.docs.map((favDoc) => favDoc.id));
+            setSubcollectionReady(true);
+          },
+          (error) => {
+            console.error("Favorites Snapshot Error:", error);
+            setSubcollectionReady(true);
           },
         );
 
@@ -101,6 +130,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         activityInterval = setInterval(updateActivity, 15 * 60 * 1000);
       } else {
         setUserData(null);
+        setSubcollectionFavoriteIds([]);
+        setSubcollectionReady(true);
         setLoading(false);
       }
     });
@@ -108,13 +139,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       unsubscribe();
       if (unsubscribeUserDoc) unsubscribeUserDoc();
+      if (unsubscribeFavorites) unsubscribeFavorites();
       if (activityInterval) clearInterval(activityInterval); // Dọn dẹp interval khi unmount
     };
   }, []);
 
+  const favoriteIds = useMemo(
+    () => mergeFavoriteIds(userData?.favorites, subcollectionFavoriteIds),
+    [userData?.favorites, subcollectionFavoriteIds],
+  );
+  const favoritesReady = !loading && (!user || subcollectionReady);
+
   const value = useMemo(
-    () => ({ user, userData, loading }),
-    [user, userData, loading],
+    () => ({ user, userData, favoriteIds, favoritesReady, loading }),
+    [user, userData, favoriteIds, favoritesReady, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -12,7 +12,20 @@ const API_KEYS = [
 
 let currentKeyIndex = 0;
 
-// Hàm khởi tạo Client động, tự động lấy Key hiện tại
+type SeoModelConfig = {
+  id: string;
+  reasoningEffort: "none" | "low";
+  maxCompletionTokens: number;
+};
+
+// Qwen 3.8: model Groq còn host, viết tiếng Việt tốt hơn gpt-oss.
+// Free/on_demand giới hạn ~1000 OTPM cho Qwen — max_completion_tokens 4096 bị 429 "Request too large".
+// gpt-oss-120b là production fallback khi Qwen lỗi JSON / bị gỡ / hết quota output.
+const SEO_MODELS: SeoModelConfig[] = [
+  { id: "qwen/qwen3.8-27b", reasoningEffort: "none", maxCompletionTokens: 900 },
+  { id: "openai/gpt-oss-120b", reasoningEffort: "low", maxCompletionTokens: 4096 },
+];
+
 function getGroqClient() {
   if (API_KEYS.length === 0) {
     throw new Error("Hệ thống chưa cấu hình GROQ_API_KEY.");
@@ -21,6 +34,49 @@ function getGroqClient() {
     apiKey: API_KEYS[currentKeyIndex],
     baseURL: "https://api.groq.com/openai/v1",
   });
+}
+
+function groqErrorMessage(error: any): string {
+  return String(error?.error?.message || error?.message || "");
+}
+
+function isRequestTooLargeError(error: any): boolean {
+  const msg = groqErrorMessage(error).toLowerCase();
+  return msg.includes("request too large") || msg.includes("otpm");
+}
+
+function isRateLimitError(error: any): boolean {
+  return error?.status === 429 && !isRequestTooLargeError(error);
+}
+
+function isQuotaExceededError(error: any): boolean {
+  return error?.status === 402 || error?.error?.code === "insufficient_quota";
+}
+
+function isModelUnavailableError(error: any): boolean {
+  const status = error?.status;
+  const code = String(error?.error?.code || error?.code || "").toLowerCase();
+  const msg = groqErrorMessage(error).toLowerCase();
+  if (status === 404) return true;
+  if (
+    code.includes("model_decommissioned") ||
+    code.includes("model_not_found") ||
+    code === "json_validate_failed"
+  ) {
+    return true;
+  }
+  return (
+    msg.includes("decommissioned") ||
+    msg.includes("does not exist") ||
+    msg.includes("is not available") ||
+    msg.includes("failed to generate json")
+  );
+}
+
+function extractOtpmLimit(error: any): number | null {
+  const match = groqErrorMessage(error).match(/Limit (\d+), Requested (\d+)/i);
+  if (!match) return null;
+  return Number(match[1]);
 }
 
 // ==========================================
@@ -72,6 +128,47 @@ export interface AiSummaryResponse {
   slug?: string;
 }
 
+function normalizeSummary(parsedData: any, fallbackTitle: string): AiSummaryResponse {
+  const description = String(parsedData?.description || "")
+    .replace(/^[ \t]+/gm, "")
+    .trim();
+  const highlights = Array.isArray(parsedData?.highlights)
+    ? parsedData.highlights.filter((item: unknown) => typeof item === "string")
+    : [];
+
+  return {
+    seoTitle: parsedData?.seoTitle || "",
+    seoDescription: parsedData?.seoDescription || "",
+    description,
+    highlights,
+    slug: generateSlug(parsedData?.seoTitle || fallbackTitle),
+  };
+}
+
+/** Groq JSON mode đôi khi trả description bị tách thành string mồ côi — ghép lại rồi parse. */
+function salvageFailedGeneration(raw: unknown): any | null {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+
+  const candidates = [
+    raw,
+    raw.replace(
+      /("description"\s*:\s*")((?:\\.|[^"\\])*)(")\s*,\s*"((?:\\.|[^"\\])*)"\s*,/,
+      (_m, prefix: string, desc: string, suffix: string, orphan: string) =>
+        `${prefix}${desc}${orphan}${suffix},`
+    ),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch {
+      // thử candidate tiếp theo
+    }
+  }
+  return null;
+}
+
 export async function generateListingSummary(input: {
   title: string;
   roomType: string;
@@ -94,7 +191,8 @@ CẤU TRÚC JSON PHẢI TRẢ VỀ:
   "seoDescription": "Mô tả ngắn gọn, hấp dẫn khoảng 2-3 câu...",
   "description": "Đoạn mở đầu.\\n\\n## Thông tin căn hộ\\n- Địa chỉ: ...\\n- Diện tích: ...\\n\\n## Chi phí & dịch vụ\\n- Giá thuê: ...\\n- (Liệt kê phí điện, nước, dịch vụ. KHÔNG tự bịa phí. Nếu miễn phí ghi 'Miễn phí').\\n\\n## Vị trí & kết nối\\n- Phân tích điểm mạnh...\\n\\n## Vì sao nên thuê?\\n- (4 bullet points)",
   "highlights": ["Điểm nhấn 1", "Điểm nhấn 2"]
-}`;
+}
+CHỈ được trả đúng 4 key trên. Trường "description" là MỘT chuỗi JSON duy nhất chứa toàn bộ 4 mục Markdown — không tách heading thành key JSON khác.`;
 
   const userPrompt = `Hãy xử lý thông tin sau thành bài viết chuẩn JSON:
 - Tiêu đề gốc: ${input.title}
@@ -110,68 +208,100 @@ ${input.detailedInformation}
 
   const estimatedTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 2.5) + 1000;
   const MAX_RETRIES = 5;
+  let lastError: unknown;
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const tokenEntry = await waitForTokenBudget(estimatedTokens);
+  for (const model of SEO_MODELS) {
+    let maxCompletionTokens = model.maxCompletionTokens;
 
-    try {
-      // ✅ Lấy Groq client với API Key của vòng lặp hiện tại
-      const groq = getGroqClient();
-      console.log(`[Groq] Đang gọi AI (Key Index: ${currentKeyIndex})...`);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const tokenEntry = await waitForTokenBudget(estimatedTokens);
 
-      const response = await groq.chat.completions.create({
-        model: "qwen/qwen3.6-27b",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7,
-        top_p: 0.8,
-        max_completion_tokens: 4096,
-        reasoning_effort: "none",
-      });
+      try {
+        const groq = getGroqClient();
+        console.log(
+          `[Groq] Đang gọi AI (model: ${model.id}, Key Index: ${currentKeyIndex}, max_tokens: ${maxCompletionTokens})...`
+        );
 
-      if (response.usage?.total_tokens) {
-        tokenEntry.tokens = response.usage.total_tokens;
+        const response = await groq.chat.completions.create({
+          model: model.id,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.7,
+          top_p: 0.8,
+          max_completion_tokens: maxCompletionTokens,
+          reasoning_effort: model.reasoningEffort,
+        });
+
+        if (response.usage?.total_tokens) {
+          tokenEntry.tokens = response.usage.total_tokens;
+        }
+
+        const content = response.choices[0].message.content || "{}";
+        return normalizeSummary(JSON.parse(content), input.title);
+      } catch (error: any) {
+        lastError = error;
+
+        if (error instanceof SyntaxError) {
+          console.warn(`⚠️ [Groq] JSON không hợp lệ từ ${model.id}. Thử model tiếp theo...`);
+          break;
+        }
+
+        const failedGeneration =
+          error?.error?.failed_generation || error?.failed_generation;
+        if (failedGeneration) {
+          const salvaged = salvageFailedGeneration(failedGeneration);
+          if (salvaged?.seoTitle || salvaged?.description) {
+            console.warn(
+              `⚠️ [Groq] JSON lỗi từ ${model.id}, đã ghép lại failed_generation.`
+            );
+            return normalizeSummary(salvaged, input.title);
+          }
+        }
+
+        if (isRequestTooLargeError(error)) {
+          const otpmLimit = extractOtpmLimit(error) ?? 1000;
+          if (maxCompletionTokens > otpmLimit) {
+            maxCompletionTokens = Math.max(256, otpmLimit - 100);
+            console.warn(
+              `⚠️ [Groq] OTPM quá lớn. Giảm max_completion_tokens xuống ${maxCompletionTokens}...`
+            );
+            continue;
+          }
+          console.warn(
+            `⚠️ [Groq] ${model.id} vượt OTPM free tier. Chuyển model tiếp theo...`
+          );
+          break;
+        }
+
+        if (
+          (isRateLimitError(error) || isQuotaExceededError(error)) &&
+          attempt < MAX_RETRIES
+        ) {
+          currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+          console.warn(
+            `⚠️ [Groq] Lỗi 429/402. Đang tự động chuyển sang API Key thứ ${currentKeyIndex + 1}...`
+          );
+          tokenWindow = [];
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          continue;
+        }
+
+        if (isModelUnavailableError(error)) {
+          console.warn(
+            `⚠️ [Groq] Model ${model.id} không dùng được (${groqErrorMessage(error)}). Thử model tiếp theo...`
+          );
+          break;
+        }
+
+        throw error;
       }
-
-      const content = response.choices[0].message.content || "{}";
-      let parsedData: any = JSON.parse(content);
-
-      if (parsedData.description) {
-        parsedData.description = parsedData.description.replace(/^[ \t]+/gm, "").trim();
-      }
-
-      return {
-        seoTitle: parsedData.seoTitle || "",
-        seoDescription: parsedData.seoDescription || "",
-        description: parsedData.description || "",
-        highlights: parsedData.highlights || [],
-        slug: generateSlug(parsedData.seoTitle || input.title),
-      };
-
-    } catch (error: any) {
-      // 🚀 BẮT LỖI RATE LIMIT (429) & QUOTA EXCEEDED (402) ĐỂ CHUYỂN API KEY
-      const isRateLimit = error?.status === 429;
-      const isQuotaExceeded = error?.status === 402 || error?.error?.code === 'insufficient_quota';
-
-      if ((isRateLimit || isQuotaExceeded) && attempt < MAX_RETRIES) {
-        // Tự động xoay vòng sang API Key tiếp theo
-        currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
-
-        console.warn(`⚠️ [Groq] Lỗi 429/402. Đang tự động chuyển sang API Key thứ ${currentKeyIndex + 1}...`);
-
-        // Reset cửa sổ token để Key mới chạy max công suất lập tức
-        tokenWindow = [];
-
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        continue;
-      }
-
-      throw error;
     }
   }
 
-  throw new Error("Đã vượt quá số lần thử lại do rate limit hoặc các Key đều cạn kiệt.");
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Đã vượt quá số lần thử lại do rate limit hoặc các Key đều cạn kiệt.");
 }

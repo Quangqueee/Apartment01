@@ -8,7 +8,10 @@ import {
   fetchPendingSubmissionsClient,
   reviewApartmentSubmissionClient,
 } from "@/lib/landlord-admin-client";
-import { Apartment } from "@/lib/types";
+import { fetchPendingShortTermSubmissionsClient } from "@/lib/short-term-data-client";
+import { reviewShortTermSubmissionClient } from "@/lib/short-term-write-client";
+import { Apartment, ShortTermApartment } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -35,12 +38,19 @@ export default function AdminSubmissionsPage() {
   const { user, userData, loading } = useAuth();
   const { toast } = useToast();
   const [submissions, setSubmissions] = useState<Apartment[]>([]);
+  const [shortSubmissions, setShortSubmissions] = useState<
+    ShortTermApartment[]
+  >([]);
+  const [tab, setTab] = useState<"long" | "short">("long");
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
 
   // State cho Modal duyệt bài
   const [selectedSubmission, setSelectedSubmission] = useState<Apartment | null>(null);
+  const [selectedShortSubmission, setSelectedShortSubmission] =
+    useState<ShortTermApartment | null>(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [shortReviewModalOpen, setShortReviewModalOpen] = useState(false);
   const [sourceCode, setSourceCode] = useState("");
   const [address, setAddress] = useState("");
   const [landlordPhoneNumber, setLandlordPhoneNumber] = useState("");
@@ -49,11 +59,23 @@ export default function AdminSubmissionsPage() {
   const fetchSubmissions = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
-    const res = await fetchPendingSubmissionsClient();
+    const [res, shortRes] = await Promise.all([
+      fetchPendingSubmissionsClient(),
+      fetchPendingShortTermSubmissionsClient(),
+    ]);
     if (res.error) {
       toast({ variant: "destructive", title: "Lỗi", description: res.error });
     } else {
       setSubmissions(res.apartments);
+    }
+    if (shortRes.error) {
+      toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: shortRes.error,
+      });
+    } else {
+      setShortSubmissions(shortRes.apartments);
     }
     setIsLoading(false);
   }, [user, toast]);
@@ -73,6 +95,59 @@ export default function AdminSubmissionsPage() {
     setLandlordPhoneNumber(apt.landlordPhoneNumber || apt.contactPhone || "");
     setAdminNotes("");
     setReviewModalOpen(true);
+  };
+
+  const handleOpenShortReview = (apt: ShortTermApartment) => {
+    setSelectedShortSubmission(apt);
+    setSourceCode(apt.sourceCode || "");
+    setAddress(apt.address || apt.district || "");
+    setLandlordPhoneNumber(apt.landlordPhoneNumber || apt.contactPhone || "");
+    setAdminNotes("");
+    setShortReviewModalOpen(true);
+  };
+
+  const handleShortReviewAction = async (decision: "publish" | "reject") => {
+    if (!selectedShortSubmission || !user) return;
+
+    if (decision === "publish") {
+      if (!sourceCode.trim() || !address.trim() || !landlordPhoneNumber.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Thiếu thông tin",
+          description:
+            "Vui lòng nhập Mã ID, Địa chỉ chính xác và SĐT chủ nhà trước khi xuất bản.",
+        });
+        return;
+      }
+    }
+
+    startTransition(async () => {
+      const res = await reviewShortTermSubmissionClient(
+        selectedShortSubmission.id,
+        decision,
+        adminNotes.trim(),
+        {
+          sourceCode: sourceCode.trim(),
+          address: address.trim(),
+          landlordPhoneNumber: landlordPhoneNumber.trim(),
+        },
+      );
+
+      if (res?.error) {
+        toast({ variant: "destructive", title: "Lỗi", description: res.error });
+      } else {
+        toast({
+          title: "Thành công",
+          description:
+            decision === "publish"
+              ? "Đã duyệt và xuất bản căn ngắn hạn."
+              : "Đã từ chối tin đăng.",
+        });
+        setShortReviewModalOpen(false);
+        setSelectedShortSubmission(null);
+        fetchSubmissions();
+      }
+    });
   };
 
   const handleReviewAction = async (decision: "published" | "rejected") => {
@@ -143,12 +218,101 @@ export default function AdminSubmissionsPage() {
             Duyệt tin đăng căn hộ
           </h2>
           <p className="text-gray-500">
-            Danh sách các tin đăng từ chủ nhà đang chờ xét duyệt ({submissions.length}).
+            Danh sách các tin đăng từ chủ nhà đang chờ xét duyệt (
+            {submissions.length + shortSubmissions.length}).
           </p>
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div className="inline-flex bg-gray-100 p-1 rounded-xl">
+        <button
+          type="button"
+          onClick={() => setTab("long")}
+          className={cn(
+            "px-4 py-2 text-sm font-bold rounded-lg transition-all",
+            tab === "long"
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-500 hover:text-gray-700",
+          )}
+        >
+          Dài hạn ({submissions.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("short")}
+          className={cn(
+            "px-4 py-2 text-sm font-bold rounded-lg transition-all",
+            tab === "short"
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-500 hover:text-gray-700",
+          )}
+        >
+          Ngắn hạn ({shortSubmissions.length})
+        </button>
+      </div>
+
+      {tab === "short" && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div className="rounded-xl border border-gray-100 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-50/50">
+                  <TableHead>Tiêu đề</TableHead>
+                  <TableHead>Khu vực</TableHead>
+                  <TableHead>Giá/đêm</TableHead>
+                  <TableHead>SĐT liên hệ</TableHead>
+                  <TableHead>Ngày gửi</TableHead>
+                  <TableHead className="text-center">Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {shortSubmissions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12 text-gray-500">
+                      <Building className="mx-auto h-12 w-12 text-gray-300 mb-3" />
+                      <p className="font-medium">
+                        Không có tin ngắn hạn nào đang chờ duyệt.
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  shortSubmissions.map((apt) => (
+                    <TableRow key={apt.id} className="hover:bg-gray-50">
+                      <TableCell className="font-bold text-gray-900 max-w-xs truncate">
+                        {apt.title}
+                      </TableCell>
+                      <TableCell>{apt.district}</TableCell>
+                      <TableCell className="font-bold text-green-600 whitespace-nowrap">
+                        {(apt.nightlyPrice || 0).toLocaleString("vi-VN")}đ
+                      </TableCell>
+                      <TableCell>
+                        {apt.contactPhone || apt.landlordPhoneNumber}
+                      </TableCell>
+                      <TableCell>{formatDate(apt.createdAt)}</TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          size="sm"
+                          onClick={() => handleOpenShortReview(apt)}
+                          className="bg-gray-900 text-white hover:bg-[#cda533]"
+                        >
+                          <Eye className="h-4 w-4 mr-1.5" /> Xét duyệt
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={cn(
+          "bg-white p-6 rounded-2xl shadow-sm border border-gray-100",
+          tab !== "long" && "hidden",
+        )}
+      >
         <div className="rounded-xl border border-gray-100 overflow-hidden">
           <Table>
             <TableHeader>
@@ -274,6 +438,145 @@ export default function AdminSubmissionsPage() {
             </Button>
             <Button
               onClick={() => handleReviewAction("published")}
+              disabled={isPending}
+              className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+            >
+              <CheckCircle2 className="h-4 w-4" /> Duyệt & Xuất bản
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Xét duyệt tin NGẮN HẠN */}
+      <Dialog open={shortReviewModalOpen} onOpenChange={setShortReviewModalOpen}>
+        <DialogContent className="bg-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">
+              Xét duyệt tin căn hộ ngắn hạn
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedShortSubmission && (
+            <div className="space-y-4 py-2">
+              <div className="p-4 bg-gray-50 rounded-xl space-y-2 text-sm border">
+                <p>
+                  <strong className="text-gray-700">Tiêu đề:</strong>{" "}
+                  {selectedShortSubmission.title}
+                </p>
+                <p>
+                  <strong className="text-gray-700">Dạng phòng:</strong>{" "}
+                  {selectedShortSubmission.roomType} |{" "}
+                  <strong className="text-gray-700">Quận:</strong>{" "}
+                  {selectedShortSubmission.district} |{" "}
+                  <strong className="text-gray-700">Diện tích:</strong>{" "}
+                  {selectedShortSubmission.area} m²
+                </p>
+                <p>
+                  <strong className="text-gray-700">Giá:</strong>{" "}
+                  {(selectedShortSubmission.nightlyPrice || 0).toLocaleString(
+                    "vi-VN",
+                  )}
+                  đ/đêm | <strong className="text-gray-700">Tối thiểu:</strong>{" "}
+                  {selectedShortSubmission.minNights} đêm |{" "}
+                  <strong className="text-gray-700">Tối đa:</strong>{" "}
+                  {selectedShortSubmission.maxGuests} khách
+                </p>
+                <p>
+                  <strong className="text-gray-700">Nhận/Trả phòng:</strong>{" "}
+                  {selectedShortSubmission.checkInTime} /{" "}
+                  {selectedShortSubmission.checkOutTime}
+                </p>
+                {selectedShortSubmission.amenities?.length > 0 && (
+                  <p>
+                    <strong className="text-gray-700">Tiện nghi:</strong>{" "}
+                    {selectedShortSubmission.amenities.join(", ")}
+                  </p>
+                )}
+                <p>
+                  <strong className="text-gray-700">Thông tin chi tiết:</strong>{" "}
+                  {selectedShortSubmission.details}
+                </p>
+                <div className="pt-2">
+                  <p className="font-semibold text-gray-700 mb-1">
+                    Hình ảnh căn hộ:
+                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {selectedShortSubmission.imageUrls?.map((url, idx) => (
+                      <img
+                        key={idx}
+                        src={url}
+                        alt="preview"
+                        className="h-20 w-full object-cover rounded-lg border"
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4 space-y-4">
+                <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wider">
+                  Thông tin quản trị bổ sung
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase text-gray-600">
+                      Mã nguồn
+                    </label>
+                    <Input
+                      placeholder="VD. NH0123"
+                      value={sourceCode}
+                      onChange={(e) => setSourceCode(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase text-gray-600">
+                      SĐT Chủ nhà
+                    </label>
+                    <Input
+                      placeholder="VD. 0912345678"
+                      value={landlordPhoneNumber}
+                      onChange={(e) => setLandlordPhoneNumber(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase text-gray-600">
+                    Địa chỉ chính xác (Bảo mật)
+                  </label>
+                  <Input
+                    placeholder="VD. Số 12 ngõ 34 phố Huế, Hàng Bài..."
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase text-gray-600">
+                    Ghi chú
+                  </label>
+                  <Textarea
+                    placeholder="Nhập ghi chú hoặc lý do từ chối..."
+                    value={adminNotes}
+                    onChange={(e) => setAdminNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-4 border-t">
+            <Button
+              variant="destructive"
+              onClick={() => handleShortReviewAction("reject")}
+              disabled={isPending}
+              className="gap-1.5 bg-gray-700 hover:bg-red-700"
+            >
+              <XCircle className="h-4 w-4" /> Từ chối
+            </Button>
+            <Button
+              onClick={() => handleShortReviewAction("publish")}
               disabled={isPending}
               className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
             >

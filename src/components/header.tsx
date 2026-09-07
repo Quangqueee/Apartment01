@@ -22,12 +22,14 @@ import {
   Handshake,
   CircleHelp,
   MapPin,
+  MoonStar,
   Clock,
   Phone,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { SITE, SITE_PATHS } from "@/lib/site";
+import { SHORT_TERM_PUBLIC_ACCESS } from "@/lib/constants";
 
 const COLLABORATOR_GUIDE_URL = "/huong-dan-cong-viec";
 
@@ -85,7 +87,7 @@ export default function Header() {
   return (
     <div className="w-full">
       <header className="sticky top-0 z-[170] w-full bg-transparent font-sans">
-        <div className="overflow-x-hidden border-b border-orange-700/30 bg-[#e07a2f] text-[11px] text-white lg:text-xs">
+        <div className="overflow-x-hidden border-b border-orange-700/30 bg-[#e07a2f] text-[11px] text-white lg:text-xs [@media(display-mode:standalone)]:pt-[env(safe-area-inset-top)]">
           <div className="container mx-auto flex h-8 items-center justify-between gap-3 overflow-x-hidden px-4 md:px-6 lg:h-9">
             <p className="flex min-w-0 items-center gap-3">
               <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -185,6 +187,13 @@ export default function Header() {
           <nav className="hidden items-center gap-6 lg:flex xl:gap-7">
             <NavLink href="/" label="Trang chủ" light={overlay} />
             <NavLink href={SITE_PATHS.search} label="Căn hộ" light={overlay} />
+            {SHORT_TERM_PUBLIC_ACCESS ? (
+              <NavLink
+                href="/can-ho-ngan-han"
+                label="Ngắn hạn"
+                light={overlay}
+              />
+            ) : null}
             <DistrictNav tone={overlay ? "light" : "dark"} />
             <NavLink href={SITE_PATHS.about} label="Giới thiệu" light={overlay} />
             <NavLink href={SITE_PATHS.faq} label="FAQ" light={overlay} />
@@ -312,6 +321,14 @@ export default function Header() {
                 label="Tìm căn hộ"
                 onClick={() => setIsMobileMenuOpen(false)}
               />
+              {SHORT_TERM_PUBLIC_ACCESS ? (
+                <MobileNavLink
+                  href="/can-ho-ngan-han"
+                  icon={MoonStar}
+                  label="Căn hộ ngắn hạn"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                />
+              ) : null}
               <DistrictNav
                 variant="mobile"
                 onNavigate={() => setIsMobileMenuOpen(false)}

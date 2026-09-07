@@ -6,19 +6,33 @@ import Header from "@/components/header";
 import Footer from "@/components/footer";
 import Link from "next/link";
 import ApartmentForm from "@/components/apartment-form";
+import ShortTermForm from "@/components/short-term-form";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { getApartmentById } from "@/lib/data-client";
-import { Apartment } from "@/lib/types";
+import { getShortTermApartmentByIdClient } from "@/lib/short-term-data-client";
+import { Apartment, ShortTermApartment } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { SHORT_TERM_PUBLIC_ACCESS } from "@/lib/constants";
 
 // Tách Component con để sử dụng useSearchParams an toàn trong Suspense
 function SubmitApartmentContent() {
   const { user, userData, loading } = useAppAuth();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit"); // Bắt tham số ?edit=... trên URL
+  const editShortId = searchParams.get("editShort"); // Sửa căn NGẮN HẠN
 
   const [apartmentData, setApartmentData] = useState<Apartment | null>(null);
+  const [shortTermData, setShortTermData] =
+    useState<ShortTermApartment | null>(null);
   const [isFetching, setIsFetching] = useState(false);
+  // Loại hình cho thuê: dài hạn (mặc định) hoặc ngắn hạn
+  const [rentalType, setRentalType] = useState<"long" | "short">(
+    editShortId ||
+      (SHORT_TERM_PUBLIC_ACCESS && searchParams.get("type") === "short")
+      ? "short"
+      : "long",
+  );
 
   // FETCH DỮ LIỆU CĂN HỘ NẾU LÀ CHẾ ĐỘ SỬA
   useEffect(() => {
@@ -43,6 +57,22 @@ function SubmitApartmentContent() {
         .finally(() => setIsFetching(false));
     }
   }, [editId]);
+
+  // FETCH DỮ LIỆU CĂN NGẮN HẠN NẾU SỬA TIN NGẮN HẠN
+  useEffect(() => {
+    if (editShortId) {
+      setIsFetching(true);
+      getShortTermApartmentByIdClient(editShortId)
+        .then((data) => {
+          if (data) {
+            setShortTermData(data);
+            setRentalType("short");
+          }
+        })
+        .catch((error) => console.error("Lỗi lấy dữ liệu:", error))
+        .finally(() => setIsFetching(false));
+    }
+  }, [editShortId]);
 
   if (loading || isFetching) {
     return (
@@ -129,21 +159,63 @@ function SubmitApartmentContent() {
     );
   }
 
+  const isEditing = !!editId || !!editShortId;
+
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <Header />
-      <main className="flex-1 container mx-auto px-6 py-12 lg:py-24">
+      <main className="flex-1 container mx-auto px-6 py-12 lg:py-24 overflow-x-hidden">
         <h1 className="text-3xl font-black italic mb-2">
-          {editId ? "Cập nhật tin đăng căn hộ" : "Đăng tin cho thuê căn hộ"}
+          {isEditing ? "Cập nhật tin đăng căn hộ" : "Đăng tin cho thuê căn hộ"}
         </h1>
-        <p className="text-gray-500 mb-8">
-          {editId
+        <p className="text-gray-500 mb-6">
+          {isEditing
             ? "Chỉnh sửa thông tin căn hộ. Sau khi lưu, Admin sẽ cần xét duyệt lại."
             : "Điền thông tin căn hộ để gửi cho đội ngũ quản lý xét duyệt trước khi đăng công khai."}
         </p>
 
+        {/* CHỌN LOẠI HÌNH CHO THUÊ (chỉ khi tạo mới) */}
+        {!isEditing && SHORT_TERM_PUBLIC_ACCESS && (
+          <div className="mb-8 inline-flex bg-gray-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setRentalType("long")}
+              className={cn(
+                "px-5 py-2.5 text-sm font-bold rounded-lg transition-all",
+                rentalType === "long"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700",
+              )}
+            >
+              Cho thuê dài hạn
+            </button>
+            <button
+              type="button"
+              onClick={() => setRentalType("short")}
+              className={cn(
+                "px-5 py-2.5 text-sm font-bold rounded-lg transition-all",
+                rentalType === "short"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700",
+              )}
+            >
+              Cho thuê ngắn hạn (theo đêm)
+            </button>
+          </div>
+        )}
+
         {/* TRUYỀN DỮ LIỆU XUỐNG FORM ĐỂ HIỂN THỊ THÔNG TIN CŨ */}
-        <ApartmentForm mode="landlord" apartment={apartmentData || undefined} />
+        {rentalType === "short" ? (
+          <ShortTermForm
+            mode="landlord"
+            apartment={shortTermData || undefined}
+          />
+        ) : (
+          <ApartmentForm
+            mode="landlord"
+            apartment={apartmentData || undefined}
+          />
+        )}
       </main>
       <Footer />
     </div>

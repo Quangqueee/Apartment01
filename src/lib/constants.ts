@@ -43,6 +43,42 @@ export const SORT_OPTIONS = [
 
 export const MAX_APARTMENT_IMAGES = 15;
 
+// ===== Căn hộ ngắn hạn =====
+/** Tạm ẩn nút/link truy cập ngắn hạn phía khách. Đặt `true` để hiện lại. Route + logic vẫn giữ nguyên. */
+export const SHORT_TERM_PUBLIC_ACCESS = false;
+
+export const STAY_BOOKING_STATUS_LABELS: Record<string, string> = {
+  pending: "Chờ duyệt",
+  awaiting_payment: "Chờ duyệt",
+  confirmed: "Đã xác nhận",
+  completed: "Hoàn tất",
+  rejected: "Bị từ chối",
+  cancelled: "Đã hủy",
+  expired: "Hết hạn",
+};
+
+export const STAY_AMENITIES = [
+  "Wifi",
+  "Điều hòa",
+  "Máy giặt",
+  "Bếp đầy đủ",
+  "TV",
+  "Nóng lạnh",
+  "Ban công",
+  "Thang máy",
+  "Chỗ để xe",
+  "Máy sấy tóc",
+  "Bàn làm việc",
+  "View hồ",
+];
+
+export const NIGHTLY_PRICE_RANGES = [
+  { label: "Dưới 500k", value: "0-500000" },
+  { label: "500k - 1tr", value: "500000-1000000" },
+  { label: "1tr - 2tr", value: "1000000-2000000" },
+  { label: "Trên 2tr", value: "2000000-" },
+];
+
 export const APARTMENT_DELETE_LIMIT_PER_HOUR = 10;
 export const APARTMENT_DELETE_WINDOW_MS = 60 * 60 * 1000;
 

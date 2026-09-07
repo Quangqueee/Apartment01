@@ -20,7 +20,9 @@ export default function MobileNav() {
   const [hidden, setHidden] = useState(false);
   const lastScrollY = useRef(0);
 
-  const isApartmentDetails = /^\/apartments\/[^/]+/.test(pathname);
+  const isApartmentDetails = /^\/(apartments|can-ho-ngan-han)\/[^/]+/.test(
+    pathname,
+  );
 
   useEffect(() => {
     if (!isApartmentDetails) {

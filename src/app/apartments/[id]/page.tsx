@@ -1,5 +1,5 @@
+import { cache } from "react";
 import { Metadata } from "next";
-import { getApartmentById, getRelatedApartments } from "@/lib/data";
 import ApartmentDetailsPageClient from "@/components/apartment-details-page-client";
 import Link from "next/link";
 import { Home, SearchX, ArrowLeft } from "lucide-react";
@@ -8,6 +8,12 @@ import Footer from "@/components/footer";
 import { JsonLd } from "@/components/json-ld";
 import { SITE } from "@/lib/site";
 import { buildApartmentJsonLd } from "@/lib/structured-data";
+import {
+  getApartmentById as getApartmentByIdUncached,
+  getRelatedApartments,
+} from "@/lib/data";
+
+const getApartmentById = cache(getApartmentByIdUncached);
 
 type PageProps = {
   params: Promise<{ id: string }>;

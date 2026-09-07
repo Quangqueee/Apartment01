@@ -66,6 +66,9 @@ import {
 import { useAuth } from "@/context/auth-context";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
+import LandlordShortTermList from "@/components/landlord-short-term-list";
+import { cn } from "@/lib/utils";
+import { SHORT_TERM_PUBLIC_ACCESS } from "@/lib/constants";
 import {
   requestPushApartmentClient,
   updateLandlordApartmentStatusClient,
@@ -115,6 +118,12 @@ function LandlordApartmentsContent() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [apartmentToDelete, setApartmentToDelete] = useState<string | null>(
     null,
+  );
+  // Tab loại hình: dài hạn (mặc định) / ngắn hạn
+  const [rentalTab, setRentalTab] = useState<"long" | "short">(
+    SHORT_TERM_PUBLIC_ACCESS && searchParams.get("tab") === "short"
+      ? "short"
+      : "long",
   );
 
   const currentPage = searchParams.get("page")
@@ -287,7 +296,45 @@ function LandlordApartmentsContent() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          {SHORT_TERM_PUBLIC_ACCESS ? (
+            <div className="inline-flex bg-gray-100 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setRentalTab("long")}
+                className={cn(
+                  "px-4 py-2 text-sm font-bold rounded-lg transition-all",
+                  rentalTab === "long"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700",
+                )}
+              >
+                Dài hạn
+              </button>
+              <button
+                type="button"
+                onClick={() => setRentalTab("short")}
+                className={cn(
+                  "px-4 py-2 text-sm font-bold rounded-lg transition-all",
+                  rentalTab === "short"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700",
+                )}
+              >
+                Ngắn hạn (theo đêm)
+              </button>
+            </div>
+          ) : null}
+
+          {rentalTab === "short" && user?.uid && (
+            <LandlordShortTermList uid={user.uid} />
+          )}
+
+          <div
+            className={cn(
+              "bg-white p-6 rounded-2xl shadow-sm border border-gray-100",
+              rentalTab !== "long" && "hidden",
+            )}
+          >
             <form
               onSubmit={handleSearch}
               className="relative w-full md:max-w-sm mb-6"
@@ -612,7 +659,7 @@ function LandlordApartmentsContent() {
             </div>
           </div>
 
-          {totalPages > 1 && (
+          {rentalTab === "long" && totalPages > 1 && (
             <div className="flex items-center justify-between pt-6 pb-2 border-t border-gray-100 mt-4">
               <span className="text-sm text-gray-500">
                 Trang {currentPage} / {totalPages}

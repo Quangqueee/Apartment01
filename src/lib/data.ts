@@ -18,6 +18,8 @@ import {
   DocumentData,
   Timestamp,
   getCountFromServer,
+  arrayUnion,
+  arrayRemove,
 } from "firebase/firestore";
 import { unstable_cache } from "next/cache";
 import { firestore } from "@/firebase/server-init";
@@ -29,6 +31,7 @@ import {
 import { isPriceInRange, parsePriceRange } from "./price-range";
 import { APARTMENTS_CACHE_TAG } from "./apartment-cache-tag";
 import { LISTING_REVALIDATE } from "./cache-policy";
+import { mergeFavoriteIds, normalizeFavoriteIds } from "./favorites";
 
 const FEATURED_DISTRICTS = ["Tây Hồ", "Ba Đình", "Đống Đa", "Cầu Giấy"] as const;
 
@@ -78,11 +81,12 @@ export const toApartment = (docSnap: DocumentData): Apartment => {
     : null;
 
   return {
-    id: docSnap.id,
     ...data,
+    id: docSnap.id,
     createdAt,
     updatedAt,
-    aiContent
+    aiContent,
+    imageUrls: Array.isArray(data.imageUrls) ? data.imageUrls : [],
   } as Apartment;
 };
 
@@ -271,6 +275,31 @@ export async function getApartments(
 
   const baseQuery = buildSortedQuery(searchPlan?.firestoreValue);
   let totalResults = skipCount ? (totalHint ?? 0) : 0;
+  const isSimpleFirstPage = !cursor && !before && page <= 1;
+
+  // Trang 1: chạy count + docs song song để bớt 1 round-trip Firestore.
+  if (isSimpleFirstPage) {
+    const listingQuery = query(baseQuery, limit(pageSize));
+    const [countSnapshot, firstPageSnapshot] = await Promise.all([
+      skipCount ? Promise.resolve(null) : getCountFromServer(baseQuery),
+      getDocs(listingQuery),
+    ]);
+    if (!skipCount && countSnapshot) {
+      totalResults = countSnapshot.data().count;
+    }
+    let firstPageApartments = firstPageSnapshot.docs.map(toApartment);
+    if (searchPlan) {
+      firstPageApartments = firstPageApartments.filter((apt) =>
+        matchesAllSearchTokens(apt, searchPlan.tokens),
+      );
+    }
+    const lastOnPage = firstPageApartments[firstPageApartments.length - 1];
+    return {
+      apartments: firstPageApartments,
+      totalResults,
+      nextCursor: lastOnPage?.id ?? null,
+    };
+  }
 
   if (!skipCount) {
     const countSnapshot = await getCountFromServer(baseQuery);
@@ -468,27 +497,63 @@ export async function deleteApartment(id: string): Promise<void> {
 }
 
 export async function addFavorite(userId: string, apartmentId: string) {
-  const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
-  return await setDoc(favoriteRef, { addedAt: Timestamp.now() });
+  try {
+    const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
+    const userRef = doc(firestore, "users", userId);
+    await setDoc(favoriteRef, { addedAt: Timestamp.now() });
+    await setDoc(userRef, { favorites: arrayUnion(apartmentId) }, { merge: true });
+  } catch (error) {
+    console.error("addFavorite:", error);
+    throw error;
+  }
 }
 
 export async function removeFavorite(userId: string, apartmentId: string) {
-  const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
-  return await deleteDoc(favoriteRef);
+  try {
+    const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
+    const userRef = doc(firestore, "users", userId);
+    await deleteDoc(favoriteRef);
+    await setDoc(userRef, { favorites: arrayRemove(apartmentId) }, { merge: true });
+  } catch (error) {
+    console.error("removeFavorite:", error);
+    throw error;
+  }
 }
 
 export async function isApartmentFavorited(userId: string, apartmentId: string): Promise<boolean> {
-  const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
-  const docSnap = await getDoc(favoriteRef);
-  return docSnap.exists();
+  try {
+    const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
+    const docSnap = await getDoc(favoriteRef);
+    if (docSnap.exists()) return true;
+    const userSnap = await getDoc(doc(firestore, "users", userId));
+    return normalizeFavoriteIds(userSnap.data()?.favorites).includes(apartmentId);
+  } catch (error) {
+    console.error("isApartmentFavorited:", error);
+    return false;
+  }
 }
 
 export async function getFavoriteApartments(userId: string): Promise<Favorite[]> {
   if (!userId) return [];
-  const favoritesCol = collection(usersCollection, userId, "favorites");
-  const q = query(favoritesCol, orderBy("addedAt", "desc"));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(toFavorite);
+  try {
+    const favoritesCol = collection(usersCollection, userId, "favorites");
+    const q = query(favoritesCol, orderBy("addedAt", "desc"));
+    const snapshot = await getDocs(q);
+    const fromSub = snapshot.docs.map(toFavorite);
+    const userSnap = await getDoc(doc(firestore, "users", userId));
+    const mergedIds = mergeFavoriteIds(
+      userSnap.data()?.favorites,
+      fromSub.map((fav) => fav.id),
+    );
+    const addedAtById = new Map(fromSub.map((fav) => [fav.id, fav.addedAt]));
+    return mergedIds.map((id) => ({
+      id,
+      addedAt: addedAtById.get(id) ?? { seconds: 0, nanoseconds: 0 },
+    }));
+  } catch (error) {
+    console.error("getFavoriteApartments:", error);
+    return [];
+  }
 }
 
 export async function getFullFavoriteApartments(userId: string): Promise<Apartment[]> {
@@ -527,19 +592,23 @@ export async function getRelatedApartments(currentApartment: Apartment): Promise
   if (!currentApartment || !currentApartment.district) return [];
 
   try {
+    // Query public phải ràng buộc submissionStatus == published.
+    // Nếu không, rules list từ chối cả query (trong quận còn tin pending).
     const q = query(
       apartmentsCollection,
+      where("submissionStatus", "==", "published"),
       where("district", "==", currentApartment.district),
-      limit(30)
+      limit(24),
     );
 
     const snapshot = await getDocs(q);
     const fetched: Apartment[] = [];
 
     snapshot.forEach((docSnap) => {
-      if (docSnap.id !== currentApartment.id) {
-        fetched.push(toApartment(docSnap));
-      }
+      if (docSnap.id === currentApartment.id) return;
+      const apt = toApartment(docSnap);
+      if (apt.submissionStatus && apt.submissionStatus !== "published") return;
+      fetched.push(apt);
     });
 
     const currentPrice = currentApartment.price;

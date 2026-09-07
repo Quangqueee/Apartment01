@@ -10,6 +10,7 @@ import {
   BedDouble,
   Building2,
   CalendarCheck,
+  CalendarClock,
   CheckSquare,
   Home,
   LayoutGrid,
@@ -80,7 +81,22 @@ const MAIN_ITEMS: NavItemConfig[] = [
     label: "Quản lý lịch hẹn",
     tooltip: "Quản lý lịch hẹn",
     icon: CalendarCheck,
-    isActive: (pathname) => pathname.includes("/bookings"),
+    isActive: (pathname) =>
+      pathname.includes("/bookings") && !pathname.includes("/stay-bookings"),
+  },
+  {
+    href: `/${ADMIN_PATH}/short-term`,
+    label: "Căn hộ ngắn hạn",
+    tooltip: "Căn hộ ngắn hạn",
+    icon: BedDouble,
+    isActive: (pathname) => pathname.includes("/short-term"),
+  },
+  {
+    href: `/${ADMIN_PATH}/stay-bookings`,
+    label: "Đặt phòng ngắn hạn",
+    tooltip: "Đặt phòng ngắn hạn",
+    icon: CalendarClock,
+    isActive: (pathname) => pathname.includes("/stay-bookings"),
   },
   {
     href: `/${ADMIN_PATH}/submissions`,

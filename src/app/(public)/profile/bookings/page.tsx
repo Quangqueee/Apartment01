@@ -28,6 +28,9 @@ import {
 } from "lucide-react";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
+import StayBookingsList from "@/components/stay-bookings-list";
+import { cn } from "@/lib/utils";
+import { SHORT_TERM_PUBLIC_ACCESS } from "@/lib/constants";
 import Link from "next/link";
 import {
   Dialog,
@@ -69,6 +72,14 @@ export default function BookingsManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // Tab: lịch xem nhà (mặc định) / đặt phòng ngắn hạn (?tab=stay)
+  const [viewTab, setViewTab] = useState<"viewing" | "stay">("viewing");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab === "stay" && SHORT_TERM_PUBLIC_ACCESS) setViewTab("stay");
+  }, []);
 
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -373,8 +384,44 @@ export default function BookingsManagementPage() {
           </div>
         </div>
 
+        {SHORT_TERM_PUBLIC_ACCESS ? (
+          <div className="inline-flex bg-white border border-gray-200 p-1 rounded-xl mb-6 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setViewTab("viewing")}
+              className={cn(
+                "px-4 py-2 text-sm font-bold rounded-lg transition-all",
+                viewTab === "viewing"
+                  ? "bg-[#cda533]/10 text-[#b88e22]"
+                  : "text-gray-500 hover:text-gray-700",
+              )}
+            >
+              {isCollaborator ? "Lịch dẫn khách" : "Lịch xem phòng"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewTab("stay")}
+              className={cn(
+                "px-4 py-2 text-sm font-bold rounded-lg transition-all",
+                viewTab === "stay"
+                  ? "bg-[#cda533]/10 text-[#b88e22]"
+                  : "text-gray-500 hover:text-gray-700",
+              )}
+            >
+              Đặt phòng ngắn hạn
+            </button>
+          </div>
+        ) : null}
+
+        {viewTab === "stay" && <StayBookingsList />}
+
         {/* --- VIEW DESKTOP --- */}
-        <div className="hidden md:flex flex-col bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden w-full">
+        <div
+          className={cn(
+            "hidden flex-col bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden w-full",
+            viewTab === "viewing" && "md:flex",
+          )}
+        >
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left border-collapse min-w-[1100px]">
               <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
@@ -556,7 +603,12 @@ export default function BookingsManagementPage() {
         </div>
 
         {/* --- VIEW MOBILE THIẾT KẾ CARD --- */}
-        <div className="md:hidden flex flex-col gap-4 w-full">
+        <div
+          className={cn(
+            "md:hidden flex-col gap-4 w-full",
+            viewTab === "viewing" ? "flex" : "hidden",
+          )}
+        >
           {currentBookings.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center text-gray-400 shadow-sm border border-gray-100">
               Bạn chưa có lịch hẹn nào.

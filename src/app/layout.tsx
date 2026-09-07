@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro, Playfair_Display } from "next/font/google";
 import { GoogleAnalytics, GoogleTagManager } from "@next/third-parties/google";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,6 +11,11 @@ import { cn } from "@/lib/utils";
 import { GA_MEASUREMENT_ID, GTM_ID } from "@/lib/constants";
 import { SITE, SITE_PATHS } from "@/lib/site";
 import { buildOrganizationJsonLd } from "@/lib/structured-data";
+import {
+  PWA_APPLE_TOUCH_ICON,
+  PWA_ICON_192,
+  PWA_THEME_COLOR,
+} from "@/lib/pwa";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -84,7 +89,32 @@ export const metadata: Metadata = {
       "Nền tảng tìm thuê căn hộ uy tín tại Hà Nội. Khám phá ngay không gian lý tưởng để an cư và làm việc với thông tin minh bạch, hỗ trợ tận tâm.",
     images: [SITE.ogImage],
   },
-  icons: { icon: "/favicon.ico" },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: PWA_ICON_192, sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: PWA_APPLE_TOUCH_ICON, sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: SITE.name,
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: PWA_THEME_COLOR },
+    { media: "(prefers-color-scheme: dark)", color: PWA_THEME_COLOR },
+  ],
+  colorScheme: "light",
 };
 
 const beVietnamPro = Be_Vietnam_Pro({
@@ -120,7 +150,9 @@ export default function RootLayout({
         {/* FirebaseClientProvider already nests FirebaseProvider + AuthProvider */}
         <FirebaseClientProvider>
           <div className="relative flex min-h-screen flex-col">
-            <main className="flex-1 pb-24 md:pb-0">{children}</main>
+            <main className="flex-1 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+              {children}
+            </main>
           </div>
           <MultiContact />
           <MobileNav />

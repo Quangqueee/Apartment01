@@ -20,6 +20,7 @@ import { Apartment, UserProfile } from "./types";
 import { toApartment } from "./data"; // Assuming toApartment can be used on client
 import { matchesApartmentSearch } from "./utils";
 import { isPriceInRange, parsePriceRange } from "./price-range";
+import { mergeFavoriteIds } from "./favorites";
 
 
 // Initialize Firebase on the client
@@ -158,15 +159,26 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 export async function getFullFavoriteApartments(userId: string): Promise<Apartment[]> {
   if (!userId) return [];
 
-  const favoritesCol = collection(usersCollection, userId, "favorites");
-  const q = query(favoritesCol, orderBy("addedAt", "desc"));
-  const snapshot = await getDocs(q);
-  const favoriteIds = snapshot.docs.map(doc => doc.id);
+  try {
+    const favoritesCol = collection(usersCollection, userId, "favorites");
+    const q = query(favoritesCol, orderBy("addedAt", "desc"));
+    const snapshot = await getDocs(q);
+    const subcollectionIds = snapshot.docs.map((favDoc) => favDoc.id);
 
-  if (favoriteIds.length === 0) return [];
+    const userSnap = await getDoc(doc(usersCollection, userId));
+    const favoriteIds = mergeFavoriteIds(
+      userSnap.data()?.favorites,
+      subcollectionIds,
+    );
 
-  const apartmentPromises = favoriteIds.map(id => getApartmentById(id));
-  const apartments = await Promise.all(apartmentPromises);
+    if (favoriteIds.length === 0) return [];
 
-  return apartments.filter((apt): apt is Apartment => apt !== null);
+    const apartmentPromises = favoriteIds.map((id) => getApartmentById(id));
+    const apartments = await Promise.all(apartmentPromises);
+
+    return apartments.filter((apt): apt is Apartment => apt !== null);
+  } catch (error) {
+    console.error("getFullFavoriteApartments:", error);
+    return [];
+  }
 }

@@ -49,12 +49,12 @@ export default function ApartmentList({
   searchParams,
   totalInitialResults,
 }: ApartmentListProps) {
-  const { userData } = useAuth();
+  const { favoriteIds: favoriteIdList } = useAuth();
   const { toast } = useToast();
   const isDesktop = useSyncExternalStore(subscribeMd, getMdSnapshot, () => false);
   const favoriteIds = useMemo(
-    () => new Set<string>(userData?.favorites ?? []),
-    [userData?.favorites],
+    () => new Set<string>(favoriteIdList),
+    [favoriteIdList],
   );
 
   const [pageItems, setPageItems] = useState<Record<number, Apartment[]>>({

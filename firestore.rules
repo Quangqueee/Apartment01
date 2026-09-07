@@ -18,8 +18,7 @@ rules_version = '2';
  *   Rule KHÔNG mask field. Chọn phương án (a) subcollection hoặc
  *   (b) callable view — xem comment khối apartments.
  *
- * Website production hiện chỉ match `apartments` + `users` (thiếu lịch
- * và notifications). File này là nguồn cho cả web và app.
+ * File này là nguồn cho cả web và app. Deploy `firebase deploy --only firestore`.
  *
  * ===============================================================
  * Assumed data model (rút gọn)
@@ -331,6 +330,83 @@ service cloud.firestore {
     match /listingCache/{docId} {
       allow read: if true;
       allow write: if false;
+    }
+
+    // ——— short_term_apartments (căn hộ ngắn hạn) ———
+    // Tách hoàn toàn khỏi `apartments` dài hạn. Cùng workflow duyệt tin:
+    // landlord tạo pending, admin publish.
+    match /short_term_apartments/{apartmentId} {
+      allow get, list: if isPublished()
+        || isAdmin()
+        || (signedIn() && resource.data.landlordId == request.auth.uid);
+
+      allow create: if isAdmin()
+        || (
+          isLandlord()
+          && request.resource.data.landlordId == request.auth.uid
+          && request.resource.data.submissionStatus == 'pending'
+        );
+
+      allow update: if isAdmin()
+        || (
+          isLandlord()
+          && landlordKeepsOwnership()
+          && landlordDoesNotSelfPublish()
+        );
+
+      allow delete: if isAdmin()
+        || (
+          isLandlord()
+          && resource.data.landlordId == request.auth.uid
+        );
+    }
+
+    // ——— stay_bookings (đơn đặt phòng ngắn hạn) ———
+    // User tạo pending; admin duyệt (confirmed) / từ chối.
+    // Khách không tự chuyển sang confirmed.
+    match /stay_bookings/{bookingId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if isAdmin()
+        || (
+          signedIn()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.status == 'pending'
+          && stringLen(request.resource.data.apartmentId, 1, 128)
+          && stringLen(request.resource.data.guestName, 2, 80)
+          && isValidPhone(request.resource.data.guestPhone)
+          && request.resource.data.checkIn is string
+          && request.resource.data.checkOut is string
+          && request.resource.data.nights is number
+          && request.resource.data.nights >= 1
+          && request.resource.data.totalAmount is number
+          && request.resource.data.totalAmount > 0
+        );
+
+      // Khách chỉ được HỦY đơn của mình khi còn pending (hoặc awaiting_payment cũ),
+      // hoặc sửa thông tin liên hệ/ghi chú khi còn pending.
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && resource.data.userId == request.auth.uid
+          && (
+            (
+              request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status', 'updatedAt'])
+              && request.resource.data.status == 'cancelled'
+              && (resource.data.status == 'pending'
+                || resource.data.status == 'awaiting_payment')
+            )
+            || (
+              resource.data.status == 'pending'
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['guestName', 'guestPhone', 'guestsCount', 'notes', 'updatedAt'])
+            )
+          )
+        );
+
+      allow delete: if isAdmin();
     }
   }
 }
