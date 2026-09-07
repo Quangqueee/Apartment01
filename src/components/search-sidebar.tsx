@@ -17,14 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import FloatingPriceInput from "@/components/floating-price-input";
 import { cn } from "@/lib/utils";
-import { Loader2, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Loader2, RotateCcw, Search } from "lucide-react";
 
 const parsePriceInput = (value: string, fallback: number) => {
   if (value.trim() === "") return fallback;
@@ -39,12 +32,22 @@ const toggleValue = (list: string[], value: string) =>
 const ROUND_CHECK_CLASS =
   "h-4 w-4 shrink-0 cursor-pointer appearance-none rounded-full border-2 border-gray-300 bg-white transition-colors checked:border-[#cda533] checked:bg-[#cda533] checked:shadow-[inset_0_0_0_3px_white] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#cda533]/40";
 
+const chipClass = (active: boolean) =>
+  cn(
+    "inline-flex h-9 max-w-full items-center rounded-full border px-3 text-sm font-semibold transition-colors",
+    active
+      ? "border-[#cda533] bg-[#cda533] text-white"
+      : "border-gray-200 bg-white text-gray-700 active:bg-gray-50",
+  );
+
 export default function SearchSidebar({
   className,
   onApplied,
+  hideQuery = false,
 }: {
   className?: string;
   onApplied?: () => void;
+  hideQuery?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -89,7 +92,9 @@ export default function SearchSidebar({
     startTransition(() => {
       router.push(
         buildSearchHref({
-          query: query.trim(),
+          query: hideQuery
+            ? (searchParams.get("query") || "").trim()
+            : query.trim(),
           districts,
           price:
             !isNoPriceInput && !isDefaultPrice
@@ -108,121 +113,135 @@ export default function SearchSidebar({
 
   const resetFilters = () => {
     const currentSort = searchParams.get("sort");
-    setQuery("");
+    const keptQuery = hideQuery
+      ? (searchParams.get("query") || "").trim()
+      : "";
+    if (!hideQuery) setQuery("");
     setDistricts([]);
     setRoomTypes([]);
     setPriceMinInput("");
     setPriceMaxInput("");
     startTransition(() => {
-      const params = new URLSearchParams();
-      if (currentSort && currentSort !== "newest") params.set("sort", currentSort);
-      const queryString = params.toString();
-      router.push(queryString ? `/tim-kiem?${queryString}` : "/tim-kiem");
+      router.push(
+        buildSearchHref({
+          query: keptQuery,
+          sort: currentSort || undefined,
+        }),
+      );
       onApplied?.();
     });
   };
 
-  return (
-    <form
-      className={cn("space-y-4 overflow-x-hidden", className)}
-      onSubmit={(event) => {
-        event.preventDefault();
-        applyFilters();
-      }}
-    >
+  const filterFields = (
+    <>
       <div className="space-y-2">
-        <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
-          Từ khóa
-        </label>
-        <div className="relative">
-          <Input
-            type="text"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Địa chỉ hoặc mã ID"
-            className="h-11 rounded-xl bg-white pr-11 text-base md:text-sm"
-          />
-          <button
-            type="submit"
-            disabled={isPending}
-            aria-label="Tìm kiếm"
-            className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#cda533] disabled:opacity-60"
-          >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Search className="h-4 w-4" />
-            )}
-          </button>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
           Khu vực
-        </label>
-        <div className="grid max-h-44 grid-cols-1 gap-0.5 overflow-y-auto overflow-x-hidden pr-1">
-          {HANOI_DISTRICTS.map((district) => {
-            const checked = districts.includes(district);
-            return (
-              <label
-                key={district}
-                className={cn(
-                  "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
-                  checked
-                    ? "bg-[#cda533]/10 font-semibold text-[#9a7b24]"
-                    : "text-gray-700 hover:bg-gray-50",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  className={ROUND_CHECK_CLASS}
-                  checked={checked}
-                  onChange={() => setDistricts(toggleValue(districts, district))}
-                />
-                <span className="truncate">{district}</span>
-              </label>
-            );
-          })}
-        </div>
+        </p>
+        {hideQuery ? (
+          <div className="flex flex-wrap gap-2 overflow-x-hidden">
+            {HANOI_DISTRICTS.map((district) => {
+              const checked = districts.includes(district);
+              return (
+                <button
+                  key={district}
+                  type="button"
+                  aria-pressed={checked}
+                  onClick={() => setDistricts(toggleValue(districts, district))}
+                  className={chipClass(checked)}
+                >
+                  {district}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="grid max-h-44 grid-cols-1 gap-0.5 overflow-y-auto overflow-x-hidden pr-1">
+            {HANOI_DISTRICTS.map((district) => {
+              const checked = districts.includes(district);
+              return (
+                <label
+                  key={district}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                    checked
+                      ? "bg-[#cda533]/10 font-semibold text-[#9a7b24]"
+                      : "text-gray-700 hover:bg-gray-50",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    className={ROUND_CHECK_CLASS}
+                    checked={checked}
+                    onChange={() =>
+                      setDistricts(toggleValue(districts, district))
+                    }
+                  />
+                  <span className="truncate">{district}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
-        <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
           Loại phòng
-        </label>
-        <div className="grid max-h-36 grid-cols-1 gap-0.5 overflow-y-auto overflow-x-hidden pr-1">
-          {ROOM_TYPES.map((roomType) => {
-            const checked = roomTypes.includes(roomType.value);
-            return (
-              <label
-                key={roomType.value}
-                className={cn(
-                  "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
-                  checked
-                    ? "bg-[#cda533]/10 font-semibold text-[#9a7b24]"
-                    : "text-gray-700 hover:bg-gray-50",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  className={ROUND_CHECK_CLASS}
-                  checked={checked}
-                  onChange={() =>
+        </p>
+        {hideQuery ? (
+          <div className="flex flex-wrap gap-2 overflow-x-hidden">
+            {ROOM_TYPES.map((roomType) => {
+              const checked = roomTypes.includes(roomType.value);
+              return (
+                <button
+                  key={roomType.value}
+                  type="button"
+                  aria-pressed={checked}
+                  onClick={() =>
                     setRoomTypes(toggleValue(roomTypes, roomType.value))
                   }
-                />
-                <span className="truncate">{roomType.label}</span>
-              </label>
-            );
-          })}
-        </div>
+                  className={chipClass(checked)}
+                >
+                  {roomType.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="grid max-h-36 grid-cols-1 gap-0.5 overflow-y-auto overflow-x-hidden pr-1">
+            {ROOM_TYPES.map((roomType) => {
+              const checked = roomTypes.includes(roomType.value);
+              return (
+                <label
+                  key={roomType.value}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                    checked
+                      ? "bg-[#cda533]/10 font-semibold text-[#9a7b24]"
+                      : "text-gray-700 hover:bg-gray-50",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    className={ROUND_CHECK_CLASS}
+                    checked={checked}
+                    onChange={() =>
+                      setRoomTypes(toggleValue(roomTypes, roomType.value))
+                    }
+                  />
+                  <span className="truncate">{roomType.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="space-y-1">
-        <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
           Ngân sách (triệu)
-        </label>
+        </p>
         <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
           <FloatingPriceInput
             id="search-price-min"
@@ -239,57 +258,91 @@ export default function SearchSidebar({
           />
         </div>
       </div>
+    </>
+  );
 
-      <div className="flex flex-col gap-2 pt-1">
-        <Button
-          type="submit"
-          disabled={isPending}
-          className="h-12 w-full rounded-2xl bg-[#1a1a1a] text-sm font-bold uppercase tracking-[0.18em] text-white shadow-[0_8px_20px_rgba(26,26,26,0.18)] transition-all hover:bg-[#cda533] hover:shadow-[0_8px_20px_rgba(205,165,51,0.35)]"
-        >
-          {isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <>
-              <Search className="mr-2 h-4 w-4" /> Áp dụng
-            </>
-          )}
-        </Button>
-        <button
-          type="button"
-          onClick={resetFilters}
-          className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-2xl border border-gray-200 bg-white text-[11px] font-bold uppercase tracking-widest text-gray-500 shadow-sm transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-        >
-          <RotateCcw className="h-3.5 w-3.5" /> Xóa bộ lọc
-        </button>
-      </div>
+  const actionButtons = (
+    <div className="flex flex-col gap-2">
+      <Button
+        type="submit"
+        disabled={isPending}
+        className="h-12 w-full rounded-2xl bg-[#1a1a1a] text-sm font-bold uppercase tracking-[0.18em] text-white shadow-[0_8px_20px_rgba(26,26,26,0.18)] transition-all hover:bg-[#cda533] hover:shadow-[0_8px_20px_rgba(205,165,51,0.35)]"
+      >
+        {isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <>
+            <Search className="mr-2 h-4 w-4" /> Áp dụng
+          </>
+        )}
+      </Button>
+      <button
+        type="button"
+        onClick={resetFilters}
+        className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-2xl border border-gray-200 bg-white text-[11px] font-bold uppercase tracking-widest text-gray-500 shadow-sm transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+      >
+        <RotateCcw className="h-3.5 w-3.5" /> Xóa bộ lọc
+      </button>
+    </div>
+  );
+
+  return (
+    <form
+      className={cn(
+        "overflow-x-hidden",
+        hideQuery ? "flex min-h-0 flex-1 flex-col" : "space-y-4",
+        className,
+      )}
+      onSubmit={(event) => {
+        event.preventDefault();
+        applyFilters();
+      }}
+    >
+      {!hideQuery && (
+        <div className="space-y-2">
+          <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+            Từ khóa
+          </label>
+          <div className="relative">
+            <Input
+              type="text"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Địa chỉ hoặc mã nguồn"
+              className="h-11 rounded-xl bg-white pr-11 text-base md:text-sm"
+            />
+            <button
+              type="submit"
+              disabled={isPending}
+              aria-label="Tìm kiếm"
+              className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#cda533] disabled:opacity-60"
+            >
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {hideQuery ? (
+        <>
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden overscroll-contain pb-4">
+            {filterFields}
+          </div>
+          <div className="shrink-0 border-t border-gray-100 bg-white pt-3 pb-[calc(0.75rem+var(--safe-bottom))]">
+            {actionButtons}
+          </div>
+        </>
+      ) : (
+        <>
+          {filterFields}
+          <div className="pt-1">{actionButtons}</div>
+        </>
+      )}
     </form>
   );
 }
 
-export function SearchFiltersSheet() {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-800 shadow-sm lg:hidden"
-        >
-          <SlidersHorizontal className="h-4 w-4" /> Bộ lọc
-        </button>
-      </SheetTrigger>
-      <SheetContent
-        side="left"
-        className="flex w-[min(100%,22rem)] max-w-full flex-col gap-0 overflow-hidden bg-white px-5"
-      >
-        <SheetHeader className="mb-4 shrink-0 pr-8 text-left">
-          <SheetTitle className="font-headline text-xl">Bộ lọc</SheetTitle>
-        </SheetHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
-          <SearchSidebar onApplied={() => setOpen(false)} />
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}

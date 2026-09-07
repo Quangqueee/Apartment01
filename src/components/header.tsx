@@ -85,8 +85,8 @@ export default function Header() {
   const telHref = `tel:${SITE.telephone}`;
 
   return (
-    <div className="w-full">
-      <header className="sticky top-0 z-50 w-full bg-transparent font-sans">
+    <div className="sticky top-0 z-50 w-full">
+      <header className="w-full bg-transparent font-sans">
         <div className="overflow-x-hidden border-b border-orange-700/30 bg-[#e07a2f] text-[11px] text-white lg:text-xs [@media(display-mode:standalone)]:pt-[var(--safe-top)]">
           <div className="container mx-auto flex h-8 items-center justify-between gap-3 overflow-x-hidden px-4 md:px-6 lg:h-9">
             <p className="flex min-w-0 items-center gap-3">

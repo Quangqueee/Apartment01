@@ -2,9 +2,8 @@ import { getApartments } from "@/lib/data";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import SortControls from "@/components/sort-controls";
-import SearchSidebar, {
-  SearchFiltersSheet,
-} from "@/components/search-sidebar";
+import SearchSidebar from "@/components/search-sidebar";
+import SearchMobileBar from "@/components/search-mobile-bar";
 import SearchPagination from "@/components/search-pagination";
 import ApartmentCard from "@/components/apartment-card";
 import type { Apartment } from "@/lib/types";
@@ -62,25 +61,25 @@ export default async function SearchResults({
   const currentPage = Math.min(requestedPage, totalPages);
 
   return (
-    <div className="flex min-h-screen flex-col overflow-x-hidden bg-white">
+    <div className="flex min-h-screen flex-col overflow-x-clip bg-white">
       <Header />
+      <Suspense fallback={null}>
+        <SearchMobileBar />
+      </Suspense>
 
       <main className="flex-1 overflow-x-hidden">
         <section className="mx-auto w-full max-w-[1920px] overflow-x-hidden px-4 py-4 lg:px-8 md:py-5">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-3 overflow-x-hidden">
-            <div className="min-w-0 max-w-3xl">
-              <h1 className="font-headline text-xl font-black uppercase tracking-tight text-gray-900 md:text-2xl">
+          <div className="mb-3 flex flex-col gap-3 overflow-x-hidden sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="font-headline text-lg font-black uppercase tracking-tight text-gray-900 md:text-2xl">
                 Kết quả tìm kiếm
               </h1>
-              <p className="mt-1 text-base font-bold uppercase tracking-widest text-amber-700 md:text-lg">
+              <p className="mt-1 text-sm font-bold uppercase tracking-widest text-amber-700 md:text-lg">
                 {totalResults} căn hộ
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Suspense fallback={null}>
-                <SearchFiltersSheet />
-              </Suspense>
+            <div className="flex shrink-0 items-center">
               <Suspense fallback={null}>
                 <SortControls />
               </Suspense>

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro, Playfair_Display } from "next/font/google";
 import { GoogleAnalytics, GoogleTagManager } from "@next/third-parties/google";
-import { Toaster } from "@/components/ui/toaster";
+import { ClientToaster } from "@/components/client-toaster";
 import { FirebaseClientProvider } from "@/firebase/client-provider";
 import "./globals.css";
 import MobileNav from "@/components/mobile-nav";
@@ -163,7 +163,7 @@ export default function RootLayout({
           </div>
           <MultiContact />
           <MobileNav />
-          <Toaster />
+          <ClientToaster />
         </FirebaseClientProvider>
       </body>
       <GoogleAnalytics gaId={GA_MEASUREMENT_ID} />

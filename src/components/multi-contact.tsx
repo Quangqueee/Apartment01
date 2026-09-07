@@ -4,7 +4,9 @@ import { useState } from "react";
 import { Phone, X, MessageSquareText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/context/auth-context";
 import { ADMIN_PATH } from "@/lib/constants";
+import { isAdmin, isCollaborator } from "@/lib/rbac";
 
 /* SVG FACEBOOK */
 const FacebookSvgIcon = () => (
@@ -59,10 +61,16 @@ const ZaloSvgIcon = () => (
 
 export default function MultiContact() {
   const pathname = usePathname();
+  const { user, userData, loading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const isStaffUi =
+    isAdmin(userData?.role) || isCollaborator(userData?.role);
 
   if (pathname.startsWith(`/${ADMIN_PATH}`)) return null;
+  if (pathname.startsWith("/huong-dan-cong-viec")) return null;
   if (/^\/apartments\/[^/]+/.test(pathname)) return null;
+  if (isStaffUi) return null;
+  if (loading && user) return null;
 
   return (
     <>
