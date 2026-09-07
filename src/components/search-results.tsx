@@ -89,7 +89,7 @@ export default async function SearchResults({
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
             <aside className="hidden lg:block">
-              <div className="sticky top-24 overflow-x-hidden rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
+              <div className="sticky top-[var(--site-header-height)] max-h-[calc(100dvh-var(--site-header-height)-1rem)] overflow-x-hidden overflow-y-auto overscroll-contain rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
                 <h2 className="mb-3 font-headline text-base font-bold text-gray-900">
                   Bộ lọc tìm kiếm
                 </h2>

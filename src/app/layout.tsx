@@ -7,6 +7,7 @@ import "./globals.css";
 import MobileNav from "@/components/mobile-nav";
 import MultiContact from "@/components/multi-contact";
 import { JsonLd } from "@/components/json-ld";
+import { PwaHead } from "@/components/pwa-head";
 import { cn } from "@/lib/utils";
 import { GA_MEASUREMENT_ID, GTM_ID } from "@/lib/constants";
 import { SITE, SITE_PATHS } from "@/lib/site";
@@ -14,6 +15,7 @@ import { buildOrganizationJsonLd } from "@/lib/structured-data";
 import {
   PWA_APPLE_TOUCH_ICON,
   PWA_ICON_192,
+  PWA_MANIFEST_PATH,
   PWA_THEME_COLOR,
 } from "@/lib/pwa";
 
@@ -26,6 +28,7 @@ export const metadata: Metadata = {
   description:
     "Nền tảng tìm thuê căn hộ uy tín tại Hà Nội. Khám phá ngay không gian lý tưởng để an cư và làm việc với thông tin minh bạch, hỗ trợ tận tâm.",
   applicationName: SITE.name,
+  manifest: PWA_MANIFEST_PATH,
   authors: [{ name: SITE.founderName, url: SITE.sameAs[0] }],
   creator: SITE.founderName,
   publisher: SITE.name,
@@ -137,10 +140,11 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="vi" data-scroll-behavior="smooth" suppressHydrationWarning>
+      <PwaHead />
       <GoogleTagManager gtmId={GTM_ID} />
       <body
         className={cn(
-          "min-h-screen bg-background font-body text-foreground antialiased",
+          "min-h-dvh bg-background font-body text-foreground antialiased overflow-x-hidden",
           beVietnamPro.variable,
           playfairDisplay.variable,
         )}
@@ -149,8 +153,8 @@ export default function RootLayout({
 
         {/* FirebaseClientProvider already nests FirebaseProvider + AuthProvider */}
         <FirebaseClientProvider>
-          <div className="relative flex min-h-screen flex-col">
-            <main className="flex-1 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+          <div className="relative flex min-h-dvh flex-col overflow-x-hidden">
+            <main className="flex-1 overflow-x-hidden pb-[calc(6rem+var(--safe-bottom))] md:pb-0">
               {children}
             </main>
           </div>

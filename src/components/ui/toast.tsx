@@ -17,7 +17,7 @@ const ToastViewport = React.forwardRef<
     ref={ref}
     // Sửa flex-col-reverse thành flex-col vì toast xuất hiện từ top-0
     className={cn(
-      "fixed top-0 left-1/2 z-[100] flex max-h-screen -translate-x-1/2 flex-col p-4 w-[360px] max-w-[95vw] sm:w-[420px]",
+      "fixed left-1/2 z-[100] flex max-h-screen -translate-x-1/2 flex-col p-4 w-[360px] max-w-[95vw] sm:w-[420px] top-[var(--safe-top)]",
       className,
     )}
     {...props}

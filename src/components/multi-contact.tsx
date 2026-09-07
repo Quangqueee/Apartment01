@@ -66,7 +66,7 @@ export default function MultiContact() {
 
   return (
     <>
-      <div className="fixed z-[150] bottom-20 right-4 md:bottom-8 md:right-8 flex flex-col items-end gap-3 pointer-events-none">
+      <div className="fixed z-[150] bottom-[calc(5rem+var(--safe-bottom))] right-4 md:bottom-8 md:right-8 flex flex-col items-end gap-3 pointer-events-none">
         {/* KHUNG POP-UP LIÊN HỆ */}
         <div
           className={cn(

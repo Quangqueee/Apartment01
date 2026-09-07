@@ -2940,7 +2940,7 @@ Liên hệ em 📲 081.2442.111 (Zalo/Call) hoặc inbox trực tiếp để qua
   return (
     <div className="sop-guide flex flex-col lg:flex-row min-h-[calc(100vh-80px)] md:min-h-[calc(100vh-96px)] bg-[#f8fafc] text-gray-800 font-sans relative">
       {/* MOBILE TOP BAR — luôn dính mép trên khi cuộn */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-[90] bg-white/95 backdrop-blur-md border-b border-gray-200 px-5 py-3.5 flex items-center justify-between shadow-sm">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-[90] bg-white/95 backdrop-blur-md border-b border-gray-200 px-5 pb-3.5 flex items-center justify-between shadow-sm pt-[max(0.875rem,var(--safe-top))]">
         <div className="font-bold text-gray-900 text-[15px] flex items-center gap-2">
           <BookOpen size={18} className="text-[#cda533]" /> Mục lục đào tạo
         </div>
@@ -2951,7 +2951,7 @@ Liên hệ em 📲 081.2442.111 (Zalo/Call) hoặc inbox trực tiếp để qua
           <Menu size={22} />
         </button>
       </div>
-      <div className="lg:hidden h-[57px] shrink-0" aria-hidden />
+      <div className="lg:hidden h-[calc(57px+var(--safe-top))] shrink-0" aria-hidden />
 
       {/* MOBILE OVERLAY */}
       {mobileMenuOpen && (
@@ -2964,7 +2964,7 @@ Liên hệ em 📲 081.2442.111 (Zalo/Call) hoặc inbox trực tiếp để qua
       {/* SIDEBAR: mobile = drawer cố định; desktop = sticky full viewport */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 bg-white w-[75vw] sm:w-[280px] lg:w-[320px] z-[95] flex flex-col border-r border-gray-200 shadow-[4px_0_24px_rgba(0,0,0,0.08)]",
+          "fixed inset-y-0 left-0 bg-white w-[75vw] sm:w-[280px] lg:w-[320px] z-[95] flex flex-col border-r border-gray-200 shadow-[4px_0_24px_rgba(0,0,0,0.08)] pt-[var(--safe-top)] pb-[var(--safe-bottom)] lg:pt-0 lg:pb-0",
           "transform transition-transform duration-300 ease-in-out",
           "lg:sticky lg:top-0 lg:h-[100dvh] lg:max-h-[100dvh] lg:self-start lg:shrink-0 lg:transform-none",
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",

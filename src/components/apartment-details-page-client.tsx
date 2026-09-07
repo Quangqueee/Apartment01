@@ -178,8 +178,7 @@ function ShareModal({
 
           // Đảm bảo cả hai chế độ màn hình đều được bo tròn toàn bộ 4 góc hoặc khớp chuẩn Bottom Sheet di động
           "sm:max-w-[400px] sm:rounded-[2rem]",
-          "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:translate-x-0 max-sm:translate-y-0",
-          "max-sm:w-full max-sm:rounded-t-[2rem] max-sm:rounded-b-none",
+          "dialog-sheet-mobile max-sm:w-full max-sm:rounded-t-[2rem] max-sm:rounded-b-none max-sm:pb-[var(--safe-bottom)]",
           "max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out",
           "max-sm:data-[state=open]:slide-in-from-bottom-full max-sm:data-[state=closed]:slide-out-to-bottom-full",
           "max-sm:duration-300 max-sm:ease-out",
@@ -404,7 +403,7 @@ function RelatedApartments({ related }: { related: Apartment[] }) {
           <div
             ref={scrollRef}
             onScroll={checkScroll}
-            className="flex gap-6 overflow-x-auto snap-x snap-mandatory py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full scroll-smooth"
+            className="flex w-full gap-6 overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none snap-x snap-mandatory py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x]"
           >
             {related.map((apt) => (
               <div
@@ -916,16 +915,16 @@ export default function ApartmentDetailsPageClient({
           className={cn(
             "p-0 border-none shadow-2xl z-[100] gap-0 bg-white flex flex-col [&>button.absolute]:hidden",
             "sm:max-w-[780px] sm:max-h-[85vh] sm:rounded-2xl overflow-hidden",
-            "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:translate-x-0 max-sm:translate-y-0",
-            "max-sm:h-[100dvh] max-sm:w-full max-sm:rounded-none",
-            "max-sm:will-change-transform",
+            "dialog-fullscreen-mobile",
             "max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out",
             "max-sm:data-[state=open]:slide-in-from-bottom-full max-sm:data-[state=closed]:slide-out-to-bottom-full",
             "max-sm:duration-350 max-sm:ease-out",
           )}
         >
-          <DialogHeader className="px-5 py-4 sm:px-6 sm:py-5 border-b border-gray-100 flex flex-row items-center gap-4 sticky top-0 bg-white z-10 shrink-0 text-left">
+          <DialogHeader className="pwa-safe-header px-5 py-4 sm:px-6 sm:py-5 border-b border-gray-100 flex flex-row items-center gap-4 sticky top-0 bg-white z-10 shrink-0 text-left">
             <button
+              type="button"
+              aria-label="Trở về"
               onClick={() => setIsDescModalOpen(false)}
               className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none"
             >
@@ -939,7 +938,7 @@ export default function ApartmentDetailsPageClient({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="px-6 py-6 overflow-y-auto flex-1">
+          <div className="px-6 py-6 overflow-y-auto flex-1 pwa-safe-footer">
             {isCollaborator ? (
               <div className="bg-white rounded-2xl mb-6">
                 <div className="grid grid-cols-2 gap-4 mb-5">

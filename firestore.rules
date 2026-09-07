@@ -34,6 +34,9 @@ rules_version = '2';
  * ctv_bookings/{id}: ctvId, status, clientName, clientPhone, …
  * guest_consultations/{id}: name, phone, apartmentId, dateTime, status, …
  * listingCache/{docId}: snapshot card public (Cloud Functions ghi). home_newest
+ * short_term_apartments/{id}: nightlyPrice, minNights, landlordId, submissionStatus, …
+ * stay_bookings/{id}: userId, status, checkIn, checkOut, nights, totalAmount, …
+ * payments/{id}: userId, stayBookingId, amount, vnpay fields — ghi Admin SDK
  * ===============================================================
  */
 
@@ -362,8 +365,9 @@ service cloud.firestore {
     }
 
     // ——— stay_bookings (đơn đặt phòng ngắn hạn) ———
-    // User tạo pending; admin duyệt (confirmed) / từ chối.
-    // Khách không tự chuyển sang confirmed.
+    // User tạo pending; admin duyệt (awaiting_payment) / từ chối;
+    // trạng thái `confirmed` CHỈ được ghi bởi Admin SDK (VNPay IPN)
+    // hoặc admin — client thường không tự confirm được.
     match /stay_bookings/{bookingId} {
       allow read: if isAdmin()
         || (signedIn() && resource.data.userId == request.auth.uid);
@@ -384,7 +388,7 @@ service cloud.firestore {
           && request.resource.data.totalAmount > 0
         );
 
-      // Khách chỉ được HỦY đơn của mình khi còn pending (hoặc awaiting_payment cũ),
+      // Khách chỉ được HỦY đơn của mình khi còn pending/awaiting_payment,
       // hoặc sửa thông tin liên hệ/ghi chú khi còn pending.
       allow update: if isAdmin()
         || (
@@ -407,6 +411,14 @@ service cloud.firestore {
         );
 
       allow delete: if isAdmin();
+    }
+
+    // ——— payments (giao dịch VNPay) ———
+    // Ghi CHỈ qua Admin SDK (API route server). Client đọc giao dịch của mình.
+    match /payments/{paymentId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false;
     }
   }
 }

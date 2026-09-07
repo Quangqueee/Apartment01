@@ -295,7 +295,7 @@ export default function StayBookingWidget({
   return (
     <>
       {/* Desktop: widget sticky bên phải */}
-      <div className="hidden lg:block sticky top-28">
+      <div className="hidden lg:block sticky top-[calc(var(--site-header-height)+0.75rem)]">
         <div className="rounded-2xl bg-white p-5 shadow-[0_6px_20px_rgba(0,0,0,0.08)] border border-[#e2e2e2] max-h-[calc(100vh-8rem)] overflow-y-auto overflow-x-hidden">
           <div className="mb-4 pb-4 border-b border-[#e2e2e2]">
             <p className="flex items-baseline gap-1">

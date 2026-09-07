@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { SITE } from "@/lib/site";
 import {
+  PWA_APPLE_TOUCH_ICON,
   PWA_BACKGROUND_COLOR,
   PWA_ICON_192,
   PWA_ICON_512,
@@ -10,7 +11,7 @@ import {
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: SITE.url,
+    id: "/",
     name: SITE.name,
     short_name: PWA_SHORT_NAME,
     description: SITE.description,
@@ -23,8 +24,13 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: PWA_BACKGROUND_COLOR,
     theme_color: PWA_THEME_COLOR,
     categories: ["lifestyle", "business"],
-    display_override: ["standalone", "minimal-ui"],
     icons: [
+      {
+        src: PWA_APPLE_TOUCH_ICON,
+        sizes: "180x180",
+        type: "image/png",
+        purpose: "any",
+      },
       {
         src: PWA_ICON_192,
         sizes: "192x192",

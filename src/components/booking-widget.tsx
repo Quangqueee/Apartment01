@@ -523,7 +523,7 @@ export default function BookingWidget({
 
   return (
     <>
-      <div className="hidden lg:block sticky top-28">
+      <div className="hidden lg:block sticky top-[calc(var(--site-header-height)+0.75rem)]">
         {isAdminRole ? (
           <div className="rounded-[2.5rem] bg-white p-8 shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-gray-100 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>

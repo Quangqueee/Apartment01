@@ -2,16 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  scroll-behavior: smooth;
-  /* Bù chiều cao header sticky (h-20 / md:h-24) khi Next.js / hash scroll */
-  scroll-padding-top: 5rem;
+:root {
+  /* Defined on :root so transformed overlays (dialog/sheet) still inherit insets */
+  --safe-top: 0px;
+  --safe-bottom: 0px;
+  /* Orange bar h-8 + nav h-16 */
+  --site-header-height: 6rem;
+}
+
+@supports (padding-top: constant(safe-area-inset-top)) {
+  :root {
+    --safe-top: constant(safe-area-inset-top);
+    --safe-bottom: constant(safe-area-inset-bottom);
+  }
+}
+
+@supports (padding-top: env(safe-area-inset-top)) {
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
 
 @media (min-width: 768px) {
-  html {
-    scroll-padding-top: 6rem;
+  :root {
+    /* Orange bar h-8 + nav md:h-20 */
+    --site-header-height: 7rem;
   }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    /* Orange bar lg:h-9 + nav h-20 */
+    --site-header-height: 7.25rem;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--site-header-height);
+  overscroll-behavior-y: none;
 }
 
 @layer base {
@@ -42,6 +72,7 @@ html {
   body {
     font-family: var(--font-body), sans-serif;
     @apply bg-background text-foreground antialiased;
+    overscroll-behavior-y: none;
   }
 
   h1,
@@ -119,8 +150,25 @@ body[data-scroll-locked] {
 }
 
 @media (display-mode: standalone) {
+  :root {
+    --site-header-height: calc(6rem + var(--safe-top));
+  }
+
+  @media (min-width: 768px) {
+    :root {
+      --site-header-height: calc(7rem + var(--safe-top));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    :root {
+      --site-header-height: calc(7.25rem + var(--safe-top));
+    }
+  }
+
   html {
     min-height: 100dvh;
+    overscroll-behavior: none;
   }
 
   body {
@@ -131,14 +179,49 @@ body[data-scroll-locked] {
 
 .listing-sticky-cta {
   bottom: 0;
-  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  padding-bottom: max(1rem, var(--safe-bottom));
   transition: bottom 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Fullscreen dialogs: beat DialogContent's left/top 50% + translate without 100dvh overflow */
+@media (max-width: 639px) {
+  .dialog-fullscreen-mobile {
+    left: 0 !important;
+    right: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    transform: none !important;
+    border-radius: 0 !important;
+  }
+
+  .dialog-sheet-mobile {
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    transform: none !important;
+    max-height: min(92dvh, calc(100dvh - var(--safe-top))) !important;
+  }
+
+  .pwa-safe-header {
+    padding-top: max(1rem, var(--safe-top)) !important;
+  }
+
+  .pwa-safe-footer {
+    padding-bottom: max(0.75rem, var(--safe-bottom)) !important;
+  }
 }
 
 @media (max-width: 1023px) {
   body[data-listing-page="true"]:not([data-listing-nav-hidden="true"])
     .listing-sticky-cta {
-    bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(4rem + var(--safe-bottom));
     padding-bottom: 1rem;
   }
 }

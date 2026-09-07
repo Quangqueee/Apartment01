@@ -3,10 +3,30 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false, // Có thể chuyển thành true nếu muốn bỏ qua lỗi TypeScript trong quá trình build
   },
+  // Safari/iOS PWA reads <head> from the first HTML chunk. Streaming metadata
+  // into <body> makes Add to Home Screen open in Safari instead of standalone.
+  htmlLimitedBots: /.*/,
   experimental: {
     serverActions: {
       bodySizeLimit: '150mb',
     },
+  },
+  async headers() {
+    return [
+      {
+        source: "/manifest.json",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/manifest+json; charset=utf-8",
+          },
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, must-revalidate",
+          },
+        ],
+      },
+    ];
   },
   images: {
     remotePatterns: [

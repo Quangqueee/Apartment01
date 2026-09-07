@@ -15,7 +15,6 @@ import { fetchApartmentsAction } from "@/app/actions";
 import ApartmentCard from "./apartment-card";
 import { Button } from "./ui/button";
 import { useAuth } from "@/context/auth-context";
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -157,7 +156,8 @@ export default function ApartmentList({
   const snapToListTop = useCallback(() => {
     const heading = document.getElementById("apartments-list");
     if (!heading) return;
-    const headerOffset = 128;
+    const header = document.querySelector("header");
+    const headerOffset = (header?.getBoundingClientRect().height ?? 96) + 12;
     const viewportTop = heading.getBoundingClientRect().top;
     if (viewportTop >= 0 && viewportTop <= headerOffset + 24) return;
     window.scrollTo({
@@ -218,8 +218,7 @@ export default function ApartmentList({
             ref={gridRef}
             className="grid grid-cols-1 gap-6 overflow-x-hidden sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 xl:gap-8"
           >
-            {apartments.map((apartment, index) =>
-              isDesktop ? (
+            {apartments.map((apartment, index) => (
                 <div key={apartment.id}>
                   <ApartmentCard
                     apartment={apartment}
@@ -227,26 +226,7 @@ export default function ApartmentList({
                     imagePriority={index < 2}
                   />
                 </div>
-              ) : (
-                <motion.div
-                  key={`${apartment.id}-${index}`}
-                  initial={{ opacity: 0, y: 24 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-40px" }}
-                  transition={{
-                    duration: 0.35,
-                    delay: index < PAGE_SIZE ? index * 0.04 : 0,
-                    ease: "easeOut",
-                  }}
-                >
-                  <ApartmentCard
-                    apartment={apartment}
-                    onFavoriteToggle={handleFavoriteToggle}
-                    imagePriority={index < 2}
-                  />
-                </motion.div>
-              ),
-            )}
+            ))}
           </div>
 
           {hasMoreMobile ? (

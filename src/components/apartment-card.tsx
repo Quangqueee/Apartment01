@@ -209,37 +209,26 @@ export default memo(function ApartmentCard({
     touchSwipeRef.current = {
       x: firstTouch.clientX,
       y: firstTouch.clientY,
-      scrollLeft: scrollRef.current?.scrollLeft ?? 0,
+      scrollLeft: 0,
       axis: null,
     };
   };
 
   const onSliderTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     const firstTouch = e.touches[0];
-    if (!firstTouch || !scrollRef.current) return;
+    if (!firstTouch) return;
     const dx = firstTouch.clientX - touchSwipeRef.current.x;
     const dy = firstTouch.clientY - touchSwipeRef.current.y;
     if (!touchSwipeRef.current.axis) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
       touchSwipeRef.current.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    }
+    if (touchSwipeRef.current.axis === "x") {
       markDragged(true);
     }
-    if (touchSwipeRef.current.axis !== "x") return;
-    markDragged(true);
-    scrollRef.current.scrollLeft = touchSwipeRef.current.scrollLeft - dx;
   };
 
   const onSliderTouchEnd = () => {
-    if (touchSwipeRef.current.axis === "x" && scrollRef.current) {
-      const width = scrollRef.current.clientWidth;
-      if (width) {
-        const targetIndex = Math.round(scrollRef.current.scrollLeft / width);
-        scrollRef.current.scrollTo({
-          left: targetIndex * width,
-          behavior: "smooth",
-        });
-      }
-    }
     touchSwipeRef.current.axis = null;
   };
 
@@ -341,7 +330,7 @@ export default memo(function ApartmentCard({
         onMouseEnter={() => setIsHovered(true)}
         onTouchStart={() => setIsHovered(true)}
         className={cn(
-          "group/slider relative flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition-all duration-300 ease-out will-change-transform",
+          "group/slider relative flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition-shadow duration-300 ease-out",
           isCompact
             ? "rounded-xl md:hover:shadow-md"
             : "rounded-xl md:hover:-translate-y-1.5 md:hover:scale-[1.015] md:hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] sm:rounded-2xl",
@@ -349,7 +338,7 @@ export default memo(function ApartmentCard({
       >
         <div
           className={cn(
-            "relative w-full overflow-hidden bg-gray-100",
+            "relative w-full overflow-hidden overflow-clip bg-gray-100",
             isCompact ? "aspect-[3/2]" : "aspect-[4/3]",
           )}
         >
@@ -417,7 +406,7 @@ export default memo(function ApartmentCard({
             role="link"
             tabIndex={0}
             aria-label={displayTitle}
-            className="absolute inset-0 z-0 block select-none [-webkit-touch-callout:none] [touch-action:pan-y]"
+            className="absolute inset-0 z-0 block select-none [-webkit-touch-callout:none]"
             onClick={handleImageAreaClick}
             onContextMenu={(e) => e.preventDefault()}
             onKeyDown={(e) => {
@@ -438,10 +427,10 @@ export default memo(function ApartmentCard({
               onTouchMove={onSliderTouchMove}
               onTouchEnd={onSliderTouchEnd}
               onTouchCancel={onSliderTouchEnd}
-              className={`flex h-full w-full overflow-x-auto overscroll-x-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-y] select-none [-webkit-touch-callout:none] ${
+              className={`flex h-full w-full overflow-x-auto overflow-y-hidden overscroll-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x] select-none [-webkit-touch-callout:none] ${
                 isMouseDragging
                   ? "snap-none cursor-grabbing"
-                  : "snap-x snap-mandatory scroll-smooth"
+                  : "snap-x snap-mandatory"
               }`}
             >
               {imageUrls.map((url, idx) => {

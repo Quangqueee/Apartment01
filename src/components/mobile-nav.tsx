@@ -71,7 +71,7 @@ export default function MobileNav() {
   return (
     <nav
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 border-t bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 md:hidden pb-[env(safe-area-inset-bottom)]",
+        "fixed bottom-0 left-0 right-0 z-50 border-t bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 md:hidden pb-[var(--safe-bottom)]",
         "transition-transform duration-300 ease-ios-out will-change-transform",
         hidden && "translate-y-full",
       )}

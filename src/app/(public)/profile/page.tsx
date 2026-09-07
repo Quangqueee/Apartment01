@@ -58,7 +58,7 @@ export default function ProfilePage() {
         <div className="lg:grid lg:grid-cols-12 lg:gap-20">
           {/* CỘT TRÁI: INFO CARD */}
           <div className="lg:col-span-4 mb-12 lg:mb-0">
-            <div className="bg-white rounded-[3rem] p-10 shadow-[0_30px_100px_rgba(0,0,0,0.08)] border border-gray-50 flex flex-col items-center text-center sticky top-32">
+            <div className="bg-white rounded-[3rem] p-10 shadow-[0_30px_100px_rgba(0,0,0,0.08)] border border-gray-50 flex flex-col items-center text-center sticky top-[calc(var(--site-header-height)+1rem)]">
               <div className="h-32 w-32 lg:h-40 lg:w-40 rounded-full overflow-hidden shadow-2xl border-4 border-white mb-8 bg-gray-50 flex items-center justify-center">
                 {displayAvatar ? (
                   <img

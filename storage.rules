@@ -11,6 +11,9 @@ rules_version = '2';
  * Path mới: apartments/{uid}/{fileName} — uid = Auth UID người upload
  * (landlord hoặc admin). Delete chỉ owner của segment đó hoặc admin.
  *
+ * Avatar: avatars/{uid}/{fileName} — user chỉ ghi/xóa folder của mình,
+ * ảnh ≤ 10MB, contentType image/*. Public read (hiện trên header/profile).
+ *
  * Path cũ (flat): apartments/{fileName} — ảnh đang live. Public read.
  * Mutate chỉ admin, để landlord không xóa/ghi đè ảnh tin người khác.
  *
@@ -37,6 +40,25 @@ service firebase.storage {
     function isImageUnder15mb() {
       return request.resource.size < 15 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
+    }
+
+    // Khớp client profile/edit: tối đa 10MB, accept="image/*".
+    function isAvatarImage() {
+      return request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Ảnh đại diện — owner = Auth UID trong path.
+    // Public read: header, profile, admin users dùng photoURL trên UI.
+    match /avatars/{userId}/{fileName} {
+      allow read: if true;
+
+      allow create, update: if signedIn()
+        && request.auth.uid == userId
+        && isAvatarImage();
+
+      allow delete: if signedIn()
+        && request.auth.uid == userId;
     }
 
     // Ảnh listing mới — owner nằm trong path.

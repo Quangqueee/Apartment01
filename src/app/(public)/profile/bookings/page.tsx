@@ -736,17 +736,15 @@ export default function BookingsManagementPage() {
         <DialogContent
           className={
             "p-0 border-none shadow-2xl z-[100] gap-0 bg-gray-100 flex flex-col [&>button.absolute]:hidden " +
-            // --- XỬ LÝ DESKTOP ---
             "sm:max-w-[500px] sm:max-h-[90vh] sm:rounded-3xl overflow-hidden " +
-            // --- XỬ LÝ MOBILE ---
-            "max-sm:fixed max-sm:inset-0 max-sm:w-full max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:translate-x-0 max-sm:translate-y-0 " +
+            "dialog-fullscreen-mobile " +
             "max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out " +
             "max-sm:data-[state=open]:slide-in-from-bottom-full max-sm:data-[state=closed]:slide-out-to-bottom-full " +
             "max-sm:duration-300 max-sm:ease-out"
           }
         >
           {/* HEADER SIÊU GỌN */}
-          <div className="px-4 py-3.5 sm:px-6 sm:py-5 border-b border-gray-200 flex flex-row items-center justify-between bg-white z-20 shrink-0 shadow-sm w-full">
+          <div className="pwa-safe-header px-4 py-3.5 sm:px-6 sm:py-5 border-b border-gray-200 flex flex-row items-center justify-between bg-white z-20 shrink-0 shadow-sm w-full">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsDetailsModalOpen(false)}
@@ -955,7 +953,7 @@ export default function BookingsManagementPage() {
               </div>
 
               {/* FOOTER CỐ ĐỊNH, NHỎ GỌN */}
-              <div className="shrink-0 p-3 sm:px-6 sm:py-4 border-t border-gray-200 bg-white sticky bottom-0 z-20 flex gap-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] w-full">
+              <div className="shrink-0 p-3 sm:px-6 sm:py-4 border-t border-gray-200 bg-white sticky bottom-0 z-20 flex gap-3 pwa-safe-footer w-full">
                 <button
                   type="button"
                   onClick={() => setIsDetailsModalOpen(false)}

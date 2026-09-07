@@ -284,11 +284,11 @@ export default function ImageLightbox({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-none w-screen h-screen p-0 m-0 bg-black border-none shadow-none block overflow-hidden [&>button]:hidden">
+      <DialogContent className="max-w-none w-screen h-dvh p-0 m-0 bg-black border-none shadow-none block overflow-hidden [&>button]:hidden">
         <DialogTitle className="sr-only">Chi tiết hình ảnh</DialogTitle>
 
         {/* --- TOOLBAR --- */}
-        <div className="absolute top-0 left-0 right-0 z-50 flex justify-between items-start px-4 pt-14 md:pt-4 pb-6 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none">
+        <div className="absolute top-0 left-0 right-0 z-50 flex justify-between items-start px-4 pt-[max(3.5rem,calc(var(--safe-top)+0.75rem))] md:pt-[max(1rem,var(--safe-top))] pb-6 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none">
           <div className="pointer-events-auto text-white/90 text-sm font-medium px-3 py-1.5 bg-zinc-800/60 backdrop-blur-md border border-white/10 rounded-full mt-1">
             {currentSlide + 1} / {images.length}
           </div>
@@ -356,10 +356,10 @@ export default function ImageLightbox({
               className="w-full h-full touch-pan-y"
               opts={{ startIndex: selectedIndex, loop: true }}
             >
-              <CarouselContent className="h-[100vh] -ml-0 touch-pan-y">
+              <CarouselContent className="h-dvh -ml-0 touch-pan-y">
                 {images.map((url, index) => (
                   <CarouselItem key={index} className="h-full pl-0 relative">
-                    <div className="w-full h-[100vh] flex items-center justify-center">
+                    <div className="w-full h-dvh flex items-center justify-center">
                       <div className="relative w-full h-full">
                         <Image
                           src={url}

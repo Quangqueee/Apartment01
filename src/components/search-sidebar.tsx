@@ -281,12 +281,14 @@ export function SearchFiltersSheet() {
       </SheetTrigger>
       <SheetContent
         side="left"
-        className="w-[min(100%,22rem)] overflow-y-auto overflow-x-hidden bg-white p-5"
+        className="flex w-[min(100%,22rem)] max-w-full flex-col gap-0 overflow-hidden bg-white px-5"
       >
-        <SheetHeader className="mb-4 text-left">
+        <SheetHeader className="mb-4 shrink-0 pr-8 text-left">
           <SheetTitle className="font-headline text-xl">Bộ lọc</SheetTitle>
         </SheetHeader>
-        <SearchSidebar onApplied={() => setOpen(false)} />
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
+          <SearchSidebar onApplied={() => setOpen(false)} />
+        </div>
       </SheetContent>
     </Sheet>
   );
