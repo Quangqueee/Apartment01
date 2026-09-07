@@ -12,7 +12,6 @@ import {
   Heart,
   Hash,
   Share,
-  Share2,
   Check,
   Link as LinkIcon,
   Clock,
@@ -50,11 +49,14 @@ import { setApartmentFavorite } from "@/lib/favorites-client";
 import ApartmentCard from "@/components/apartment-card";
 import ApartmentImageGallery from "@/components/apartment-image-gallery";
 import {
-  canUseWebShare,
-  copyToClipboard,
+  copyFromElement,
+  copyOrShareText,
+  copyTextNow,
+  ensureCopyField,
   getPageShareUrl,
-  isStandalonePwa,
-  openExternalUrl,
+  openMessengerWithLink,
+  openZaloWithLink,
+  prefersNativeShare,
   shareViaSystem,
   shouldUseSystemShare,
   type SharePayload,
@@ -135,105 +137,95 @@ function ShareModal({
   payload: SharePayload;
 }) {
   const [copied, setCopied] = useState(false);
-  const [showSystemShare, setShowSystemShare] = useState(false);
+  const copyFieldRef = useRef<HTMLTextAreaElement>(null);
+  const actionLockRef = useRef(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    setShowSystemShare(canUseWebShare());
-  }, []);
+  const runShareAction = (action: () => void) => {
+    if (actionLockRef.current) return;
+    actionLockRef.current = true;
+    action();
+    window.setTimeout(() => {
+      actionLockRef.current = false;
+    }, 700);
+  };
 
   useEffect(() => {
-    if (!isOpen) setCopied(false);
+    if (!isOpen) {
+      setCopied(false);
+      return;
+    }
+    ensureCopyField();
   }, [isOpen]);
 
   const shareUrl = () => payload.url || getPageShareUrl();
 
-  const handleCopyLink = async () => {
-    const url = shareUrl();
-    const ok = await copyToClipboard(url);
-    if (ok) {
-      setCopied(true);
+  const copyLinkNow = (url: string) =>
+    copyFromElement(copyFieldRef.current, url) || copyTextNow(url);
+
+  const handleCopyLink = () => {
+    runShareAction(() => {
+      void (async () => {
+        const url = shareUrl();
+        const result = await copyOrShareText(url, {
+          title: payload.title,
+          url,
+        });
+
+        if (result === "copied") {
+          setCopied(true);
+          toast({
+            title: "Đã sao chép liên kết!",
+            className: "bg-black text-white border-none",
+          });
+          setTimeout(() => setCopied(false), 2000);
+          return;
+        }
+
+        if (result === "shared" || result === "cancelled") {
+          onClose();
+          return;
+        }
+
+        toast({
+          variant: "destructive",
+          title: "Không sao chép được",
+          description: "Hãy chọn Zalo hoặc Messenger trong danh sách chia sẻ.",
+        });
+      })();
+    });
+  };
+
+  const handleMessengerShare = () => {
+    runShareAction(() => {
+      const url = shareUrl();
+      copyLinkNow(url);
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        void navigator.clipboard.writeText(url);
+      }
+      openMessengerWithLink(url);
+
       toast({
-        title: "Đã sao chép liên kết!",
-        className: "bg-black text-white border-none",
+        title: "Đã sao chép link!",
+        description: "Đang mở Messenger để bạn dán gửi bạn bè.",
+        className: "bg-purple-50 text-purple-900 border-purple-200",
       });
-      setTimeout(() => setCopied(false), 2000);
-      return true;
-    }
-
-    toast({
-      variant: "destructive",
-      title: "Không sao chép được",
-      description: "Hãy nhấn giữ ô địa chỉ hoặc dùng Chia sẻ hệ thống.",
     });
-    return false;
   };
 
-  const handleSystemShare = async () => {
-    const result = await shareViaSystem({
-      ...payload,
-      url: shareUrl(),
-    });
-    if (result === "shared" || result === "cancelled") {
-      onClose();
-      return;
-    }
-    await handleCopyLink();
-  };
-
-  const handleMessengerShare = async () => {
-    const url = shareUrl();
-    const copiedOk = await copyToClipboard(url);
-
-    if (isStandalonePwa() && canUseWebShare()) {
-      const result = await shareViaSystem({
-        ...payload,
-        url,
-      });
-      if (result === "shared" || result === "cancelled") {
-        onClose();
-        return;
+  const handleZaloShare = () => {
+    runShareAction(() => {
+      const url = shareUrl();
+      if (!prefersNativeShare()) {
+        copyLinkNow(url);
       }
-    } else if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-      openExternalUrl(`fb-messenger://share/?link=${encodeURIComponent(url)}`);
-    } else {
-      openExternalUrl("https://www.messenger.com/");
-    }
+      openZaloWithLink(url);
 
-    toast({
-      title: copiedOk ? "Đã sao chép link!" : "Mở Messenger",
-      description: copiedOk
-        ? "Dán link vào Messenger nếu ứng dụng không tự điền."
-        : "Nếu Messenger không mở, hãy sao chép liên kết thủ công.",
-      className: "bg-purple-50 text-purple-900 border-purple-200",
-    });
-  };
-
-  const handleZaloShare = async () => {
-    const url = shareUrl();
-    const copiedOk = await copyToClipboard(url);
-
-    if (isStandalonePwa() && canUseWebShare()) {
-      const result = await shareViaSystem({
-        ...payload,
-        url,
+      toast({
+        title: "Đang mở Zalo",
+        description: "Nếu không tự điền, dán link từ Chia sẻ → Copy.",
+        className: "bg-blue-50 text-blue-900 border-blue-100",
       });
-      if (result === "shared" || result === "cancelled") {
-        onClose();
-        return;
-      }
-    }
-
-    const opened = openExternalUrl(
-      `https://zalo.me/share?url=${encodeURIComponent(url)}`,
-    );
-
-    toast({
-      title: copiedOk ? "Đã sao chép link!" : "Chia sẻ Zalo",
-      description: opened
-        ? "Dán link vào Zalo nếu trang chia sẻ không tự điền."
-        : "Link đã sẵn sàng — mở Zalo và dán để gửi bạn bè.",
-      className: "bg-blue-50 text-blue-900 border-blue-100",
     });
   };
 
@@ -265,28 +257,15 @@ function ShareModal({
         </DialogHeader>
 
         {/* 🚀 FIX LỖI NỀN XÁM ĐÁY: Bo tròn nhẹ phần đáy hoặc đồng bộ màu nền container */}
-        <div className="flex flex-col gap-3 p-5 bg-white rounded-b-[2rem]">
-          {showSystemShare && (
-            <button
-              type="button"
-              onClick={handleSystemShare}
-              aria-label="Chia sẻ qua ứng dụng trên máy"
-              className="flex items-center gap-4 p-3.5 rounded-[1.25rem] bg-white border border-primary/20 shadow-[0_2px_15px_rgba(224,122,47,0.08)] hover:border-primary/40 transition-all group"
-            >
-              <div className="p-2.5 rounded-full text-white bg-primary">
-                <Share2 className="h-5 w-5" />
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-gray-900 text-[15px] mb-0.5">
-                  Chia sẻ qua ứng dụng
-                </p>
-                <p className="text-[13px] text-gray-500 leading-snug">
-                  Zalo, Messenger, tin nhắn…
-                </p>
-              </div>
-            </button>
-          )}
-
+        <div className="relative flex flex-col gap-3 p-5 bg-white rounded-b-[2rem]">
+          <textarea
+            ref={copyFieldRef}
+            aria-hidden="true"
+            tabIndex={-1}
+            readOnly={false}
+            className="pointer-events-none absolute left-0 top-0 h-px w-px opacity-[0.01]"
+            style={{ fontSize: 16 }}
+          />
           <button
             type="button"
             onClick={handleCopyLink}
@@ -305,7 +284,7 @@ function ShareModal({
                 <LinkIcon className="h-5 w-5" />
               )}
             </div>
-            <div className="text-left">
+            <div className="text-left min-w-0">
               <p className="font-bold text-gray-900 text-[15px] mb-0.5">
                 Sao chép liên kết
               </p>
@@ -530,6 +509,18 @@ export default function ApartmentDetailsPageClient({
   const [isFavLoading, setIsFavLoading] = useState(false);
 
   const [shareOpen, setShareOpen] = useState(false);
+  const [isGalleryLightboxOpen, setIsGalleryLightboxOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isDescModalOpen, setIsDescModalOpen] = useState(false);
+  const descRef = useRef<HTMLDivElement>(null);
+  const infoCopyRef = useRef<HTMLTextAreaElement>(null);
+  const infoCopyLockRef = useRef(false);
+  const [descOverflows, setDescOverflows] = useState(false);
+
+  useEffect(() => {
+    ensureCopyField();
+  }, []);
+
   const sharePayload: SharePayload = {
     title: apartment.title,
     text: `${apartment.title} — ${formatPrice(apartment.price)}`,
@@ -549,11 +540,6 @@ export default function ApartmentDetailsPageClient({
 
     setShareOpen(true);
   };
-  const [isGalleryLightboxOpen, setIsGalleryLightboxOpen] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isDescModalOpen, setIsDescModalOpen] = useState(false);
-  const descRef = useRef<HTMLDivElement>(null);
-  const [descOverflows, setDescOverflows] = useState(false);
 
   const isAdmin = userData?.role === "admin";
   const isCollaborator = userData?.role === "collaborator" || isAdmin;
@@ -862,6 +848,12 @@ export default function ApartmentDetailsPageClient({
   };
 
   const handleCopyInternalInfo = async () => {
+    if (infoCopyLockRef.current) return;
+    infoCopyLockRef.current = true;
+    window.setTimeout(() => {
+      infoCopyLockRef.current = false;
+    }, 700);
+
     let copyText = "";
 
     if (isAdmin) {
@@ -875,22 +867,36 @@ export default function ApartmentDetailsPageClient({
       copyText += `\n--- THÔNG TIN CHUNG ---\n${apartment.details || "Chưa có thông tin chi tiết."}`;
     }
 
-    try {
-      const copiedOk = await copyToClipboard(copyText);
-      if (!copiedOk) {
-        throw new Error("clipboard-failed");
-      }
+    if (
+      !prefersNativeShare() &&
+      (copyFromElement(infoCopyRef.current, copyText) || copyTextNow(copyText))
+    ) {
       toast({
         title: "Đã copy thông tin!",
         className: "bg-white text-green-900 border-none",
       });
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Lỗi sao chép",
-        description: "Trình duyệt của bạn không hỗ trợ tính năng này.",
-      });
+      return;
     }
+
+    const result = await copyOrShareText(copyText, {
+      title: `Thông tin ${displaySourceCode}`,
+    });
+
+    if (result === "copied") {
+      toast({
+        title: "Đã copy thông tin!",
+        className: "bg-white text-green-900 border-none",
+      });
+      return;
+    }
+
+    if (result === "shared" || result === "cancelled") return;
+
+    toast({
+      variant: "destructive",
+      title: "Không sao chép được",
+      description: "Hãy chọn Copy trong bảng chia sẻ của iPhone.",
+    });
   };
 
   const isRented = apartment.status === "rented";
@@ -1004,6 +1010,15 @@ export default function ApartmentDetailsPageClient({
   return (
     <>
       {!isGalleryLightboxOpen && <Header />}
+
+      <textarea
+        ref={infoCopyRef}
+        aria-hidden="true"
+        tabIndex={-1}
+        readOnly={false}
+        className="pointer-events-none fixed left-0 top-0 h-px w-px opacity-[0.01]"
+        style={{ fontSize: 16 }}
+      />
 
       <ShareModal
         isOpen={shareOpen}
