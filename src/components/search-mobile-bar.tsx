@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Search, SlidersHorizontal } from "lucide-react";
+import { Loader2, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { buildSearchHref } from "@/lib/districts";
 import {
@@ -56,6 +56,18 @@ export default function SearchMobileBar() {
     });
   };
 
+  const clearFilters = () => {
+    startTransition(() => {
+      router.push(
+        buildSearchHref({
+          query: query.trim(),
+          sort: searchParams.get("sort") || undefined,
+        }),
+      );
+    });
+    setOpen(false);
+  };
+
   return (
     <div className="sticky top-[var(--site-header-height)] z-40 overflow-x-hidden border-b border-gray-100 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 lg:hidden">
       <form
@@ -91,6 +103,18 @@ export default function SearchMobileBar() {
           ) : null}
         </div>
 
+        {filterCount > 0 ? (
+          <button
+            type="button"
+            onClick={clearFilters}
+            aria-label="Xóa bộ lọc"
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-1 rounded-xl border border-red-100 bg-red-50 px-3 text-sm font-bold text-red-600 shadow-sm transition-colors active:bg-red-100"
+          >
+            <RotateCcw className="h-4 w-4" />
+            <span>Xóa</span>
+          </button>
+        ) : null}
+
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -115,14 +139,26 @@ export default function SearchMobileBar() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="bottom"
-          className="flex max-h-[min(88dvh,calc(100dvh-var(--safe-top)))] flex-col gap-0 overflow-hidden rounded-t-3xl border-gray-100 bg-white px-5 pt-2 pb-0"
+          className="flex h-auto max-h-[min(88dvh,calc(100dvh-var(--safe-top)))] flex-col gap-0 overflow-hidden rounded-t-3xl border-gray-100 bg-white px-5 pt-2 pb-0 z-[70]"
         >
           <div
             aria-hidden
             className="mx-auto mb-1 h-1 w-10 shrink-0 rounded-full bg-gray-200"
           />
-          <SheetHeader className="shrink-0 pb-3 pr-8 text-left">
-            <SheetTitle className="font-headline text-xl">Bộ lọc</SheetTitle>
+          <SheetHeader className="shrink-0 pb-2 pr-8 text-left">
+            <div className="flex items-center justify-between gap-3">
+              <SheetTitle className="font-headline text-xl">Bộ lọc</SheetTitle>
+              {filterCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-widest text-red-600"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Xóa bộ lọc
+                </button>
+              ) : null}
+            </div>
           </SheetHeader>
           <SearchSidebar
             hideQuery

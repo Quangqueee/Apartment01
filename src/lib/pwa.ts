@@ -5,3 +5,4 @@ export const PWA_ICON_192 = "/icons/icon-192.png";
 export const PWA_ICON_512 = "/icons/icon-512.png";
 export const PWA_APPLE_TOUCH_ICON = "/apple-touch-icon.png";
 export const PWA_MANIFEST_PATH = "/manifest.json";
+export const PWA_ORIENTATION = "portrait" as const;

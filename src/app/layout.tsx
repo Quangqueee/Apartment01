@@ -9,6 +9,7 @@ import MultiContact from "@/components/multi-contact";
 import { NavigationProgressProvider } from "@/components/navigation-progress";
 import { JsonLd } from "@/components/json-ld";
 import { PwaHead } from "@/components/pwa-head";
+import { PwaOrientationLock } from "@/components/pwa-orientation-lock";
 import { cn } from "@/lib/utils";
 import { GA_MEASUREMENT_ID, GTM_ID } from "@/lib/constants";
 import { SITE, SITE_PATHS } from "@/lib/site";
@@ -165,6 +166,7 @@ export default function RootLayout({
             </div>
             <MultiContact />
             <MobileNav />
+            <PwaOrientationLock />
             <ClientToaster />
           </NavigationProgressProvider>
         </FirebaseClientProvider>

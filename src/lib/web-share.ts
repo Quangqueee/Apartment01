@@ -111,8 +111,15 @@ let persistentCopyField: HTMLTextAreaElement | null = null;
 function styleCopyField(el: HTMLTextAreaElement): void {
   el.setAttribute("aria-hidden", "true");
   el.setAttribute("tabindex", "-1");
-  el.setAttribute("contenteditable", "true");
-  el.readOnly = false;
+  el.setAttribute("readonly", "readonly");
+  el.setAttribute("inputmode", "none");
+  el.setAttribute("autocomplete", "off");
+  el.setAttribute("autocorrect", "off");
+  el.setAttribute("autocapitalize", "off");
+  el.setAttribute("spellcheck", "false");
+  el.removeAttribute("contenteditable");
+  el.readOnly = true;
+  el.inputMode = "none";
   el.style.position = "fixed";
   el.style.top = "0";
   el.style.left = "0";
@@ -125,6 +132,7 @@ function styleCopyField(el: HTMLTextAreaElement): void {
   el.style.boxShadow = "none";
   el.style.background = "transparent";
   el.style.opacity = "0.01";
+  el.style.caretColor = "transparent";
   el.style.fontSize = "16px";
   el.style.zIndex = "2147483647";
 }
@@ -149,23 +157,33 @@ export function copyFromElement(
 ): boolean {
   if (!el || !text) return false;
 
-  try {
-    window.focus();
-  } catch {
-    // ignored
-  }
-
+  styleCopyField(el);
   el.value = text;
-  el.readOnly = false;
-  el.focus();
+
+  try {
+    el.focus({ preventScroll: true });
+  } catch {
+    el.focus();
+  }
   el.select();
+  if (typeof el.setSelectionRange === "function") {
+    try {
+      el.setSelectionRange(0, text.length);
+    } catch {
+      // ignored
+    }
+  }
 
   if (isIOS()) {
     const range = document.createRange();
     range.selectNodeContents(el);
     window.getSelection()?.removeAllRanges();
     window.getSelection()?.addRange(range);
-    el.setSelectionRange(0, text.length);
+    try {
+      el.setSelectionRange(0, text.length);
+    } catch {
+      // ignored
+    }
   }
 
   let ok = false;
@@ -174,6 +192,14 @@ export function copyFromElement(
   } catch {
     ok = false;
   }
+
+  try {
+    el.blur();
+    window.getSelection()?.removeAllRanges();
+  } catch {
+    // ignored
+  }
+
   return ok;
 }
 
@@ -251,6 +277,7 @@ async function shareTextOrUrl(
 }
 
 function promptCopy(text: string): boolean {
+  if (isMobileUserAgent() || isStandalonePwa()) return false;
   try {
     return window.prompt("Giữ để sao chép, rồi bấm OK:", text) !== null;
   } catch {

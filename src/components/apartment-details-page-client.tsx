@@ -262,8 +262,10 @@ function ShareModal({
             ref={copyFieldRef}
             aria-hidden="true"
             tabIndex={-1}
-            readOnly={false}
-            className="pointer-events-none absolute left-0 top-0 h-px w-px opacity-[0.01]"
+            readOnly
+            inputMode="none"
+            autoComplete="off"
+            className="pointer-events-none absolute left-0 top-0 h-px w-px caret-transparent opacity-[0.01]"
             style={{ fontSize: 16 }}
           />
           <button
@@ -1015,8 +1017,10 @@ export default function ApartmentDetailsPageClient({
         ref={infoCopyRef}
         aria-hidden="true"
         tabIndex={-1}
-        readOnly={false}
-        className="pointer-events-none fixed left-0 top-0 h-px w-px opacity-[0.01]"
+        readOnly
+        inputMode="none"
+        autoComplete="off"
+        className="pointer-events-none fixed left-0 top-0 h-px w-px caret-transparent opacity-[0.01]"
         style={{ fontSize: 16 }}
       />
 

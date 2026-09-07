@@ -8,6 +8,7 @@ import SearchPagination from "@/components/search-pagination";
 import ApartmentCard from "@/components/apartment-card";
 import type { Apartment } from "@/lib/types";
 import { Suspense } from "react";
+import { cn } from "@/lib/utils";
 
 export const SEARCH_PAGE_SIZE = 12;
 
@@ -16,6 +17,38 @@ export const toParamString = (value: unknown) => {
   if (typeof value === "string") return value;
   return "";
 };
+
+function SearchResultsHeading({
+  totalResults,
+  className,
+}: {
+  totalResults: number;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "mb-3 flex flex-col gap-3 overflow-x-hidden sm:flex-row sm:items-start sm:justify-between",
+        className,
+      )}
+    >
+      <div className="min-w-0">
+        <h1 className="font-headline text-lg font-black uppercase tracking-tight text-gray-900 md:text-2xl">
+          Kết quả tìm kiếm
+        </h1>
+        <p className="mt-1 text-sm font-bold uppercase tracking-widest text-amber-700 md:text-lg">
+          {totalResults} căn hộ
+        </p>
+      </div>
+
+      <div className="flex shrink-0 items-center">
+        <Suspense fallback={null}>
+          <SortControls />
+        </Suspense>
+      </div>
+    </div>
+  );
+}
 
 export default async function SearchResults({
   searchParams,
@@ -67,38 +100,30 @@ export default async function SearchResults({
         <SearchMobileBar />
       </Suspense>
 
-      <main className="flex-1 overflow-x-hidden">
-        <section className="mx-auto w-full max-w-[1920px] overflow-x-hidden px-4 py-4 lg:px-8 md:py-5">
-          <div className="mb-3 flex flex-col gap-3 overflow-x-hidden sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <h1 className="font-headline text-lg font-black uppercase tracking-tight text-gray-900 md:text-2xl">
-                Kết quả tìm kiếm
-              </h1>
-              <p className="mt-1 text-sm font-bold uppercase tracking-widest text-amber-700 md:text-lg">
-                {totalResults} căn hộ
-              </p>
-            </div>
-
-            <div className="flex shrink-0 items-center">
-              <Suspense fallback={null}>
-                <SortControls />
-              </Suspense>
-            </div>
-          </div>
+      <main className="flex-1 overflow-x-clip">
+        <section className="mx-auto w-full max-w-[1920px] overflow-x-clip px-4 py-4 lg:px-8 md:py-5">
+          <SearchResultsHeading
+            totalResults={totalResults}
+            className="lg:hidden"
+          />
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
             <aside className="hidden lg:block">
-              <div className="sticky top-[var(--site-header-height)] max-h-[calc(100dvh-var(--site-header-height)-1rem)] overflow-x-hidden overflow-y-auto overscroll-contain rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
-                <h2 className="mb-3 font-headline text-base font-bold text-gray-900">
+              <div className="sticky top-[calc(var(--site-header-height)+1rem)] flex h-[calc(100dvh-var(--site-header-height)-2rem)] max-h-[calc(100dvh-var(--site-header-height)-2rem)] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
+                <h2 className="mb-3 shrink-0 font-headline text-base font-bold text-gray-900">
                   Bộ lọc tìm kiếm
                 </h2>
                 <Suspense fallback={null}>
-                  <SearchSidebar />
+                  <SearchSidebar className="min-h-0 flex-1" />
                 </Suspense>
               </div>
             </aside>
 
             <div className="min-w-0 overflow-x-hidden">
+              <SearchResultsHeading
+                totalResults={totalResults}
+                className="hidden lg:flex"
+              />
               {apartments.length > 0 ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-8 2xl:grid-cols-4">
                   {apartments.map((apartment, index) => (

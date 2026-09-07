@@ -262,11 +262,31 @@ export default function SearchSidebar({
   );
 
   const actionButtons = (
-    <div className="flex flex-col gap-2">
+    <div
+      className={cn(
+        "gap-2",
+        hideQuery ? "grid grid-cols-2" : "flex flex-col",
+      )}
+    >
+      <button
+        type="button"
+        onClick={resetFilters}
+        className={cn(
+          "inline-flex items-center justify-center gap-1.5 rounded-2xl border border-gray-200 bg-white font-bold uppercase tracking-widest text-gray-500 shadow-sm transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600",
+          hideQuery
+            ? "h-12 text-[11px]"
+            : "h-10 w-full text-[11px] order-2",
+        )}
+      >
+        <RotateCcw className="h-3.5 w-3.5" /> Xóa bộ lọc
+      </button>
       <Button
         type="submit"
         disabled={isPending}
-        className="h-12 w-full rounded-2xl bg-[#1a1a1a] text-sm font-bold uppercase tracking-[0.18em] text-white shadow-[0_8px_20px_rgba(26,26,26,0.18)] transition-all hover:bg-[#cda533] hover:shadow-[0_8px_20px_rgba(205,165,51,0.35)]"
+        className={cn(
+          "rounded-2xl bg-[#1a1a1a] text-sm font-bold uppercase tracking-[0.18em] text-white shadow-[0_8px_20px_rgba(26,26,26,0.18)] transition-all hover:bg-[#cda533] hover:shadow-[0_8px_20px_rgba(205,165,51,0.35)]",
+          hideQuery ? "h-12 w-full" : "h-12 w-full order-1",
+        )}
       >
         {isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -276,21 +296,14 @@ export default function SearchSidebar({
           </>
         )}
       </Button>
-      <button
-        type="button"
-        onClick={resetFilters}
-        className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-2xl border border-gray-200 bg-white text-[11px] font-bold uppercase tracking-widest text-gray-500 shadow-sm transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-      >
-        <RotateCcw className="h-3.5 w-3.5" /> Xóa bộ lọc
-      </button>
     </div>
   );
 
   return (
     <form
       className={cn(
-        "overflow-x-hidden",
-        hideQuery ? "flex min-h-0 flex-1 flex-col" : "space-y-4",
+        "flex min-h-0 flex-col overflow-hidden",
+        hideQuery ? "min-h-0 flex-1" : "flex-1",
         className,
       )}
       onSubmit={(event) => {
@@ -298,50 +311,52 @@ export default function SearchSidebar({
         applyFilters();
       }}
     >
-      {!hideQuery && (
-        <div className="space-y-2">
-          <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
-            Từ khóa
-          </label>
-          <div className="relative">
-            <Input
-              type="text"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Địa chỉ hoặc mã nguồn"
-              className="h-11 rounded-xl bg-white pr-11 text-base md:text-sm"
-            />
-            <button
-              type="submit"
-              disabled={isPending}
-              aria-label="Tìm kiếm"
-              className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#cda533] disabled:opacity-60"
-            >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-            </button>
+      <div
+        className={cn(
+          "min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain",
+          hideQuery ? "min-h-0 flex-1 space-y-4 pb-2" : "flex-1 space-y-5 pb-4",
+        )}
+      >
+        {!hideQuery ? (
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+              Từ khóa
+            </label>
+            <div className="relative">
+              <Input
+                type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Địa chỉ hoặc mã nguồn"
+                className="h-11 rounded-xl bg-white pr-11 text-base md:text-sm"
+              />
+              <button
+                type="submit"
+                disabled={isPending}
+                aria-label="Tìm kiếm"
+                className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-[#cda533] disabled:opacity-60"
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-
-      {hideQuery ? (
-        <>
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden overscroll-contain pb-4">
-            {filterFields}
-          </div>
-          <div className="shrink-0 border-t border-gray-100 bg-white pt-3 pb-[calc(0.75rem+var(--safe-bottom))]">
-            {actionButtons}
-          </div>
-        </>
-      ) : (
-        <>
-          {filterFields}
-          <div className="pt-1">{actionButtons}</div>
-        </>
-      )}
+        ) : null}
+        {filterFields}
+      </div>
+      <div
+        className={cn(
+          "shrink-0 border-t border-gray-100 bg-white pt-3",
+          hideQuery
+            ? "pb-[max(0.75rem,var(--safe-bottom))]"
+            : "pb-1",
+        )}
+      >
+        {actionButtons}
+      </div>
     </form>
   );
 }

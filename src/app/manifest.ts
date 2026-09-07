@@ -5,6 +5,7 @@ import {
   PWA_BACKGROUND_COLOR,
   PWA_ICON_192,
   PWA_ICON_512,
+  PWA_ORIENTATION,
   PWA_SHORT_NAME,
   PWA_THEME_COLOR,
 } from "@/lib/pwa";
@@ -20,7 +21,7 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     lang: "vi",
     dir: "ltr",
-    orientation: "portrait",
+    orientation: PWA_ORIENTATION,
     background_color: PWA_BACKGROUND_COLOR,
     theme_color: PWA_THEME_COLOR,
     categories: ["lifestyle", "business"],

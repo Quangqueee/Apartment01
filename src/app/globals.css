@@ -282,8 +282,7 @@ body[data-scroll-locked] {
 }
 
 @media (max-width: 1023px) {
-  body[data-listing-page="true"]:not([data-listing-nav-hidden="true"])
-    .listing-sticky-cta {
+  body[data-listing-page="true"] .listing-sticky-cta {
     bottom: calc(4rem + var(--safe-bottom));
     padding-bottom: 1rem;
   }

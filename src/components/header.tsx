@@ -121,6 +121,7 @@ export default function Header() {
 
         <div
           className={cn(
+            "relative z-[60]",
             overlay
               ? "border-b border-white/10 bg-transparent"
               : "border-b border-gray-100 bg-white/95 shadow-sm",
@@ -306,9 +307,9 @@ export default function Header() {
       </header>
 
       {isMobileMenuOpen ? (
-        <div className="fixed inset-0 z-40 bg-white lg:hidden">
-          <div className="flex h-dvh flex-col pt-[var(--site-header-height)]">
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-8">
+        <div className="fixed inset-x-0 bottom-0 top-[var(--site-header-height)] z-40 overflow-x-hidden bg-white lg:hidden">
+          <div className="flex h-full flex-col">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-[calc(6rem+var(--safe-bottom))]">
               <MobileNavLink
                 href="/"
                 icon={Home}

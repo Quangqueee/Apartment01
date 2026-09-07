@@ -17,7 +17,7 @@ import { useNavProgress } from "@/components/navigation-progress";
 import { ADMIN_PATH } from "@/lib/constants";
 import { SITE_PATHS } from "@/lib/site";
 import { districtFromPathname } from "@/lib/districts";
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 
 type NavId = "home" | "schedule" | "search" | "favorites" | "account";
 
@@ -49,6 +49,9 @@ const navItems: NavItem[] = [
     icon: User,
   },
 ];
+
+const MOBILE_NAV_CLASS =
+  "fixed bottom-0 left-0 right-0 z-[65] overflow-x-hidden border-t border-gray-100 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 md:hidden pb-[var(--safe-bottom)]";
 
 function isNavActive(id: NavId, pathname: string): boolean {
   switch (id) {
@@ -82,8 +85,6 @@ export default function MobileNav() {
   const router = useRouter();
   const { user, isUserLoading } = useUser();
   const { start, pendingPath } = useNavProgress();
-  const [hidden, setHidden] = useState(false);
-  const lastScrollY = useRef(0);
 
   useEffect(() => {
     [
@@ -108,56 +109,23 @@ export default function MobileNav() {
 
   useEffect(() => {
     if (!isApartmentDetails) {
-      setHidden(false);
       document.body.removeAttribute("data-listing-page");
       document.body.removeAttribute("data-listing-nav-hidden");
       return;
     }
 
     document.body.setAttribute("data-listing-page", "true");
-    lastScrollY.current = window.scrollY;
-
-    const onScroll = () => {
-      const currentY = window.scrollY;
-      const delta = currentY - lastScrollY.current;
-
-      if (currentY < 24) {
-        setHidden(false);
-      } else if (delta > 8) {
-        setHidden(true);
-      } else if (delta < -8) {
-        setHidden(false);
-      }
-
-      lastScrollY.current = currentY;
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
+    document.body.removeAttribute("data-listing-nav-hidden");
     return () => {
-      window.removeEventListener("scroll", onScroll);
       document.body.removeAttribute("data-listing-page");
       document.body.removeAttribute("data-listing-nav-hidden");
     };
   }, [isApartmentDetails]);
 
-  useEffect(() => {
-    if (!isApartmentDetails) return;
-    document.body.setAttribute(
-      "data-listing-nav-hidden",
-      hidden ? "true" : "false",
-    );
-  }, [hidden, isApartmentDetails]);
-
   if (pathname.startsWith(`/${ADMIN_PATH}`)) return null;
 
   return (
-    <nav
-      className={cn(
-        "fixed bottom-0 left-0 right-0 z-[65] overflow-x-hidden border-t border-gray-100 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 md:hidden pb-[var(--safe-bottom)]",
-        "transition-transform duration-300 ease-ios-out will-change-transform",
-        hidden && "translate-y-full",
-      )}
-    >
+    <nav className={MOBILE_NAV_CLASS}>
       <div className="mx-auto flex h-16 w-full max-w-lg items-stretch px-1">
         {navItems.map((item) => {
           const targetHref =
