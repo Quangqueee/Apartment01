@@ -112,6 +112,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  minimumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: PWA_THEME_COLOR },
@@ -144,7 +147,7 @@ export default function RootLayout({
       <GoogleTagManager gtmId={GTM_ID} />
       <body
         className={cn(
-          "min-h-dvh bg-background font-body text-foreground antialiased overflow-x-hidden",
+          "min-h-dvh bg-background font-body text-foreground antialiased overflow-x-clip",
           beVietnamPro.variable,
           playfairDisplay.variable,
         )}
@@ -153,8 +156,8 @@ export default function RootLayout({
 
         {/* FirebaseClientProvider already nests FirebaseProvider + AuthProvider */}
         <FirebaseClientProvider>
-          <div className="relative flex min-h-dvh flex-col overflow-x-hidden">
-            <main className="flex-1 overflow-x-hidden pb-[calc(6rem+var(--safe-bottom))] md:pb-0">
+          <div className="relative flex min-h-dvh flex-col overflow-x-clip">
+            <main className="flex-1 overflow-x-clip pb-[calc(6rem+var(--safe-bottom))] md:pb-0">
               {children}
             </main>
           </div>

@@ -110,6 +110,12 @@ export default function ApartmentList({
       try {
         const previousPage = pageItemsRef.current[page - 1];
         const cursor = previousPage?.[previousPage.length - 1]?.id;
+        const isHomeDefault =
+          !(searchParams.query || searchParams.q) &&
+          !searchParams.district &&
+          !searchParams.price &&
+          !searchParams.roomType &&
+          (!searchParams.sort || searchParams.sort === "newest");
 
         const result = await fetchApartmentsAction({
           query: searchParams.query || searchParams.q,
@@ -118,7 +124,7 @@ export default function ApartmentList({
           roomType: searchParams.roomType,
           sortBy: searchParams.sort,
           page,
-          cursor,
+          cursor: isHomeDefault ? undefined : cursor,
           limit: PAGE_SIZE,
           skipCount: true,
           totalHint: totalInitialResults,

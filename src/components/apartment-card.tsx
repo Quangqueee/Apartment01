@@ -52,25 +52,81 @@ export default memo(function ApartmentCard({
     : ({ target: "_blank", rel: "noopener noreferrer" } as const);
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  const [isHovered, setIsHovered] = useState(false);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const indexRef = useRef(0);
 
   const [isMouseDragging, setIsMouseDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
   const [hasDragged, setHasDragged] = useState(false);
   const hasDraggedRef = useRef(false);
-  const touchSwipeRef = useRef<{
-    x: number;
-    y: number;
-    scrollLeft: number;
-    axis: null | "x" | "y";
-  }>({ x: 0, y: 0, scrollLeft: 0, axis: null });
+  const dragRef = useRef({
+    pointer: "none" as "none" | "mouse" | "touch",
+    x: 0,
+    y: 0,
+    startTranslate: 0,
+    startIndex: 0,
+    axis: null as null | "x" | "y",
+    lastX: 0,
+    lastT: 0,
+    vx: 0,
+  });
 
   const markDragged = (next: boolean) => {
     hasDraggedRef.current = next;
     setHasDragged(next);
+  };
+
+  const getViewportWidth = () => viewportRef.current?.clientWidth ?? 0;
+
+  const readTrackX = () => {
+    const track = trackRef.current;
+    if (!track) return 0;
+    const raw = getComputedStyle(track).transform;
+    if (!raw || raw === "none") return 0;
+    return new DOMMatrix(raw).m41;
+  };
+
+  const applyTrackX = (x: number, animate: boolean) => {
+    const track = trackRef.current;
+    if (!track) return;
+    track.style.transition = animate
+      ? "transform 280ms cubic-bezier(0.32, 0.72, 0, 1)"
+      : "none";
+    track.style.transform = `translate3d(${x}px, 0, 0)`;
+  };
+
+  const rubberBandX = (x: number, width: number, length: number) => {
+    if (length <= 1 || !width) return 0;
+    const minX = -width * (length - 1);
+    if (x > 0) return x * 0.28;
+    if (x < minX) return minX + (x - minX) * 0.28;
+    return x;
+  };
+
+  const goToImageIndex = (index: number, animate = true) => {
+    const width = getViewportWidth();
+    const last = Math.max(0, imageUrls.length - 1);
+    const nextIndex = Math.max(0, Math.min(last, index));
+    indexRef.current = nextIndex;
+    setCurrentImageIndex(nextIndex);
+    applyTrackX(-nextIndex * width, animate);
+  };
+
+  const settleSlider = (velocityX: number) => {
+    const width = getViewportWidth();
+    const length = imageUrls.length;
+    if (!width || length <= 0) return;
+    const dx = readTrackX() - dragRef.current.startTranslate;
+    const startIndex = dragRef.current.startIndex;
+    const commitDistance = width * 0.1;
+    const flick = 0.2;
+    let nextIndex = startIndex;
+    if (dx < -commitDistance || velocityX < -flick) {
+      nextIndex = Math.min(length - 1, startIndex + 1);
+    } else if (dx > commitDistance || velocityX > flick) {
+      nextIndex = Math.max(0, startIndex - 1);
+    }
+    goToImageIndex(nextIndex, true);
   };
 
   const isCollaborator =
@@ -134,13 +190,52 @@ export default memo(function ApartmentCard({
     }
   };
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const width = e.currentTarget.clientWidth;
-    if (!width) return;
-    const index = Math.round(e.currentTarget.scrollLeft / width);
-    if (index !== currentImageIndex) {
-      setCurrentImageIndex(index);
+  const beginDrag = (
+    pointer: "mouse" | "touch",
+    clientX: number,
+    clientY: number,
+  ) => {
+    const width = getViewportWidth();
+    const visualX = readTrackX();
+    applyTrackX(visualX, false);
+    const startIndex = width
+      ? Math.round(-visualX / width)
+      : indexRef.current;
+    const now = performance.now();
+    dragRef.current = {
+      pointer,
+      x: clientX,
+      y: clientY,
+      startTranslate: visualX,
+      startIndex: Math.max(0, Math.min(imageUrls.length - 1, startIndex)),
+      axis: pointer === "mouse" ? "x" : null,
+      lastX: clientX,
+      lastT: now,
+      vx: 0,
+    };
+  };
+
+  const dragByClientX = (clientX: number) => {
+    const now = performance.now();
+    const dt = now - dragRef.current.lastT;
+    if (dt > 48) {
+      dragRef.current.vx = 0;
+    } else {
+      dragRef.current.vx =
+        (clientX - dragRef.current.lastX) / Math.max(8, dt);
     }
+    dragRef.current.lastX = clientX;
+    dragRef.current.lastT = now;
+    const dx = clientX - dragRef.current.x;
+    const width = getViewportWidth();
+    applyTrackX(
+      rubberBandX(
+        dragRef.current.startTranslate + dx,
+        width,
+        imageUrls.length,
+      ),
+      false,
+    );
   };
 
   const scrollToIndex = (index: number, e?: React.MouseEvent) => {
@@ -148,9 +243,7 @@ export default memo(function ApartmentCard({
       e.preventDefault();
       e.stopPropagation();
     }
-    if (!scrollRef.current) return;
-    const width = scrollRef.current.clientWidth;
-    scrollRef.current.scrollTo({ left: index * width, behavior: "smooth" });
+    goToImageIndex(index, true);
   };
 
   const handleNextImage = (e?: React.MouseEvent) => {
@@ -170,67 +263,96 @@ export default memo(function ApartmentCard({
   };
 
   const onMouseDown = (e: React.MouseEvent) => {
+    if (imageUrls.length <= 1) return;
     setIsMouseDragging(true);
     markDragged(false);
-    if (scrollRef.current) {
-      setStartX(e.pageX - scrollRef.current.offsetLeft);
-      setScrollLeft(scrollRef.current.scrollLeft);
-    }
+    beginDrag("mouse", e.clientX, e.clientY);
   };
 
   const stopDragging = () => {
-    if (!isMouseDragging) return;
+    if (dragRef.current.pointer !== "mouse") return;
+    const velocityX = dragRef.current.vx;
+    dragRef.current.pointer = "none";
     setIsMouseDragging(false);
-    if (scrollRef.current) {
-      const width = scrollRef.current.clientWidth;
-      const currentScroll = scrollRef.current.scrollLeft;
-      const targetIndex = Math.round(currentScroll / width);
-      scrollRef.current.scrollTo({
-        left: targetIndex * width,
-        behavior: "smooth",
-      });
-    }
+    settleSlider(velocityX);
   };
 
   const onMouseMove = (e: React.MouseEvent) => {
-    if (!isMouseDragging || !scrollRef.current) return;
+    if (dragRef.current.pointer !== "mouse") return;
     e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = x - startX;
+    const walk = e.clientX - dragRef.current.x;
     if (Math.abs(walk) > 5) markDragged(true);
-    scrollRef.current.scrollLeft = scrollLeft - walk;
+    dragByClientX(e.clientX);
   };
 
   const onSliderTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     const firstTouch = e.touches[0];
-    if (!firstTouch) return;
-    setIsHovered(true);
+    if (!firstTouch || imageUrls.length <= 1) return;
     markDragged(false);
-    touchSwipeRef.current = {
-      x: firstTouch.clientX,
-      y: firstTouch.clientY,
-      scrollLeft: 0,
-      axis: null,
-    };
-  };
-
-  const onSliderTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    const firstTouch = e.touches[0];
-    if (!firstTouch) return;
-    const dx = firstTouch.clientX - touchSwipeRef.current.x;
-    const dy = firstTouch.clientY - touchSwipeRef.current.y;
-    if (!touchSwipeRef.current.axis) {
-      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-      touchSwipeRef.current.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
-    }
-    if (touchSwipeRef.current.axis === "x") {
-      markDragged(true);
-    }
+    beginDrag("touch", firstTouch.clientX, firstTouch.clientY);
   };
 
   const onSliderTouchEnd = () => {
-    touchSwipeRef.current.axis = null;
+    if (dragRef.current.pointer !== "touch") return;
+    const now = performance.now();
+    if (now - dragRef.current.lastT > 48) {
+      dragRef.current.vx = 0;
+    }
+    const axis = dragRef.current.axis;
+    const velocityX = dragRef.current.vx;
+    dragRef.current.pointer = "none";
+    dragRef.current.axis = null;
+    if (axis === "x") {
+      settleSlider(velocityX);
+    } else {
+      goToImageIndex(dragRef.current.startIndex, true);
+    }
   };
+
+  const dragByClientXRef = useRef(dragByClientX);
+  dragByClientXRef.current = dragByClientX;
+
+  useEffect(() => {
+    indexRef.current = 0;
+    setCurrentImageIndex(0);
+    applyTrackX(0, false);
+  }, [apartment.id]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (dragRef.current.pointer !== "touch") return;
+      const firstTouch = event.touches[0];
+      if (!firstTouch) return;
+      const dx = firstTouch.clientX - dragRef.current.x;
+      const dy = firstTouch.clientY - dragRef.current.y;
+
+      if (!dragRef.current.axis) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        dragRef.current.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      }
+      if (dragRef.current.axis !== "x") return;
+      event.preventDefault();
+      hasDraggedRef.current = true;
+      dragByClientXRef.current(firstTouch.clientX);
+    };
+
+    const syncTrackToWidth = () => {
+      if (dragRef.current.pointer !== "none") return;
+      const width = viewport.clientWidth;
+      applyTrackX(-indexRef.current * width, false);
+    };
+
+    viewport.addEventListener("touchmove", onTouchMove, { passive: false });
+    const resizeObserver = new ResizeObserver(syncTrackToWidth);
+    resizeObserver.observe(viewport);
+    return () => {
+      viewport.removeEventListener("touchmove", onTouchMove);
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   const openDetails = () => {
     const href = `/apartments/${apartment.id}`;
@@ -327,8 +449,6 @@ export default memo(function ApartmentCard({
   return (
     <>
       <div
-        onMouseEnter={() => setIsHovered(true)}
-        onTouchStart={() => setIsHovered(true)}
         className={cn(
           "group/slider relative flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition-shadow duration-300 ease-out",
           isCompact
@@ -417,54 +537,53 @@ export default memo(function ApartmentCard({
             }}
           >
             <div
-              ref={scrollRef}
-              onScroll={handleScroll}
+              ref={viewportRef}
               onMouseDown={onMouseDown}
               onMouseLeave={stopDragging}
               onMouseUp={stopDragging}
               onMouseMove={onMouseMove}
               onTouchStart={onSliderTouchStart}
-              onTouchMove={onSliderTouchMove}
               onTouchEnd={onSliderTouchEnd}
               onTouchCancel={onSliderTouchEnd}
-              className={`flex h-full w-full overflow-x-auto overflow-y-hidden overscroll-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x] select-none [-webkit-touch-callout:none] ${
-                isMouseDragging
-                  ? "snap-none cursor-grabbing"
-                  : "snap-x snap-mandatory"
+              className={`h-full w-full overflow-hidden [touch-action:pan-y] select-none [-webkit-touch-callout:none] ${
+                isMouseDragging ? "cursor-grabbing" : "cursor-grab"
               }`}
             >
-              {imageUrls.map((url, idx) => {
-                if (idx > 0 && !isHovered) {
+              <div
+                ref={trackRef}
+                className="flex h-full will-change-transform"
+              >
+                {imageUrls.map((url, idx) => {
+                  const shouldLoadImage =
+                    Math.abs(idx - currentImageIndex) <= 1;
                   return (
                     <div
                       key={idx}
-                      className="relative h-full w-full flex-shrink-0 snap-center bg-gray-100"
-                    />
+                      className="relative h-full w-full shrink-0 grow-0 basis-full bg-gray-100"
+                    >
+                      {shouldLoadImage ? (
+                        <Image
+                          src={url}
+                          alt={`${displayTitle} - ảnh ${idx + 1}`}
+                          fill
+                          sizes={
+                            isCompact
+                              ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 28vw"
+                              : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                          }
+                          quality={60}
+                          priority={imagePriority && idx === 0}
+                          loading={
+                            imagePriority && idx === 0 ? "eager" : "lazy"
+                          }
+                          draggable={false}
+                          className="object-cover pointer-events-none select-none [-webkit-touch-callout:none]"
+                        />
+                      ) : null}
+                    </div>
                   );
-                }
-
-                return (
-                  <div
-                    key={idx}
-                    className="relative h-full w-full flex-shrink-0 snap-center"
-                  >
-                    <Image
-                      src={url}
-                      alt={`${displayTitle} - ảnh ${idx + 1}`}
-                      fill
-                      sizes={
-                        isCompact
-                          ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 28vw"
-                          : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                      }
-                      priority={imagePriority && idx === 0}
-                      loading={imagePriority && idx === 0 ? "eager" : "lazy"}
-                      draggable={false}
-                      className="object-cover pointer-events-none select-none [-webkit-touch-callout:none]"
-                    />
-                  </div>
-                );
-              })}
+                })}
+              </div>
             </div>
           </div>
 

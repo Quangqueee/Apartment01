@@ -93,6 +93,7 @@ export async function saveAdminApartmentClient(
         input.title,
         input.address,
         input.sourceCode,
+        input.landlordPhoneNumber,
       ]),
       updatedAt: serverTimestamp(),
     };

@@ -166,7 +166,7 @@ function FilterControlsInner() {
             value={filters.query}
             onChange={(e) => setFilters({ ...filters, query: e.target.value })}
             onKeyDown={(e) => e.key === "Enter" && handleApply()}
-            className="h-12 md:h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 text-sm md:text-base font-semibold pl-12 pr-5 shadow-sm transition-all font-body text-gray-900 focus:ring-2 focus:ring-[#cda533]/30 focus:border-[#cda533] focus:bg-white placeholder:text-gray-400 outline-none"
+            className="h-12 md:h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 text-base font-semibold pl-12 pr-5 shadow-sm transition-all font-body text-gray-900 focus:ring-2 focus:ring-[#cda533]/30 focus:border-[#cda533] focus:bg-white placeholder:text-gray-400 outline-none"
           />
         </div>
 
@@ -276,7 +276,7 @@ function FilterControlsInner() {
                 onChange={(event) =>
                   setFilters({ ...filters, priceMinInput: event.target.value })
                 }
-                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
+                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-base md:text-sm font-bold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
               />
             </div>
             <div className="space-y-1.5">
@@ -292,7 +292,7 @@ function FilterControlsInner() {
                 onChange={(event) =>
                   setFilters({ ...filters, priceMaxInput: event.target.value })
                 }
-                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
+                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-base md:text-sm font-bold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
               />
             </div>
           </div>

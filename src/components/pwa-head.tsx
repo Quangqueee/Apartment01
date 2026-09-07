@@ -20,7 +20,10 @@ export function PwaHead() {
         name="apple-mobile-web-app-status-bar-style"
         content="black-translucent"
       />
-      <meta name="theme-color" content={PWA_THEME_COLOR} />
+      <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover"
+      />
       <link rel="manifest" href={PWA_MANIFEST_PATH} />
       <link rel="apple-touch-icon" href={PWA_APPLE_TOUCH_ICON} />
     </head>

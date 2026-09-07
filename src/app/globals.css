@@ -41,7 +41,25 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: var(--site-header-height);
-  overscroll-behavior-y: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* App-like: no double-tap zoom. Pinch of the page is locked on mobile / PWA below. */
+  touch-action: manipulation;
+}
+
+/* iOS Safari zooms focused fields smaller than 16px — keep 16px even when page zoom is locked. */
+@media (max-width: 767px) {
+  html,
+  body {
+    /* Keep callout “Lưu ảnh”. Page pinch is locked via viewport maximum-scale=1. */
+    touch-action: manipulation;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]):not([type="file"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 @layer base {
@@ -72,7 +90,6 @@ html {
   body {
     font-family: var(--font-body), sans-serif;
     @apply bg-background text-foreground antialiased;
-    overscroll-behavior-y: none;
   }
 
   h1,
@@ -169,11 +186,13 @@ body[data-scroll-locked] {
   html {
     min-height: 100dvh;
     overscroll-behavior: none;
+    touch-action: manipulation;
   }
 
   body {
     min-height: 100dvh;
     overscroll-behavior-y: none;
+    touch-action: manipulation;
   }
 }
 
@@ -181,6 +200,20 @@ body[data-scroll-locked] {
   bottom: 0;
   padding-bottom: max(1rem, var(--safe-bottom));
   transition: bottom 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* iOS Peek / “Lưu vào Ảnh” needs no CSS transform on ancestors of the <img>. */
+.lightbox-dialog {
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: 100dvh !important;
+  max-height: none !important;
+  transform: none !important;
+  border-radius: 0 !important;
 }
 
 /* Fullscreen dialogs: beat DialogContent's left/top 50% + translate without 100dvh overflow */

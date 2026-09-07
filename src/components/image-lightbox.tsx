@@ -9,13 +9,13 @@ import {
   CarouselPrevious,
   CarouselApi,
 } from "@/components/ui/carousel";
-import Image from "next/image";
 import { Download, Loader2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/context/auth-context";
+import { cn } from "@/lib/utils";
 import JSZip from "jszip";
 import { Progress } from "@/components/ui/progress";
 
@@ -26,6 +26,254 @@ type ImageLightboxProps = {
   isOpen: boolean;
   apartmentCode?: string;
 };
+
+const LIGHTBOX_MIN_SCALE = 1;
+const LIGHTBOX_MAX_SCALE = 4;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function pointerDistance(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function LightboxZoomImage({
+  src,
+  alt,
+  active,
+  onZoomChange,
+}: {
+  src: string;
+  alt: string;
+  active: boolean;
+  onZoomChange?: (zoomed: boolean) => void;
+}) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ distance: number; scale: number } | null>(null);
+  const panRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(
+    null,
+  );
+  const lastTapRef = useRef(0);
+  const startPointRef = useRef({ x: 0, y: 0 });
+  const movedRef = useRef(false);
+  const pinchedRef = useRef(false);
+  const scaleRef = useRef(1);
+  const translateRef = useRef({ x: 0, y: 0 });
+  const lastZoomedRef = useRef(false);
+  const [scale, setScale] = useState(1);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const [gesturing, setGesturing] = useState(false);
+
+  const applyTransform = (
+    nextScale: number,
+    nextTranslate: { x: number; y: number },
+  ) => {
+    const normalizedScale = clamp(
+      nextScale,
+      LIGHTBOX_MIN_SCALE,
+      LIGHTBOX_MAX_SCALE,
+    );
+    const snappedScale = normalizedScale <= 1.01 ? 1 : normalizedScale;
+    const normalizedTranslate =
+      snappedScale <= 1 ? { x: 0, y: 0 } : nextTranslate;
+    scaleRef.current = snappedScale;
+    translateRef.current = normalizedTranslate;
+    setScale(snappedScale);
+    setTranslate(normalizedTranslate);
+    const zoomed = snappedScale > 1.01;
+    if (lastZoomedRef.current !== zoomed) {
+      lastZoomedRef.current = zoomed;
+      onZoomChange?.(zoomed);
+    }
+  };
+
+  useEffect(() => {
+    if (active) return;
+    applyTransform(1, { x: 0, y: 0 });
+    pointersRef.current.clear();
+    pinchRef.current = null;
+    panRef.current = null;
+    pinchedRef.current = false;
+    setGesturing(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, src]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (pointersRef.current.size >= 2 || scaleRef.current > 1.01) {
+        event.preventDefault();
+      }
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const next = scaleRef.current * (event.deltaY < 0 ? 1.08 : 0.92);
+      applyTransform(next, translateRef.current);
+    };
+
+    stage.addEventListener("touchmove", onTouchMove, { passive: false });
+    stage.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      stage.removeEventListener("touchmove", onTouchMove);
+      stage.removeEventListener("wheel", onWheel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+    startPointRef.current = { x: event.clientX, y: event.clientY };
+    movedRef.current = false;
+
+    if (pointersRef.current.size >= 2) {
+      pinchedRef.current = true;
+      setGesturing(true);
+      const [first, second] = [...pointersRef.current.values()];
+      pinchRef.current = {
+        distance: pointerDistance(first, second),
+        scale: scaleRef.current,
+      };
+      panRef.current = null;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      return;
+    }
+
+    if (scaleRef.current > 1.01) {
+      panRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        tx: translateRef.current.x,
+        ty: translateRef.current.y,
+      };
+    }
+  };
+
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointersRef.current.has(event.pointerId)) return;
+    pointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    if (
+      Math.hypot(
+        event.clientX - startPointRef.current.x,
+        event.clientY - startPointRef.current.y,
+      ) > 12
+    ) {
+      movedRef.current = true;
+      if (scaleRef.current > 1.01 && panRef.current) {
+        setGesturing(true);
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }
+    }
+
+    if (pointersRef.current.size >= 2 && pinchRef.current) {
+      const [first, second] = [...pointersRef.current.values()];
+      const distance = pointerDistance(first, second);
+      if (pinchRef.current.distance <= 0) return;
+      applyTransform(
+        pinchRef.current.scale * (distance / pinchRef.current.distance),
+        translateRef.current,
+      );
+      return;
+    }
+
+    if (panRef.current && scaleRef.current > 1.01) {
+      applyTransform(scaleRef.current, {
+        x: panRef.current.tx + (event.clientX - panRef.current.x),
+        y: panRef.current.ty + (event.clientY - panRef.current.y),
+      });
+    }
+  };
+
+  const endPointer = (event: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(event.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (pointersRef.current.size === 0) {
+      panRef.current = null;
+      setGesturing(false);
+      if (scaleRef.current <= 1.05) applyTransform(1, { x: 0, y: 0 });
+    }
+  };
+
+  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== "touch") {
+      endPointer(event);
+      return;
+    }
+
+    const now = Date.now();
+    const isTap =
+      pointersRef.current.size <= 1 &&
+      !movedRef.current &&
+      !pinchedRef.current;
+    const wasZoomed = scaleRef.current > 1.01;
+    endPointer(event);
+
+    if (pointersRef.current.size === 0) {
+      pinchedRef.current = false;
+    }
+    if (!isTap) return;
+    if (now - lastTapRef.current < 280) {
+      applyTransform(wasZoomed ? 1 : 2.4, { x: 0, y: 0 });
+      lastTapRef.current = 0;
+      return;
+    }
+    lastTapRef.current = now;
+  };
+
+  const onDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (scaleRef.current > 1.01) applyTransform(1, { x: 0, y: 0 });
+    else applyTransform(2.4, { x: 0, y: 0 });
+  };
+
+  return (
+    <div
+      ref={stageRef}
+      className={cn(
+        "flex h-full w-full items-center justify-center overflow-hidden",
+        scale > 1.01 ? "[touch-action:none]" : "[touch-action:manipulation]",
+      )}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={endPointer}
+      onDoubleClick={onDoubleClick}
+    >
+      <img
+        src={src}
+        alt={alt}
+        className="max-h-full max-w-full object-contain pointer-events-auto select-auto [-webkit-touch-callout:default]"
+        style={{
+          WebkitTouchCallout: "default",
+          WebkitUserSelect: "auto",
+          userSelect: "auto",
+          ...(scale > 1.01
+            ? {
+                transform: `translate3d(${translate.x}px, ${translate.y}px, 0) scale(${scale})`,
+                transformOrigin: "center center",
+                transition: gesturing ? "none" : "transform 160ms ease-out",
+              }
+            : undefined),
+        }}
+      />
+    </div>
+  );
+}
 
 export default function ImageLightbox({
   images,
@@ -44,7 +292,10 @@ export default function ImageLightbox({
   const [api, setApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(selectedIndex);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
   const mobileScrollerRef = useRef<HTMLDivElement>(null);
+  const imageZoomedRef = useRef(false);
+  imageZoomedRef.current = isImageZoomed;
 
   useEffect(() => {
     if (isMobile) return;
@@ -71,6 +322,14 @@ export default function ImageLightbox({
     });
     setCurrentSlide(selectedIndex);
   }, [isMobile, isOpen, selectedIndex]);
+
+  useEffect(() => {
+    if (!isOpen) setIsImageZoomed(false);
+  }, [isOpen]);
+
+  useEffect(() => {
+    setIsImageZoomed(false);
+  }, [currentSlide, isOpen]);
 
   const handleDownload = async () => {
     if (!images || images.length === 0) return;
@@ -284,7 +543,7 @@ export default function ImageLightbox({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-none w-screen h-dvh p-0 m-0 bg-black border-none shadow-none block overflow-hidden [&>button]:hidden">
+      <DialogContent className="lightbox-dialog max-w-none w-screen h-dvh p-0 m-0 bg-black border-none shadow-none block overflow-hidden [&>button]:hidden">
         <DialogTitle className="sr-only">Chi tiết hình ảnh</DialogTitle>
 
         {/* --- TOOLBAR --- */}
@@ -326,7 +585,12 @@ export default function ImageLightbox({
           {isMobile ? (
             <div
               ref={mobileScrollerRef}
-              className="h-full w-full flex overflow-x-auto snap-x snap-mandatory touch-pan-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+              className={cn(
+                "h-full w-full flex [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
+                isImageZoomed
+                  ? "overflow-hidden snap-none"
+                  : "overflow-x-auto snap-x snap-mandatory",
+              )}
               onScroll={(event) => {
                 const width = event.currentTarget.clientWidth;
                 if (!width) return;
@@ -339,13 +603,15 @@ export default function ImageLightbox({
               {images.map((url, index) => (
                 <div
                   key={index}
-                  className="h-full w-full shrink-0 snap-center flex items-center justify-center touch-pan-x"
+                  className="h-full w-full shrink-0 snap-center"
                 >
-                  <img
+                  <LightboxZoomImage
                     src={url}
                     alt={`Ảnh ${index + 1}`}
-                    className="max-h-full max-w-full object-contain select-auto"
-                    style={{ WebkitTouchCallout: "default" }}
+                    active={isOpen && index === currentSlide}
+                    onZoomChange={
+                      index === currentSlide ? setIsImageZoomed : undefined
+                    }
                   />
                 </div>
               ))}
@@ -353,25 +619,28 @@ export default function ImageLightbox({
           ) : (
             <Carousel
               setApi={setApi}
-              className="w-full h-full touch-pan-y"
-              opts={{ startIndex: selectedIndex, loop: true }}
+              className={cn(
+                "w-full h-full",
+                isImageZoomed ? "[touch-action:none]" : "touch-pan-y",
+              )}
+              opts={{
+                startIndex: selectedIndex,
+                loop: true,
+                watchDrag: () => !imageZoomedRef.current,
+              }}
             >
-              <CarouselContent className="h-dvh -ml-0 touch-pan-y">
+              <CarouselContent className="h-dvh -ml-0">
                 {images.map((url, index) => (
                   <CarouselItem key={index} className="h-full pl-0 relative">
-                    <div className="w-full h-dvh flex items-center justify-center">
-                      <div className="relative w-full h-full">
-                        <Image
-                          src={url}
-                          alt={`Image ${index + 1}`}
-                          fill
-                          priority={index === selectedIndex}
-                          className="object-contain p-0 md:p-12 select-auto"
-                          sizes="100vw"
-                          quality={100}
-                          style={{ WebkitTouchCallout: "default" }}
-                        />
-                      </div>
+                    <div className="h-dvh w-full p-0 md:p-12">
+                      <LightboxZoomImage
+                        src={url}
+                        alt={`Ảnh ${index + 1}`}
+                        active={isOpen && index === currentSlide}
+                        onZoomChange={
+                          index === currentSlide ? setIsImageZoomed : undefined
+                        }
+                      />
                     </div>
                   </CarouselItem>
                 ))}

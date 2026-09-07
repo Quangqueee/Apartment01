@@ -57,10 +57,23 @@ import {
   listUnmigratedAiApartmentsClient,
   applyAiMigrationClient,
 } from "@/lib/apartments-write-client";
+import {
+  ADMIN_APARTMENTS_PAGE_SIZE,
+  getAdminApartmentCounts,
+  listAdminApartmentsPage,
+} from "@/lib/admin-apartments-client";
 import { Input } from "@/components/ui/input";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { useState, useEffect, useTransition, FormEvent, useMemo } from "react";
-import { formatDate, matchesApartmentSearch } from "@/lib/utils";
+import {
+  useState,
+  useEffect,
+  useTransition,
+  FormEvent,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
+import { formatDate } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
   Tooltip,
@@ -71,7 +84,6 @@ import {
 import { ADMIN_PATH } from "@/lib/constants";
 import { useAuth as useAuthContext } from "@/context/auth-context";
 import { db } from "@/firebase";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { consumeApartmentDeleteQuota } from "@/lib/apartment-delete-quota";
 
 export default function ApartmentsPage() {
@@ -83,6 +95,7 @@ export default function ApartmentsPage() {
 
   const [apartments, setApartments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [queryVal, setQueryVal] = useState(searchParams.get("q") || "");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -91,72 +104,33 @@ export default function ApartmentsPage() {
   );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [listTotal, setListTotal] = useState(0);
+  const [allCount, setAllCount] = useState(0);
+  const [publishedCount, setPublishedCount] = useState(0);
+  const [pushRequestCount, setPushRequestCount] = useState(0);
 
   // Quản lý Tab hiển thị ("all" hoặc "push_requests")
   const [activeTab, setActiveTab] = useState<"all" | "push_requests">("all");
 
-  const currentPage = searchParams.get("page")
-    ? parseInt(searchParams.get("page")!)
-    : 1;
-  const itemsPerPage = 10;
-
-  // LẮNG NGHE REALTIME FIRESTORE
-  useEffect(() => {
-    setLoading(true);
-    const q = query(collection(db, "apartments"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setApartments(data);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Lỗi realtime apartments:", error);
-        setLoading(false);
-      },
-    );
-
-    return () => unsubscribe();
-  }, []);
-
-  // Lọc danh sách theo Tab, Search (chỉ lọc khi đã Enter / submit, không gọi Firestore)
-  const appliedQuery = (searchParams.get("q") || "").trim();
-  const filteredApartments = useMemo(() => {
-    return apartments.filter((apt: any) => {
-      if (activeTab === "push_requests") {
-        if (!apt.isPushRequested) return false;
-      } else {
-        if (apt.isPushRequested) return false;
-      }
-
-      if (!appliedQuery) return true;
-      return matchesApartmentSearch(apt, appliedQuery);
-    });
-  }, [apartments, activeTab, appliedQuery]);
-
-  const pushRequestCount = useMemo(() => {
-    return apartments.filter((apt: any) => apt.isPushRequested === true).length;
-  }, [apartments]);
-
-  const publishedCount = useMemo(() => {
-    return apartments.filter((apt: any) => apt.submissionStatus === "published")
-      .length;
-  }, [apartments]);
-
-  const totalPages = Math.max(
+  const currentPage = Math.max(
     1,
-    Math.ceil(filteredApartments.length / itemsPerPage),
+    parseInt(searchParams.get("page") || "1", 10) || 1,
   );
-  const effectivePage = Math.min(Math.max(currentPage, 1), totalPages);
+  const itemsPerPage = ADMIN_APARTMENTS_PAGE_SIZE;
+  const appliedQuery = (searchParams.get("q") || "").trim();
+  const cursorByPageRef = useRef<Record<number, string | null | undefined>>({
+    1: null,
+  });
+  const lastFocusFetchRef = useRef(0);
+  const requestSeqRef = useRef(0);
+  const searchParamsRef = useRef(searchParams);
+  const hasRowsRef = useRef(false);
+  searchParamsRef.current = searchParams;
+
+  const totalPages = Math.max(1, Math.ceil(listTotal / itemsPerPage));
+  const effectivePage = currentPage;
   const startIndex = (effectivePage - 1) * itemsPerPage;
-  const currentApartments = filteredApartments.slice(
-    startIndex,
-    startIndex + itemsPerPage,
-  );
+  const currentApartments = apartments;
 
   const pageIds = useMemo(
     () => currentApartments.map((apt: any) => apt.id as string),
@@ -168,20 +142,104 @@ export default function ApartmentsPage() {
   const somePageSelected = selectedOnPage > 0 && !allPageSelected;
   const selectedCount = selectedIds.size;
 
-  useEffect(() => {
-    const validIds = new Set(
-      filteredApartments.map((apt: any) => apt.id as string),
-    );
-    setSelectedIds((prev) => {
-      let changed = false;
-      const next = new Set<string>();
-      prev.forEach((id) => {
-        if (validIds.has(id)) next.add(id);
-        else changed = true;
+  const loadCounts = useCallback(async () => {
+    const counts = await getAdminApartmentCounts();
+    if (counts.error) {
+      toast({
+        variant: "destructive",
+        title: "Không lấy được số liệu",
+        description: counts.error,
       });
-      return changed ? next : prev;
-    });
-  }, [filteredApartments]);
+      return;
+    }
+    setAllCount(counts.total);
+    setPublishedCount(counts.published);
+    setPushRequestCount(counts.pushRequested);
+  }, [toast]);
+
+  const loadPage = useCallback(
+    async (page: number, opts?: { silent?: boolean }) => {
+      const seq = ++requestSeqRef.current;
+      if (page > 1 && !(page in cursorByPageRef.current)) {
+        const params = new URLSearchParams(searchParamsRef.current.toString());
+        params.set("page", "1");
+        cursorByPageRef.current = { 1: null };
+        router.replace(`${pathname}?${params.toString()}`);
+        return;
+      }
+
+      if (!opts?.silent && !hasRowsRef.current) setLoading(true);
+      else setIsRefreshing(true);
+
+      try {
+        const result = await listAdminApartmentsPage({
+          pageSize: ADMIN_APARTMENTS_PAGE_SIZE,
+          cursorId: page === 1 ? null : cursorByPageRef.current[page] ?? null,
+          searchQuery: appliedQuery,
+          pushRequestedOnly: activeTab === "push_requests",
+        });
+        if (seq !== requestSeqRef.current) return;
+        if (result.error) {
+          toast({
+            variant: "destructive",
+            title: "Không tải được danh sách",
+            description: result.error,
+          });
+          return;
+        }
+        setApartments(result.apartments);
+        hasRowsRef.current = true;
+        if (page === 1) setListTotal(result.total);
+        cursorByPageRef.current[page + 1] = result.nextCursorId;
+      } finally {
+        if (seq === requestSeqRef.current) {
+          setLoading(false);
+          setIsRefreshing(false);
+        }
+      }
+    },
+    [activeTab, appliedQuery, pathname, router, toast],
+  );
+
+  const refetchCurrent = useCallback(async () => {
+    await Promise.all([
+      loadCounts(),
+      loadPage(effectivePage, { silent: true }),
+    ]);
+  }, [effectivePage, loadCounts, loadPage]);
+
+  useEffect(() => {
+    cursorByPageRef.current = { 1: null };
+    hasRowsRef.current = false;
+  }, [appliedQuery, activeTab]);
+
+  useEffect(() => {
+    void loadCounts();
+  }, [loadCounts]);
+
+  useEffect(() => {
+    void loadPage(effectivePage);
+  }, [effectivePage, appliedQuery, activeTab, loadPage]);
+
+  useEffect(() => {
+    const maybeReload = () => {
+      if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastFocusFetchRef.current < 15000) return;
+      lastFocusFetchRef.current = now;
+      void loadCounts();
+      if (effectivePage <= 1) {
+        cursorByPageRef.current = { 1: null };
+        void loadPage(1, { silent: true });
+      }
+    };
+    document.addEventListener("visibilitychange", maybeReload);
+    window.addEventListener("focus", maybeReload);
+    return () => {
+      document.removeEventListener("visibilitychange", maybeReload);
+      window.removeEventListener("focus", maybeReload);
+    };
+  }, [effectivePage, loadCounts, loadPage]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
@@ -231,10 +289,13 @@ export default function ApartmentsPage() {
 
   const clearSelection = () => setSelectedIds(new Set());
 
-  const orderedSelectedIds = () =>
-    filteredApartments
+  const orderedSelectedIds = () => {
+    const onPage = currentApartments
       .filter((apt: any) => selectedIds.has(apt.id))
       .map((apt: any) => apt.id as string);
+    const rest = [...selectedIds].filter((id) => !onPage.includes(id));
+    return [...onPage, ...rest];
+  };
 
   const handleDeleteClick = (id: string) => {
     setApartmentToDelete(id);
@@ -258,6 +319,12 @@ export default function ApartmentsPage() {
         const target = apartments.find((item) => item.id === apartmentToDelete);
         await deleteApartmentClient(apartmentToDelete, target?.imageUrls);
         await revalidateApartmentCacheAction(apartmentToDelete);
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(apartmentToDelete);
+          return next;
+        });
+        await refetchCurrent();
         toast({
           title: "Thành công!",
           description: `Đã xóa căn hộ. Còn ${quota.remaining} lượt xóa trong giờ này.`,
@@ -285,7 +352,10 @@ export default function ApartmentsPage() {
   const handlePushClick = async (id: string) => {
     startTransition(async () => {
       const result = await pushApartmentClient(id);
-      if (!result.error) await revalidateApartmentCacheAction(id);
+      if (!result.error) {
+        await revalidateApartmentCacheAction(id);
+        await refetchCurrent();
+      }
       if (result?.error) {
         toast({
           variant: "destructive",
@@ -306,7 +376,10 @@ export default function ApartmentsPage() {
     if (!authUser) return;
     startTransition(async () => {
       const result = await approveAndResolvePushClient(id);
-      if (!result.error) await revalidateApartmentCacheAction(id);
+      if (!result.error) {
+        await revalidateApartmentCacheAction(id);
+        await refetchCurrent();
+      }
       if (result?.error) {
         toast({
           variant: "destructive",
@@ -330,7 +403,10 @@ export default function ApartmentsPage() {
       if (activeTab === "push_requests") {
         if (!authUser) return;
         const result = await approveAndResolvePushBatchClient(ids);
-        if (!result.error) await revalidateApartmentCacheAction();
+        if (!result.error) {
+          await revalidateApartmentCacheAction();
+          await refetchCurrent();
+        }
         if (result?.error) {
           toast({
             variant: "destructive",
@@ -346,7 +422,10 @@ export default function ApartmentsPage() {
         }
       } else {
         const result = await pushApartmentsBatchClient(ids);
-        if (!result.error) await revalidateApartmentCacheAction();
+        if (!result.error) {
+          await revalidateApartmentCacheAction();
+          await refetchCurrent();
+        }
         if (result?.error) {
           toast({
             variant: "destructive",
@@ -379,7 +458,10 @@ export default function ApartmentsPage() {
 
     // Gọi trực tiếp server action backfillSubmissionStatusAction có sẵn trong actions.ts
     const res = await backfillSubmissionStatusClient();
-    if (!res.error) await revalidateApartmentCacheAction();
+    if (!res.error) {
+      await revalidateApartmentCacheAction();
+      await refetchCurrent();
+    }
 
     if (res?.error) {
       update({
@@ -563,6 +645,7 @@ export default function ApartmentsPage() {
     }
 
     await revalidateApartmentCacheAction();
+    await refetchCurrent();
 
     setTimeout(() => {
       update({
@@ -591,7 +674,7 @@ export default function ApartmentsPage() {
             Quản lý Căn hộ
           </h2>
           <p className="text-gray-500">
-            Danh sách tất cả các căn hộ ({apartments.length}). Public:{" "}
+            Danh sách tất cả các căn hộ ({allCount}). Public:{" "}
             {publishedCount}.
           </p>
         </div>
@@ -644,7 +727,7 @@ export default function ApartmentsPage() {
               : "border-transparent text-gray-500 hover:text-gray-900"
           }`}
         >
-          Tất cả căn hộ ({apartments.filter((a) => !a.isPushRequested).length})
+          Tất cả căn hộ ({allCount})
         </button>
         <button
           onClick={() => handleTabChange("push_requests")}
@@ -663,27 +746,51 @@ export default function ApartmentsPage() {
         </button>
       </div>
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div
+        className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 ${
+          isRefreshing ? "opacity-70" : ""
+        }`}
+      >
         <div className="sticky top-0 z-20 -mx-4 mb-4 flex flex-col gap-3 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100">
-          <form
-            onSubmit={handleSearch}
-            className="relative w-full md:max-w-sm"
-          >
-            <Input
-              placeholder="Tìm địa chỉ, Mã ID hoặc SĐT..."
-              value={queryVal}
-              onChange={(e) => setQueryVal(e.target.value)}
-              className="pr-10 bg-gray-50 border-gray-200 text-base"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              variant="ghost"
-              className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center md:max-w-xl">
+            <form
+              onSubmit={handleSearch}
+              className="relative w-full md:max-w-sm"
             >
-              <Search className="h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Tìm địa chỉ, Mã ID hoặc SĐT..."
+                value={queryVal}
+                onChange={(e) => setQueryVal(e.target.value)}
+                className="pr-10 bg-gray-50 border-gray-200 text-base"
+              />
+              <Button
+                type="submit"
+                size="icon"
+                variant="ghost"
+                className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+              >
+                <Search className="h-4 w-4 text-gray-400" />
+              </Button>
+            </form>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                lastFocusFetchRef.current = 0;
+                void refetchCurrent();
+              }}
+              disabled={isRefreshing || isPending}
+              className="shrink-0"
+            >
+              {isRefreshing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="mr-2 h-4 w-4" />
+              )}
+              Tải lại danh sách
             </Button>
-          </form>
+          </div>
 
           {selectedCount > 0 && (
             <div className="flex flex-wrap items-center gap-2">
@@ -1032,9 +1139,9 @@ export default function ApartmentsPage() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-6 pb-2 border-t border-gray-100 mt-4">
           <span className="text-sm text-gray-500">
-            Hiển thị {startIndex + 1} -{" "}
-            {Math.min(startIndex + itemsPerPage, filteredApartments.length)} /{" "}
-            {filteredApartments.length}
+            Hiển thị {listTotal === 0 ? 0 : startIndex + 1} -{" "}
+            {Math.min(startIndex + currentApartments.length, listTotal)} /{" "}
+            {listTotal}
           </span>
           <div className="flex items-center space-x-2">
             <Button

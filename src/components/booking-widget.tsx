@@ -644,7 +644,7 @@ export default function BookingWidget({
 
       <div
         className={cn(
-          "listing-sticky-cta lg:hidden fixed left-0 right-0 z-40 bg-white border-t border-[#e2e2e2] px-5 py-3 flex items-center gap-3 overflow-x-hidden",
+          "listing-sticky-cta lg:hidden fixed left-0 right-0 z-30 bg-white border-t border-[#e2e2e2] px-5 py-3 flex items-center gap-3 overflow-x-hidden",
           hideMobileBar && "hidden",
         )}
       >

@@ -403,7 +403,7 @@ function RelatedApartments({ related }: { related: Apartment[] }) {
           <div
             ref={scrollRef}
             onScroll={checkScroll}
-            className="flex w-full gap-6 overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none snap-x snap-mandatory py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x]"
+            className="flex w-full gap-6 overflow-x-auto snap-x snap-mandatory py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x_pan-y]"
           >
             {related.map((apt) => (
               <div
@@ -999,7 +999,7 @@ export default function ApartmentDetailsPageClient({
         </DialogContent>
       </Dialog>
 
-      <main className="flex-1 bg-white min-h-screen font-body text-[#222222] overflow-x-hidden">
+      <main className="flex-1 bg-white min-h-screen font-body text-[#222222] overflow-x-clip">
         <div className="pt-0 md:pt-6">
           <div className="container mx-auto px-0 md:px-6">
             <ApartmentImageGallery

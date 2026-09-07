@@ -48,9 +48,9 @@ export default function ShortTermDetailClient({
     apartment.roomType;
 
   return (
-    <div className="flex min-h-screen flex-col bg-white overflow-x-hidden">
+    <div className="flex min-h-screen flex-col bg-white overflow-x-clip">
       <Header />
-      <main className="flex-1 container mx-auto px-0 md:px-6 pb-28 lg:pb-16 max-w-7xl overflow-x-hidden">
+      <main className="flex-1 container mx-auto px-0 md:px-6 pb-28 lg:pb-16 max-w-7xl overflow-x-clip">
         <div className="md:pt-6">
           <ApartmentImageGallery
             imageUrls={apartment.imageUrls}
