@@ -13,7 +13,9 @@ export function PwaOrientationLock() {
   useEffect(() => {
     if (!isStandalonePwa() || !isMobileUserAgent()) return;
 
-    const orientation = window.screen?.orientation;
+    const orientation = window.screen?.orientation as
+      | (ScreenOrientation & { lock?: (type: string) => Promise<void> })
+      | undefined;
     if (!orientation || typeof orientation.lock !== "function") return;
 
     void orientation.lock(PWA_ORIENTATION).catch(() => {
