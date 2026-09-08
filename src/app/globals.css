@@ -2,8 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Defined on :root so transformed overlays (dialog/sheet) still inherit insets */
+  --safe-top: 0px;
+  --safe-bottom: 0px;
+  /* Orange bar h-8 + nav h-16 */
+  --site-header-height: 6rem;
+}
+
+@supports (padding-top: constant(safe-area-inset-top)) {
+  :root {
+    --safe-top: constant(safe-area-inset-top);
+    --safe-bottom: constant(safe-area-inset-bottom);
+  }
+}
+
+@supports (padding-top: env(safe-area-inset-top)) {
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    /* Orange bar h-8 + nav md:h-20 */
+    --site-header-height: 7rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    /* Orange bar lg:h-9 + nav h-20 */
+    --site-header-height: 7.25rem;
+  }
+}
+
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: var(--site-header-height);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* App-like: no double-tap zoom. Pinch of the page is locked on mobile / PWA below. */
+  touch-action: manipulation;
+}
+
+/* iOS Safari zooms focused fields smaller than 16px — keep 16px even when page zoom is locked. */
+@media (max-width: 767px) {
+  html,
+  body {
+    /* Keep callout “Lưu ảnh”. Page pinch is locked via viewport maximum-scale=1. */
+    touch-action: manipulation;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]):not([type="file"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 @layer base {
@@ -43,6 +99,29 @@ html {
     font-family: var(--font-headline), serif;
     @apply tracking-tighter;
   }
+
+  /* SOP đào tạo: heading không chân, dễ đọc tiếng Việt — trừ Tầm nhìn & Lời kết */
+  .sop-guide h1,
+  .sop-guide h2,
+  .sop-guide h3,
+  .sop-guide h4,
+  .sop-guide h5,
+  .sop-guide h6 {
+    font-family: var(--font-body), system-ui, sans-serif;
+    letter-spacing: 0.01em;
+  }
+
+  .sop-guide #tam-nhin h1,
+  .sop-guide #tam-nhin h2,
+  .sop-guide #tam-nhin h3,
+  .sop-guide #tam-nhin h4,
+  .sop-guide #loi-gui-gam h1,
+  .sop-guide #loi-gui-gam h2,
+  .sop-guide #loi-gui-gam h3,
+  .sop-guide #loi-gui-gam h4 {
+    font-family: var(--font-headline), serif;
+    letter-spacing: -0.025em;
+  }
 }
 
 .transition-luxury {
@@ -76,7 +155,135 @@ html {
   transition-property: transform, opacity !important;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none !important;
+  }
+}
+
 body[data-scroll-locked] {
   padding-right: 0 !important;
   margin-right: 0 !important;
+}
+
+@media (display-mode: standalone) {
+  :root {
+    --site-header-height: calc(6rem + var(--safe-top));
+  }
+
+  @media (min-width: 768px) {
+    :root {
+      --site-header-height: calc(7rem + var(--safe-top));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    :root {
+      --site-header-height: calc(7.25rem + var(--safe-top));
+    }
+  }
+
+  html {
+    min-height: 100dvh;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+  }
+
+  body {
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+    touch-action: manipulation;
+  }
+}
+
+.listing-sticky-cta {
+  bottom: 0;
+  padding-bottom: max(1rem, var(--safe-bottom));
+  transition: bottom 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* iOS Peek / “Lưu vào Ảnh” needs no CSS transform on ancestors of the <img>. */
+.lightbox-dialog {
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: 100dvh !important;
+  max-height: none !important;
+  transform: none !important;
+  border-radius: 0 !important;
+}
+
+/* Fullscreen dialogs: beat DialogContent's left/top 50% + translate without 100dvh overflow */
+@media (max-width: 639px) {
+  .dialog-fullscreen-mobile {
+    left: 0 !important;
+    right: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    transform: none !important;
+    border-radius: 0 !important;
+  }
+
+  .dialog-sheet-mobile {
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    transform: none !important;
+    max-height: min(92dvh, calc(100dvh - var(--safe-top))) !important;
+  }
+
+  .pwa-safe-header {
+    padding-top: max(1rem, var(--safe-top)) !important;
+  }
+
+  .pwa-safe-footer {
+    padding-bottom: max(0.75rem, var(--safe-bottom)) !important;
+  }
+}
+
+@keyframes nav-progress-load {
+  0% {
+    width: 8%;
+  }
+  20% {
+    width: 42%;
+  }
+  50% {
+    width: 68%;
+  }
+  80% {
+    width: 82%;
+  }
+  100% {
+    width: 90%;
+  }
+}
+
+.nav-progress-bar {
+  width: 90%;
+  animation: nav-progress-load 3.2s cubic-bezier(0.12, 0.4, 0.2, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress-bar {
+    animation: none;
+    width: 100%;
+  }
+}
+
+@media (max-width: 1023px) {
+  body[data-listing-page="true"] .listing-sticky-cta {
+    bottom: calc(4rem + var(--safe-bottom));
+    padding-bottom: 1rem;
+  }
 }

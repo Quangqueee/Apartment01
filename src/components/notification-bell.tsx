@@ -8,6 +8,8 @@ import {
   RefreshCw,
   Info,
   CheckCheck,
+  UserCheck,
+  Home,
   type LucideIcon,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -28,6 +30,11 @@ const NOTIFICATION_ICONS: Record<AppNotification["type"], LucideIcon> = {
   new_booking: CalendarDays,
   status_update: RefreshCw,
   system: Info,
+  landlord_request: UserCheck,
+  landlord_approved: UserCheck,
+  landlord_rejected: UserCheck,
+  new_submission: Home,
+  submission_reviewed: Home,
 };
 
 const formatNotificationTime = (createdAt: any) => {
@@ -45,8 +52,10 @@ const formatNotificationTime = (createdAt: any) => {
 
 export default function NotificationBell({
   userId,
+  triggerClassName,
 }: {
   userId?: string | null;
+  triggerClassName?: string;
 }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
@@ -84,7 +93,11 @@ export default function NotificationBell({
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <button
-          className="relative p-2 text-gray-500 hover:text-[#cda533] hover:bg-gray-50 rounded-lg transition-colors"
+          className={cn(
+            "relative rounded-lg p-2 transition-colors",
+            triggerClassName ||
+              "text-gray-500 hover:bg-gray-50 hover:text-[#cda533]",
+          )}
           aria-label="Thông báo"
         >
           <Bell className="h-5 w-5" />
@@ -96,8 +109,8 @@ export default function NotificationBell({
         </button>
       </PopoverTrigger>
 
-      {/* 
-        Bao bọc PopoverContent: Đảm bảo nó có flex-col và overflow-hidden 
+      {/*
+        Bao bọc PopoverContent: Đảm bảo nó có flex-col và overflow-hidden
         để phần cuộn bên trong (thẻ div) hoạt động tốt nhất.
       */}
       <PopoverContent
@@ -120,13 +133,6 @@ export default function NotificationBell({
           )}
         </div>
 
-        {/* 
-          VÙNG CUỘN ĐÃ ĐƯỢC FIX:
-          Thay thế ScrollArea bằng div tiêu chuẩn.
-          - overflow-y-auto: Tự động cuộn dọc khi danh sách dài.
-          - max-h-[400px]: Giới hạn chiều cao hộp là 400px.
-          - overscroll-contain: Tránh lỗi cuộn lan ra cả trang web.
-        */}
         <div className="max-h-[400px] overflow-y-auto overscroll-contain">
           {isLoading ? (
             <div className="px-4 py-8 text-center text-sm text-gray-400">

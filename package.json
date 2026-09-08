@@ -9,7 +9,8 @@
     "dev": "next dev --turbo -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
-    "build": "next build",
+    "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
+    "build": "npm run clean && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
@@ -21,6 +22,7 @@
     "@genkit-ai/googleai": "^1.28.0",
     "@genkit-ai/next": "^1.27.0",
     "@hookform/resolvers": "^3.9.0",
+    "@next/third-parties": "^16.3.1",
     "@opentelemetry/exporter-jaeger": "^2.10.0",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-alert-dialog": "^1.1.6",
@@ -56,7 +58,7 @@
     "hono": "^4.11.3",
     "jszip": "^3.10.1",
     "lucide-react": "^0.414.0",
-    "next": "^15.5.20",
+    "next": "^15.5.23",
     "node-cache": "^5.1.2",
     "openai": "^7.2.0",
     "react": "^18.3.1",
@@ -80,7 +82,7 @@
     "@types/uuid": "^9.0.8",
     "genkit-cli": "^0.0.2",
     "patch-package": "^8.0.0",
-    "postcss": "^8",
+    "postcss": "^8.5.26",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   },
@@ -88,6 +90,9 @@
     "@genkit-ai/next": {
       "next": "$next"
     },
-    "picomatch": "4.0.3"
+    "nanoid": "3.3.18",
+    "picomatch": "4.0.5",
+    "postcss": "$postcss",
+    "sharp": "$sharp"
   }
 }

@@ -1,10 +1,18 @@
 "use client";
 import { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
-import { auth, db } from "@/firebase";
+// BỔ SUNG: import thêm updateDoc và serverTimestamp
+import {
+  collection,
+  doc,
+  onSnapshot,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { auth, db } from "@/firebase/app";
+import { mergeFavoriteIds } from "@/lib/favorites";
 
-export type UserRole = "user" | "collaborator" | "admin";
+export type UserRole = "user" | "collaborator" | "admin" | "landlord";
 
 export type UserData = {
   uid?: string;
@@ -18,38 +26,64 @@ export type UserData = {
   interests?: string;
   favorites?: string[];
   role?: UserRole;
+  landlordApprovalStatus?: "pending" | "approved" | "rejected";
+  // BỔ SUNG: Trường theo dõi hoạt động
+  lastActiveAt?: any;
 };
 
 type AuthContextValue = {
   user: User | null;
   userData: UserData | null;
+  favoriteIds: string[];
+  favoritesReady: boolean;
   loading: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   userData: null,
+  favoriteIds: [],
+  favoritesReady: false,
   loading: true,
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [subcollectionFavoriteIds, setSubcollectionFavoriteIds] = useState<
+    string[]
+  >([]);
+  const [subcollectionReady, setSubcollectionReady] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | null = null;
+    let unsubscribeFavorites: (() => void) | null = null;
+    let activityInterval: NodeJS.Timeout | null = null; // BỔ SUNG: Biến lưu trữ bộ đếm thời gian
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
 
+      // Xóa các listener và interval cũ nếu có
       if (unsubscribeUserDoc) {
         unsubscribeUserDoc();
         unsubscribeUserDoc = null;
       }
+      if (unsubscribeFavorites) {
+        unsubscribeFavorites();
+        unsubscribeFavorites = null;
+      }
+      if (activityInterval) {
+        clearInterval(activityInterval);
+        activityInterval = null;
+      }
 
       if (currentUser) {
         const userDocRef = doc(db, "users", currentUser.uid);
+        setSubcollectionReady(false);
+        setSubcollectionFavoriteIds([]);
+
+        // 1. Lắng nghe dữ liệu User
         unsubscribeUserDoc = onSnapshot(
           userDocRef,
           (docSnap) => {
@@ -58,28 +92,67 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             } else {
               setUserData(null);
             }
-            setLoading(false); // Dừng loading ngay khi có dữ liệu
+            setLoading(false);
           },
           (error) => {
             console.error("Auth Snapshot Error:", error);
-            setLoading(false); // Dừng loading kể cả khi có lỗi
+            setLoading(false);
           },
         );
+
+        unsubscribeFavorites = onSnapshot(
+          collection(db, "users", currentUser.uid, "favorites"),
+          (favSnap) => {
+            setSubcollectionFavoriteIds(favSnap.docs.map((favDoc) => favDoc.id));
+            setSubcollectionReady(true);
+          },
+          (error) => {
+            console.error("Favorites Snapshot Error:", error);
+            setSubcollectionReady(true);
+          },
+        );
+
+        // 2. BỔ SUNG: Logic cập nhật thời gian hoạt động (lastActiveAt)
+        const updateActivity = async () => {
+          try {
+            await updateDoc(userDocRef, {
+              lastActiveAt: serverTimestamp(),
+            });
+          } catch (error) {
+            console.error("Lỗi cập nhật lastActiveAt:", error);
+          }
+        };
+
+        // Ghi nhận ngay lần đầu đăng nhập/mở app
+        updateActivity();
+
+        // Ghi nhận lặp lại mỗi 15 phút (15 * 60 * 1000 ms) nếu user vẫn đang dùng app
+        activityInterval = setInterval(updateActivity, 15 * 60 * 1000);
       } else {
         setUserData(null);
-        setLoading(false); // Dừng loading nếu không có user
+        setSubcollectionFavoriteIds([]);
+        setSubcollectionReady(true);
+        setLoading(false);
       }
     });
 
     return () => {
       unsubscribe();
       if (unsubscribeUserDoc) unsubscribeUserDoc();
+      if (unsubscribeFavorites) unsubscribeFavorites();
+      if (activityInterval) clearInterval(activityInterval); // Dọn dẹp interval khi unmount
     };
   }, []);
 
+  const favoriteIds = useMemo(
+    () => mergeFavoriteIds(userData?.favorites, subcollectionFavoriteIds),
+    [userData?.favorites, subcollectionFavoriteIds],
+  );
+  const favoritesReady = !loading && (!user || subcollectionReady);
+
   const value = useMemo(
-    () => ({ user, userData, loading }),
-    [user, userData, loading],
+    () => ({ user, userData, favoriteIds, favoritesReady, loading }),
+    [user, userData, favoriteIds, favoritesReady, loading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

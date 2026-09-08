@@ -1,16 +1,26 @@
+import { cache } from "react";
 import { Metadata } from "next";
-import { getApartmentById, getRelatedApartments } from "@/lib/data";
 import ApartmentDetailsPageClient from "@/components/apartment-details-page-client";
 import Link from "next/link";
 import { Home, SearchX, ArrowLeft } from "lucide-react";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
+import { JsonLd } from "@/components/json-ld";
+import { SITE } from "@/lib/site";
+import { buildApartmentJsonLd } from "@/lib/structured-data";
+import {
+  getApartmentById as getApartmentByIdUncached,
+  getRelatedApartments,
+} from "@/lib/data";
+
+const getApartmentById = cache(getApartmentByIdUncached);
 
 type PageProps = {
   params: Promise<{ id: string }>;
 };
 
-export const revalidate = 86400;
+/** Literal bắt buộc — Next.js không theo dõi import (invalid-page-config). Đồng bộ với LISTING_REVALIDATE. */
+export const revalidate = false;
 
 export async function generateMetadata({
   params,
@@ -26,19 +36,31 @@ export async function generateMetadata({
     };
   }
 
-  const title = `${apartment.title} - ${apartment.district} | Hanoi Residences`;
+  // src/app/apartments/[id]/page.tsx
+
+  // Ưu tiên tuyệt đối cho tiêu đề và mô tả SEO do AI tạo nằm bên trong object aiContent
+  const title =
+    apartment.aiContent?.seoTitle ||
+    `${apartment.title} - ${apartment.district} | Hanoi Residences`;
+
   const description =
-    apartment.listingSummary || apartment.details.substring(0, 155);
-  const primaryImage = apartment.imageUrls?.[0] || "/default-og-image.png";
+    apartment.aiContent?.seoDescription ||
+    apartment.aiContent?.description ||
+    apartment.details ||
+    "Nền tảng tìm thuê căn hộ uy tín tại Hà Nội. Khám phá ngay không gian lý tưởng để an cư.";
+
+  const primaryImage = apartment.imageUrls?.[0] || SITE.ogImage;
+  const canonicalPath = `/apartments/${id}`;
 
   return {
     title: title,
     description: description,
+    authors: [{ name: SITE.founderName, url: SITE.sameAs[0] }],
     openGraph: {
       title: title,
       description: description,
-      url: `https://hanoiresidence.site/apartments/${id}`,
-      siteName: "Hanoi Residences",
+      url: `${SITE.url}${canonicalPath}`,
+      siteName: SITE.name,
       images: [
         {
           url: primaryImage,
@@ -48,6 +70,7 @@ export async function generateMetadata({
         },
       ],
       type: "article",
+      locale: SITE.locale,
     },
     twitter: {
       card: "summary_large_image",
@@ -56,7 +79,11 @@ export async function generateMetadata({
       images: [primaryImage],
     },
     alternates: {
-      canonical: `/apartments/${id}`,
+      canonical: canonicalPath,
+      languages: {
+        "vi-VN": canonicalPath,
+        "x-default": canonicalPath,
+      },
     },
   };
 }
@@ -99,7 +126,7 @@ export default async function ApartmentPage({ params }: PageProps) {
 
               {/* Nếu bạn có trang danh sách tổng (/apartments), có thể dùng nút dưới đây, nếu không thì ẩn đi */}
               <Link
-                href="/"
+                href="/tim-kiem"
                 className="flex items-center justify-center gap-2 py-3.5 px-6 bg-white text-gray-700 border border-gray-200 rounded-xl font-semibold hover:bg-gray-50 transition-all active:scale-95"
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -116,46 +143,9 @@ export default async function ApartmentPage({ params }: PageProps) {
   // 2. Lấy 8 căn hộ gợi ý bằng hàm mới tạo
   const relatedApartments = await getRelatedApartments(apartment);
 
-  // 3. Tạo Dữ liệu có cấu trúc (Schema Markup) cho Bất động sản
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Apartment",
-    name: apartment.title,
-    description:
-      apartment.listingSummary || apartment.details.substring(0, 155),
-    floorSize: {
-      "@type": "QuantitativeValue",
-      value: apartment.area,
-      unitCode: "MTK",
-    },
-    address: {
-      "@type": "PostalAddress",
-      addressLocality: apartment.district,
-      addressRegion: "Hà Nội",
-      addressCountry: "VN",
-    },
-    offers: {
-      "@type": "Offer",
-      priceCurrency: "VND",
-      price:
-        typeof apartment.price === "number"
-          ? apartment.price * 1000000
-          : apartment.price,
-      businessFunction: "http://purl.org/goodrelations/v1#LeaseOut",
-      seller: {
-        "@type": "RealEstateAgent",
-        name: "Hanoi Residences",
-        url: "https://hanoiresidence.site",
-      },
-    },
-  };
-
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd id="schema-apartment" data={buildApartmentJsonLd(apartment)} />
 
       <ApartmentDetailsPageClient
         initialApartment={apartment}

@@ -8,6 +8,16 @@ const config: Config = {
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
+    container: {
+      center: true,
+      screens: {
+        sm: "640px",
+        md: "768px",
+        lg: "1024px",
+        xl: "1280px",
+        "2xl": "1920px",
+      },
+    },
     extend: {
       fontFamily: {
         body: [
@@ -50,7 +60,16 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       transitionTimingFunction: {
-        'ios-out': 'cubic-bezier(0.32, 0.72, 0, 1)',
+        "ios-out": "cubic-bezier(0.32, 0.72, 0, 1)",
+      },
+      keyframes: {
+        marquee: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
+      },
+      animation: {
+        marquee: "marquee 22s linear infinite",
       },
     },
   },

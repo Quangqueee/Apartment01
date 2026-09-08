@@ -1,13 +1,87 @@
 rules_version = '2';
 
+/**
+ * Hanoi Residences — Storage rules (P0).
+ *
+ * NGUỒN SỰ THẬT: file này phải GIỐNG
+ * `hanoi-residences-app/storage.rules`. Copy hai chiều khi sửa.
+ * Deploy MỘT LẦN (`firebase deploy --only storage`) từ web hoặc mobile
+ * — cùng project `quang-apartment`, áp cho cả hai client.
+ *
+ * Path mới: apartments/{uid}/{fileName} — uid = Auth UID người upload
+ * (landlord hoặc admin). Delete chỉ owner của segment đó hoặc admin.
+ *
+ * Avatar: avatars/{uid}/{fileName} — user chỉ ghi/xóa folder của mình,
+ * ảnh ≤ 10MB, contentType image/*. Public read (hiện trên header/profile).
+ *
+ * Path cũ (flat): apartments/{fileName} — ảnh đang live. Public read.
+ * Mutate chỉ admin, để landlord không xóa/ghi đè ảnh tin người khác.
+ *
+ * DEPLOY BLOCKER: đổi upload web/app sang
+ * `apartments/{auth.uid}/{ts}-{id}.jpg` TRƯỚC khi deploy rules này.
+ * Website `apartment-form.tsx` đã dùng path uid. App cũng phải cùng path.
+ * Deploy rules trước khi đổi path → landlord upload thường sẽ fail.
+ *
+ * isAdmin() dùng firestore.get (cần Blaze). Không có custom claim role.
+ */
+
 service firebase.storage {
   match /b/{bucket}/o {
-    match /apartments/{allPaths=**} {
-      // Allow public read access to images
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role
+          == 'admin';
+    }
+
+    function isImageUnder15mb() {
+      return request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Khớp client profile/edit: tối đa 10MB, accept="image/*".
+    function isAvatarImage() {
+      return request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Ảnh đại diện — owner = Auth UID trong path.
+    // Public read: header, profile, admin users dùng photoURL trên UI.
+    match /avatars/{userId}/{fileName} {
       allow read: if true;
-      // Allow writes for now for development. 
-      // TODO: Change back to `if request.auth != null;` for production.
-      allow write: if true;
+
+      allow create, update: if signedIn()
+        && request.auth.uid == userId
+        && isAvatarImage();
+
+      allow delete: if signedIn()
+        && request.auth.uid == userId;
+    }
+
+    // Ảnh listing mới — owner nằm trong path.
+    match /apartments/{ownerUid}/{fileName} {
+      allow read: if true;
+
+      allow create, update: if signedIn()
+        && isImageUnder15mb()
+        && (request.auth.uid == ownerUid || isAdmin());
+
+      allow delete: if signedIn()
+        && (request.auth.uid == ownerUid || isAdmin());
+    }
+
+    // Legacy flat path (tin đã đăng). Chỉ admin được ghi/xóa.
+    match /apartments/{fileName} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isImageUnder15mb();
+      allow delete: if isAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

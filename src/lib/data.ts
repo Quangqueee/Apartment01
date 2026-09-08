@@ -11,15 +11,29 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
+  endBefore,
+  limitToLast,
   Query,
   DocumentData,
   Timestamp,
   getCountFromServer,
+  arrayUnion,
+  arrayRemove,
 } from "firebase/firestore";
+import { unstable_cache } from "next/cache";
 import { firestore } from "@/firebase/server-init";
 import { Apartment, Favorite, UserProfile } from "./types";
-import { removeVietnameseTones } from "./utils";
+import {
+  planApartmentTextSearch,
+  matchesAllSearchTokens,
+} from "./utils";
 import { isPriceInRange, parsePriceRange } from "./price-range";
+import { APARTMENTS_CACHE_TAG } from "./apartment-cache-tag";
+import { LISTING_REVALIDATE } from "./cache-policy";
+import { mergeFavoriteIds, normalizeFavoriteIds } from "./favorites";
+
+const FEATURED_DISTRICTS = ["Tây Hồ", "Ba Đình", "Đống Đa", "Cầu Giấy"] as const;
 
 const apartmentsCollection = collection(firestore, "apartments");
 const usersCollection = collection(firestore, "users");
@@ -31,11 +45,22 @@ export const toApartment = (docSnap: DocumentData): Apartment => {
   // 1. Helper bóc tách Timestamp an toàn (chống lỗi cache)
   const toPlainTimestamp = (ts: any) => {
     if (!ts) return { seconds: 0, nanoseconds: 0 };
+    if (typeof ts.toMillis === "function") {
+      const ms = ts.toMillis();
+      return {
+        seconds: Math.floor(ms / 1000),
+        nanoseconds: (ms % 1000) * 1e6,
+      };
+    }
     if (typeof ts.toDate === "function") {
       return { seconds: ts.seconds, nanoseconds: ts.nanoseconds };
     }
-    if (typeof ts.seconds === "number") {
-      return { seconds: ts.seconds, nanoseconds: ts.nanoseconds || 0 };
+    const seconds = ts.seconds ?? ts._seconds;
+    if (typeof seconds === "number") {
+      return {
+        seconds,
+        nanoseconds: ts.nanoseconds ?? ts._nanoseconds ?? 0,
+      };
     }
     return { seconds: 0, nanoseconds: 0 };
   };
@@ -56,11 +81,12 @@ export const toApartment = (docSnap: DocumentData): Apartment => {
     : null;
 
   return {
-    id: docSnap.id,
     ...data,
+    id: docSnap.id,
     createdAt,
     updatedAt,
-    aiContent
+    aiContent,
+    imageUrls: Array.isArray(data.imageUrls) ? data.imageUrls : [],
   } as Apartment;
 };
 
@@ -78,6 +104,10 @@ export async function getApartments(
     page?: number;
     limit?: number;
     sortBy?: string;
+    cursor?: string;
+    before?: string;
+    skipCount?: boolean;
+    totalHint?: number;
     searchBy?: "title" | "sourceCode" | "sourceCodeOrAddress" | "titleOrSourceCode";
   } = {}
 ) {
@@ -89,10 +119,19 @@ export async function getApartments(
     page = 1,
     limit: pageSize = 9,
     sortBy = "newest",
+    cursor,
+    before,
+    skipCount = false,
+    totalHint,
   } = options;
 
-  let baseQuery: Query = apartmentsCollection;
   let whereClauses: any[] = [];
+
+  // Chỉ hiển thị công khai các tin đã published. Yêu cầu chạy
+  // backfillSubmissionStatusAction() một lần trước khi filter này lên production,
+  // vì Firestore loại bỏ hẳn các document không có field submissionStatus khi
+  // dùng toán tử so sánh (==) trên field đó.
+  whereClauses.push(where("submissionStatus", "==", "published"));
 
   // Multi-select filter: "district"/"roomType" trên URL có thể là chuỗi nhiều giá trị
   // phân tách bằng dấu phẩy (vd: "Ba Đình,Tây Hồ") -> parse thành mảng, trim khoảng
@@ -124,12 +163,9 @@ export async function getApartments(
     whereClauses.push(where("roomType", "in", roomTypeArray));
   }
 
-  if (searchQuery && searchQuery.trim() !== "") {
-    const searchWords = removeVietnameseTones(searchQuery.trim()).toLowerCase().split(/\s+/);
-    if (searchWords.length > 0) {
-      whereClauses.push(where("searchKeywords", "array-contains", searchWords[0]));
-    }
-  }
+  const searchPlan = searchQuery?.trim()
+    ? planApartmentTextSearch(searchQuery)
+    : null;
 
   let isFilteringPrice = false;
   if (priceRange && priceRange !== "all") {
@@ -143,43 +179,292 @@ export async function getApartments(
     }
   }
 
-  if (whereClauses.length > 0) {
-    baseQuery = query(baseQuery, ...whereClauses);
-  }
+  const applySort = (inputQuery: Query, reversed = false) => {
+    const dir = (value: "asc" | "desc"): "asc" | "desc" =>
+      reversed ? (value === "asc" ? "desc" : "asc") : value;
 
-  const countSnapshot = await getCountFromServer(baseQuery);
-  const totalResults = countSnapshot.data().count;
+    if (isFilteringPrice) {
+      return query(
+        inputQuery,
+        orderBy("price", dir(sortBy === "price-desc" ? "desc" : "asc")),
+      );
+    }
+    if (sortBy === "price-asc") return query(inputQuery, orderBy("price", dir("asc")));
+    if (sortBy === "price-desc") return query(inputQuery, orderBy("price", dir("desc")));
+    // "Mới nhất" / đẩy top: rank theo createdAt. Push ghi createdAt + updatedAt = now.
+    // Không orderBy updatedAt — sửa tin cũng cập nhật updatedAt, sẽ đẩy nhầm lên đầu.
+    return query(inputQuery, orderBy("createdAt", dir("desc")));
+  };
 
-  if (totalResults === 0) {
-    return { apartments: [], totalResults: 0 };
-  }
+  const buildSortedQuery = (searchValue?: string, reversed = false) => {
+    const clauses = [...whereClauses];
+    if (searchValue) {
+      clauses.push(where("searchKeywords", "array-contains", searchValue));
+    }
+    const filteredQuery =
+      clauses.length > 0 ? query(apartmentsCollection, ...clauses) : apartmentsCollection;
+    return applySort(filteredQuery, reversed);
+  };
 
-  if (isFilteringPrice) {
-    baseQuery = query(baseQuery, orderBy("price", sortBy === "price-desc" ? "desc" : "asc"));
-  } else {
-    if (sortBy === 'price-asc') {
-      baseQuery = query(baseQuery, orderBy("price", "asc"));
-    } else if (sortBy === 'price-desc') {
-      baseQuery = query(baseQuery, orderBy("price", "desc"));
+  const paginateSlice = (
+    matched: Apartment[],
+    totalResults: number,
+  ): {
+    apartments: Apartment[];
+    totalResults: number;
+    nextCursor: string | null;
+  } => {
+    if (totalResults === 0) {
+      return { apartments: [], totalResults: 0, nextCursor: null };
+    }
+    const maxPage = Math.max(1, Math.ceil(totalResults / pageSize));
+    const safePage = Math.min(Math.max(1, page), maxPage);
+    let paginatedApartments: Apartment[] = [];
+    if (cursor) {
+      const cursorIndex = matched.findIndex((apt) => apt.id === cursor);
+      const start = cursorIndex >= 0 ? cursorIndex + 1 : 0;
+      paginatedApartments = matched.slice(start, start + pageSize);
+    } else if (before) {
+      const beforeIndex = matched.findIndex((apt) => apt.id === before);
+      const end = beforeIndex >= 0 ? beforeIndex : matched.length;
+      const start = Math.max(0, end - pageSize);
+      paginatedApartments = matched.slice(start, end);
     } else {
-      baseQuery = query(baseQuery, orderBy("createdAt", "desc"));
+      const startIndex = (safePage - 1) * pageSize;
+      paginatedApartments = matched.slice(startIndex, startIndex + pageSize);
+    }
+    const lastApartment = paginatedApartments[paginatedApartments.length - 1];
+    return {
+      apartments: paginatedApartments,
+      totalResults,
+      nextCursor: lastApartment?.id ?? null,
+    };
+  };
+
+  const searchValues = searchPlan?.firestoreValues ?? [];
+  const needsCandidateScan =
+    !!searchPlan && (searchPlan.tokens.length > 1 || searchValues.length > 1);
+
+  if (needsCandidateScan && searchPlan) {
+    const SEARCH_CANDIDATE_CAP = 500;
+    try {
+      const snapshots = await Promise.all(
+        searchValues.map((value) =>
+          getDocs(query(buildSortedQuery(value), limit(SEARCH_CANDIDATE_CAP))),
+        ),
+      );
+      const byId = new Map<string, Apartment>();
+      for (const snapshot of snapshots) {
+        for (const docSnap of snapshot.docs) {
+          if (!byId.has(docSnap.id)) {
+            byId.set(docSnap.id, toApartment(docSnap));
+          }
+        }
+      }
+      const matched = [...byId.values()]
+        .filter((apt) => matchesAllSearchTokens(apt, searchPlan.tokens))
+        .sort(
+          (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0),
+        );
+      return paginateSlice(matched, matched.length);
+    } catch (error) {
+      console.error("Conjunctive apartment search failed:", error);
+      return { apartments: [], totalResults: 0, nextCursor: null };
     }
   }
 
-  const fetchLimit = page * pageSize;
-  baseQuery = query(baseQuery, limit(fetchLimit));
+  const baseQuery = buildSortedQuery(searchPlan?.firestoreValue);
+  let totalResults = skipCount ? (totalHint ?? 0) : 0;
+  const isSimpleFirstPage = !cursor && !before && page <= 1;
 
-  const querySnapshot = await getDocs(baseQuery);
-  const allFetchedApartments = querySnapshot.docs.map(toApartment);
+  // Trang 1: chạy count + docs song song để bớt 1 round-trip Firestore.
+  if (isSimpleFirstPage) {
+    const listingQuery = query(baseQuery, limit(pageSize));
+    const [countSnapshot, firstPageSnapshot] = await Promise.all([
+      skipCount ? Promise.resolve(null) : getCountFromServer(baseQuery),
+      getDocs(listingQuery),
+    ]);
+    if (!skipCount && countSnapshot) {
+      totalResults = countSnapshot.data().count;
+    }
+    let firstPageApartments = firstPageSnapshot.docs.map(toApartment);
+    if (searchPlan) {
+      firstPageApartments = firstPageApartments.filter((apt) =>
+        matchesAllSearchTokens(apt, searchPlan.tokens),
+      );
+    }
+    const lastOnPage = firstPageApartments[firstPageApartments.length - 1];
+    return {
+      apartments: firstPageApartments,
+      totalResults,
+      nextCursor: lastOnPage?.id ?? null,
+    };
+  }
 
-  const startIndex = (page - 1) * pageSize;
-  const paginatedApartments = allFetchedApartments.slice(startIndex, startIndex + pageSize);
+  if (!skipCount) {
+    const countSnapshot = await getCountFromServer(baseQuery);
+    totalResults = countSnapshot.data().count;
+  }
+
+  if (!skipCount && totalResults === 0) {
+    return { apartments: [], totalResults: 0, nextCursor: null as string | null };
+  }
+
+  const maxPage = Math.max(1, Math.ceil(totalResults / pageSize));
+  const safePage = Math.min(Math.max(1, page), maxPage);
+  let paginatedApartments: Apartment[] = [];
+
+  if (before) {
+    try {
+      const beforeRef = doc(firestore, "apartments", before);
+      const beforeSnap = await getDoc(beforeRef);
+      if (beforeSnap.exists()) {
+        const prevQuery = query(
+          baseQuery,
+          endBefore(beforeSnap),
+          limitToLast(pageSize),
+        );
+        const prevSnapshot = await getDocs(prevQuery);
+        paginatedApartments = prevSnapshot.docs.map(toApartment);
+      } else {
+        const firstPageSnapshot = await getDocs(query(baseQuery, limit(pageSize)));
+        paginatedApartments = firstPageSnapshot.docs.map(toApartment);
+      }
+    } catch (error) {
+      console.error("Previous-page pagination failed:", error);
+      const firstPageSnapshot = await getDocs(query(baseQuery, limit(pageSize)));
+      paginatedApartments = firstPageSnapshot.docs.map(toApartment);
+    }
+  } else if (cursor) {
+    try {
+      const cursorRef = doc(firestore, "apartments", cursor);
+      const cursorSnap = await getDoc(cursorRef);
+      if (cursorSnap.exists()) {
+        const cursorQuery = query(baseQuery, startAfter(cursorSnap), limit(pageSize));
+        const cursorSnapshot = await getDocs(cursorQuery);
+        paginatedApartments = cursorSnapshot.docs.map(toApartment);
+      } else {
+        const firstPageSnapshot = await getDocs(query(baseQuery, limit(pageSize)));
+        paginatedApartments = firstPageSnapshot.docs.map(toApartment);
+      }
+    } catch (error) {
+      console.error("Cursor pagination failed:", error);
+      const firstPageSnapshot = await getDocs(query(baseQuery, limit(pageSize)));
+      paginatedApartments = firstPageSnapshot.docs.map(toApartment);
+    }
+  } else if (safePage > 1) {
+    const fetchForwardOffset = async () => {
+      const fetchLimit = safePage * pageSize;
+      const offsetSnapshot = await getDocs(query(baseQuery, limit(fetchLimit)));
+      const allFetchedApartments = offsetSnapshot.docs.map(toApartment);
+      const startIndex = (safePage - 1) * pageSize;
+      return allFetchedApartments.slice(startIndex, startIndex + pageSize);
+    };
+
+    const forwardReads = safePage * pageSize;
+    const reverseReads = totalResults - (safePage - 1) * pageSize;
+    const useReverse =
+      totalResults > 0 && reverseReads > 0 && reverseReads < forwardReads;
+
+    if (useReverse) {
+      try {
+        const reverseQuery = query(
+          buildSortedQuery(searchPlan?.firestoreValue, true),
+          limit(reverseReads),
+        );
+        const reverseSnapshot = await getDocs(reverseQuery);
+        paginatedApartments = reverseSnapshot.docs
+          .map(toApartment)
+          .reverse()
+          .slice(0, pageSize);
+      } catch (error) {
+        console.error("Reverse pagination failed, using forward offset:", error);
+        paginatedApartments = await fetchForwardOffset();
+      }
+    } else {
+      paginatedApartments = await fetchForwardOffset();
+    }
+  } else {
+    const firstPageSnapshot = await getDocs(query(baseQuery, limit(pageSize)));
+    paginatedApartments = firstPageSnapshot.docs.map(toApartment);
+  }
+
+  if (searchPlan) {
+    paginatedApartments = paginatedApartments.filter((apt) =>
+      matchesAllSearchTokens(apt, searchPlan.tokens),
+    );
+  }
+
+  const lastApartment = paginatedApartments[paginatedApartments.length - 1];
 
   return {
     apartments: paginatedApartments,
     totalResults,
+    nextCursor: lastApartment?.id ?? null,
   };
 }
+
+/** Count-only query — avoids fetching apartment docs for district stats. */
+export async function getPublishedCountByDistrict(
+  district: string,
+): Promise<number> {
+  const countQuery = query(
+    apartmentsCollection,
+    where("submissionStatus", "==", "published"),
+    where("district", "==", district),
+  );
+  const snapshot = await getCountFromServer(countQuery);
+  return snapshot.data().count;
+}
+
+type HomeApartmentsPage = {
+  apartments: Apartment[];
+  totalResults: number;
+  nextCursor: string | null;
+};
+
+export const getCachedHomeApartments = unstable_cache(
+  async () => {
+    const result = await getApartments({
+      page: 1,
+      limit: 12,
+      sortBy: "newest",
+    });
+    return JSON.parse(JSON.stringify(result)) as HomeApartmentsPage;
+  },
+  ["home-apartments-v2"],
+  { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
+);
+
+/** Cache từng trang chủ (lọc mặc định). Giữ đến khi push/sửa/xóa tin. */
+export const getCachedHomeApartmentsPage = unstable_cache(
+  async (page: number, pageSize: number, totalHint: number) => {
+    const result = await getApartments({
+      page,
+      limit: pageSize,
+      sortBy: "newest",
+      skipCount: true,
+      totalHint,
+    });
+    return JSON.parse(JSON.stringify(result)) as HomeApartmentsPage;
+  },
+  ["home-apartments-page-v2"],
+  { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
+);
+
+export const getCachedFeaturedDistrictStats = unstable_cache(
+  async () => {
+    const stats = await Promise.all(
+      FEATURED_DISTRICTS.map(async (name) => ({
+        name,
+        count: await getPublishedCountByDistrict(name),
+      })),
+    );
+    return stats;
+  },
+  ["featured-district-stats-v2"],
+  { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
+);
 
 export async function getApartmentById(id: string): Promise<Apartment | null> {
   if (!id || typeof id !== 'string') return null;
@@ -212,27 +497,63 @@ export async function deleteApartment(id: string): Promise<void> {
 }
 
 export async function addFavorite(userId: string, apartmentId: string) {
-  const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
-  return await setDoc(favoriteRef, { addedAt: Timestamp.now() });
+  try {
+    const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
+    const userRef = doc(firestore, "users", userId);
+    await setDoc(favoriteRef, { addedAt: Timestamp.now() });
+    await setDoc(userRef, { favorites: arrayUnion(apartmentId) }, { merge: true });
+  } catch (error) {
+    console.error("addFavorite:", error);
+    throw error;
+  }
 }
 
 export async function removeFavorite(userId: string, apartmentId: string) {
-  const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
-  return await deleteDoc(favoriteRef);
+  try {
+    const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
+    const userRef = doc(firestore, "users", userId);
+    await deleteDoc(favoriteRef);
+    await setDoc(userRef, { favorites: arrayRemove(apartmentId) }, { merge: true });
+  } catch (error) {
+    console.error("removeFavorite:", error);
+    throw error;
+  }
 }
 
 export async function isApartmentFavorited(userId: string, apartmentId: string): Promise<boolean> {
-  const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
-  const docSnap = await getDoc(favoriteRef);
-  return docSnap.exists();
+  try {
+    const favoriteRef = doc(usersCollection, userId, "favorites", apartmentId);
+    const docSnap = await getDoc(favoriteRef);
+    if (docSnap.exists()) return true;
+    const userSnap = await getDoc(doc(firestore, "users", userId));
+    return normalizeFavoriteIds(userSnap.data()?.favorites).includes(apartmentId);
+  } catch (error) {
+    console.error("isApartmentFavorited:", error);
+    return false;
+  }
 }
 
 export async function getFavoriteApartments(userId: string): Promise<Favorite[]> {
   if (!userId) return [];
-  const favoritesCol = collection(usersCollection, userId, "favorites");
-  const q = query(favoritesCol, orderBy("addedAt", "desc"));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(toFavorite);
+  try {
+    const favoritesCol = collection(usersCollection, userId, "favorites");
+    const q = query(favoritesCol, orderBy("addedAt", "desc"));
+    const snapshot = await getDocs(q);
+    const fromSub = snapshot.docs.map(toFavorite);
+    const userSnap = await getDoc(doc(firestore, "users", userId));
+    const mergedIds = mergeFavoriteIds(
+      userSnap.data()?.favorites,
+      fromSub.map((fav) => fav.id),
+    );
+    const addedAtById = new Map(fromSub.map((fav) => [fav.id, fav.addedAt]));
+    return mergedIds.map((id) => ({
+      id,
+      addedAt: addedAtById.get(id) ?? { seconds: 0, nanoseconds: 0 },
+    }));
+  } catch (error) {
+    console.error("getFavoriteApartments:", error);
+    return [];
+  }
 }
 
 export async function getFullFavoriteApartments(userId: string): Promise<Apartment[]> {
@@ -271,19 +592,23 @@ export async function getRelatedApartments(currentApartment: Apartment): Promise
   if (!currentApartment || !currentApartment.district) return [];
 
   try {
+    // Query public phải ràng buộc submissionStatus == published.
+    // Nếu không, rules list từ chối cả query (trong quận còn tin pending).
     const q = query(
       apartmentsCollection,
+      where("submissionStatus", "==", "published"),
       where("district", "==", currentApartment.district),
-      limit(30)
+      limit(24),
     );
 
     const snapshot = await getDocs(q);
     const fetched: Apartment[] = [];
 
     snapshot.forEach((docSnap) => {
-      if (docSnap.id !== currentApartment.id) {
-        fetched.push(toApartment(docSnap));
-      }
+      if (docSnap.id === currentApartment.id) return;
+      const apt = toApartment(docSnap);
+      if (apt.submissionStatus && apt.submissionStatus !== "published") return;
+      fetched.push(apt);
     });
 
     const currentPrice = currentApartment.price;

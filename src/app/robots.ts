@@ -1,31 +1,50 @@
-import { MetadataRoute } from 'next'
+import { MetadataRoute } from "next";
+import { SITE, SITE_PATHS } from "@/lib/site";
 
 export default function robots(): MetadataRoute.Robots {
-  // Fallback nên là domain thật, KHÔNG dùng localhost
-  // để tránh sitemap trỏ sai nếu thiếu env var lúc deploy production
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://hanoiresidence.site' || 'http://localhost:9002';
+  const disallowRoutes = [
+    "/api/",
+    "/ctv-register",
+    "/admin/",
+    "/login",
+    "/signup",
+    "/forgot-password",
+    "/reset-password",
+    "/profile",
+    "/favorites",
+  ];
+
+  const aiUserAgents = [
+    "GPTBot",
+    "ChatGPT-User",
+    "OAI-SearchBot",
+    "PerplexityBot",
+    "ClaudeBot",
+    "anthropic-ai",
+    "Claude-SearchBot",
+    "Google-Extended",
+    "GoogleOther",
+    "Applebot-Extended",
+    "Amazonbot",
+    "CCBot",
+    "meta-externalagent",
+    "Bytespider",
+  ];
 
   return {
     rules: [
       {
-        // Áp dụng cho tất cả bot thông thường (Googlebot, Bingbot, ...)
-        userAgent: '*',
-        allow: '/',
-        disallow: [
-          '/api/',          // API routes - không cần index
-          '/ctv-register',  // Trang đăng ký CTV - không phải nội dung khách hàng tìm kiếm
-          '/admin',         // Nếu có khu vực quản trị/dashboard nội bộ
-        ],
+        userAgent: "*",
+        allow: ["/", SITE_PATHS.llms],
+        disallow: disallowRoutes,
       },
       {
-        // Khai báo tường minh cho các bot AI (ChatGPT, Perplexity, Claude...)
-        // để chủ động kiểm soát việc AI đọc & trích dẫn nội dung site
-        userAgent: ['GPTBot', 'ChatGPT-User', 'PerplexityBot', 'ClaudeBot', 'CCBot'],
-        allow: '/',
-        disallow: ['/api/', '/ctv-register', '/admin'],
+        userAgent: aiUserAgents,
+        allow: ["/", SITE_PATHS.llms],
+        disallow: disallowRoutes,
       },
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
-    host: baseUrl,
-  }
+    sitemap: `${SITE.url}/sitemap.xml`,
+    host: SITE.url,
+  };
 }

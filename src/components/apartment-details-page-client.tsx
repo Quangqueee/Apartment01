@@ -13,15 +13,11 @@ import {
   Hash,
   Share,
   Check,
-  Facebook,
   Link as LinkIcon,
-  Phone,
-  MessageCircle,
   Clock,
   Sparkles,
-  ChevronDown,
-  ChevronUp,
   Star,
+  Phone,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
@@ -35,44 +31,37 @@ import { Button } from "@/components/ui/button";
 import { Apartment } from "@/lib/types";
 import ClientFormattedDate from "@/components/client-formatted-date";
 import { useAuth } from "@/context/auth-context";
-import { useState, useEffect, useRef } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { getDisplaySourceCode } from "@/lib/source-code";
 import Link from "next/link";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
-import Image from "next/image";
-import ImageLightbox from "@/components/image-lightbox";
-import {
-  Carousel,
-  CarouselApi,
-  CarouselContent,
-  CarouselItem,
-} from "@/components/ui/carousel";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Montserrat, Be_Vietnam_Pro } from "next/font/google";
-import { db } from "@/firebase";
-import { arrayUnion, arrayRemove, setDoc, doc } from "firebase/firestore";
+import { setApartmentFavorite } from "@/lib/favorites-client";
 import ApartmentCard from "@/components/apartment-card";
+import ApartmentImageGallery from "@/components/apartment-image-gallery";
+import {
+  copyFromElement,
+  copyOrShareText,
+  copyTextNow,
+  ensureCopyField,
+  getPageShareUrl,
+  openMessengerWithLink,
+  openZaloWithLink,
+  prefersNativeShare,
+  shareViaSystem,
+  shouldUseSystemShare,
+  type SharePayload,
+} from "@/lib/web-share";
 
-const titleFont = Be_Vietnam_Pro({
-  subsets: ["vietnamese"],
-  weight: ["700"],
-  display: "swap",
-});
-
-const montserrat = Montserrat({
-  subsets: ["vietnamese"],
-  weight: ["700"],
-  display: "swap",
-});
 const MessengerSvgIcon = ({ className }: { className?: string }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -99,6 +88,7 @@ const MessengerSvgIcon = ({ className }: { className?: string }) => (
     />
   </svg>
 );
+
 const ZaloSvgIcon = ({ className }: { className?: string }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -140,55 +130,102 @@ const getRoomTypeLabel = (value: string) => {
 function ShareModal({
   isOpen,
   onClose,
-  title,
+  payload,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  payload: SharePayload;
 }) {
   const [copied, setCopied] = useState(false);
+  const copyFieldRef = useRef<HTMLTextAreaElement>(null);
+  const actionLockRef = useRef(false);
   const { toast } = useToast();
 
-  const handleCopyLink = () => {
-    if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      toast({
-        title: "Đã sao chép liên kết!",
-        className: "bg-black text-white border-none",
-      });
-      setTimeout(() => setCopied(false), 2000);
+  const runShareAction = (action: () => void) => {
+    if (actionLockRef.current) return;
+    actionLockRef.current = true;
+    action();
+    window.setTimeout(() => {
+      actionLockRef.current = false;
+    }, 700);
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      setCopied(false);
+      return;
     }
+    ensureCopyField();
+  }, [isOpen]);
+
+  const shareUrl = () => payload.url || getPageShareUrl();
+
+  const copyLinkNow = (url: string) =>
+    copyFromElement(copyFieldRef.current, url) || copyTextNow(url);
+
+  const handleCopyLink = () => {
+    runShareAction(() => {
+      void (async () => {
+        const url = shareUrl();
+        const result = await copyOrShareText(url, {
+          title: payload.title,
+          url,
+        });
+
+        if (result === "copied") {
+          setCopied(true);
+          toast({
+            title: "Đã sao chép liên kết!",
+            className: "bg-black text-white border-none",
+          });
+          setTimeout(() => setCopied(false), 2000);
+          return;
+        }
+
+        if (result === "shared" || result === "cancelled") {
+          onClose();
+          return;
+        }
+
+        toast({
+          variant: "destructive",
+          title: "Không sao chép được",
+          description: "Hãy chọn Zalo hoặc Messenger trong danh sách chia sẻ.",
+        });
+      })();
+    });
   };
 
   const handleMessengerShare = () => {
-    handleCopyLink();
-
-    if (typeof window !== "undefined") {
-      const url = encodeURIComponent(window.location.href);
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-      if (isMobile) {
-        window.open(`fb-messenger://share/?link=${url}`, "_blank");
-      } else {
-        window.open(`https://www.messenger.com/`, "_blank");
+    runShareAction(() => {
+      const url = shareUrl();
+      copyLinkNow(url);
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        void navigator.clipboard.writeText(url);
       }
-    }
+      openMessengerWithLink(url);
 
-    toast({
-      title: "Đã sao chép link!",
-      description: "Đang mở Messenger để bạn dán gửi bạn bè.",
-      className: "bg-purple-50 text-purple-900 border-purple-200",
+      toast({
+        title: "Đã sao chép link!",
+        description: "Đang mở Messenger để bạn dán gửi bạn bè.",
+        className: "bg-purple-50 text-purple-900 border-purple-200",
+      });
     });
   };
 
   const handleZaloShare = () => {
-    handleCopyLink();
-    window.open(`https://chat.zalo.me/`, "_blank");
-    toast({
-      title: "Đã sao chép link!",
-      description: "Đang mở Zalo web để bạn dán link.",
-      className: "bg-blue-50 text-blue-900 border-blue-100",
+    runShareAction(() => {
+      const url = shareUrl();
+      if (!prefersNativeShare()) {
+        copyLinkNow(url);
+      }
+      openZaloWithLink(url);
+
+      toast({
+        title: "Đang mở Zalo",
+        description: "Nếu không tự điền, dán link từ Chia sẻ → Copy.",
+        className: "bg-blue-50 text-blue-900 border-blue-100",
+      });
     });
   };
 
@@ -196,18 +233,18 @@ function ShareModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={cn(
-          "p-0 border-none shadow-2xl z-[100] gap-0 bg-white flex flex-col [&>button.absolute]:hidden",
-          // --- XỬ LÝ DESKTOP ---
+          // 🚀 FIX LỖI GÓC CẠNH: Thêm overflow-hidden để ép toàn bộ nội dung con không bị tràn ra ngoài khung bo góc tròn
+          "p-0 border-none shadow-2xl z-[100] gap-0 bg-white flex flex-col overflow-hidden [&>button.absolute]:hidden",
+
+          // Đảm bảo cả hai chế độ màn hình đều được bo tròn toàn bộ 4 góc hoặc khớp chuẩn Bottom Sheet di động
           "sm:max-w-[400px] sm:rounded-[2rem]",
-          // --- XỬ LÝ MOBILE (Dạng kéo từ dưới lên) ---
-          "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:translate-x-0 max-sm:translate-y-0",
-          "max-sm:w-full max-sm:rounded-t-[2rem] max-sm:rounded-b-none",
+          "dialog-sheet-mobile max-sm:w-full max-sm:rounded-t-[2rem] max-sm:rounded-b-none max-sm:pb-[var(--safe-bottom)]",
           "max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out",
           "max-sm:data-[state=open]:slide-in-from-bottom-full max-sm:data-[state=closed]:slide-out-to-bottom-full",
           "max-sm:duration-300 max-sm:ease-out",
         )}
       >
-        <DialogHeader className="px-6 py-5 border-b border-gray-100 flex flex-row items-center justify-between sticky top-0 bg-white z-10 shrink-0 text-left rounded-t-[2rem]">
+        <DialogHeader className="px-6 py-5 border-b border-gray-100 flex flex-row items-center justify-between sticky top-0 bg-white z-10 shrink-0 text-left">
           <DialogTitle className="font-headline text-[18px] font-bold text-gray-900 m-0 !mt-0 leading-none">
             Chia sẻ căn hộ này
           </DialogTitle>
@@ -219,9 +256,20 @@ function ShareModal({
           </button>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3 p-5 bg-gray-50/50">
-          {/* Nút Copy Link */}
+        {/* 🚀 FIX LỖI NỀN XÁM ĐÁY: Bo tròn nhẹ phần đáy hoặc đồng bộ màu nền container */}
+        <div className="relative flex flex-col gap-3 p-5 bg-white rounded-b-[2rem]">
+          <textarea
+            ref={copyFieldRef}
+            aria-hidden="true"
+            tabIndex={-1}
+            readOnly
+            inputMode="none"
+            autoComplete="off"
+            className="pointer-events-none absolute left-0 top-0 h-px w-px caret-transparent opacity-[0.01]"
+            style={{ fontSize: 16 }}
+          />
           <button
+            type="button"
             onClick={handleCopyLink}
             aria-label="Sao chép liên kết căn hộ"
             className="flex items-center gap-4 p-3.5 rounded-[1.25rem] bg-white border border-gray-100 shadow-[0_2px_15px_rgba(0,0,0,0.03)] hover:border-gray-300 transition-all group"
@@ -238,7 +286,7 @@ function ShareModal({
                 <LinkIcon className="h-5 w-5" />
               )}
             </div>
-            <div className="text-left">
+            <div className="text-left min-w-0">
               <p className="font-bold text-gray-900 text-[15px] mb-0.5">
                 Sao chép liên kết
               </p>
@@ -248,8 +296,8 @@ function ShareModal({
             </div>
           </button>
 
-          {/* Nút Messenger */}
           <button
+            type="button"
             onClick={handleMessengerShare}
             aria-label="Chia sẻ qua Facebook Messenger"
             className="flex items-center gap-4 p-3.5 rounded-[1.25rem] bg-white border border-purple-100 shadow-[0_2px_15px_rgba(160,51,255,0.06)] hover:border-purple-300 transition-all"
@@ -267,8 +315,8 @@ function ShareModal({
             </div>
           </button>
 
-          {/* Nút Zalo */}
           <button
+            type="button"
             onClick={handleZaloShare}
             aria-label="Chia sẻ qua Zalo"
             className="flex items-center gap-4 p-3.5 rounded-[1.25rem] bg-white border border-[#0068FF]/20 shadow-[0_2px_15px_rgba(0,104,255,0.05)] hover:border-[#0068FF]/40 transition-all"
@@ -281,7 +329,7 @@ function ShareModal({
                 Zalo
               </p>
               <p className="text-[13px] text-[#0068FF]/70 leading-snug">
-                Sao chép & Mở Zalo web
+                Sao chép & mở Zalo
               </p>
             </div>
           </button>
@@ -322,14 +370,35 @@ function FeatureRow({
   desc: React.ReactNode;
 }) {
   return (
-    <div className="flex gap-5 items-start">
-      <div className="p-3 rounded-xl bg-primary/5 text-primary">
-        <Icon className="h-6 w-6" />
+    <div className="flex gap-3 md:gap-5 items-start">
+      <div className="shrink-0 size-7 md:size-auto md:p-3 md:rounded-xl md:bg-primary/5 md:text-primary">
+        <Icon className="h-7 w-7 md:h-6 md:w-6 text-[#222222] md:text-primary" />
       </div>
-      <div>
-        <h4 className="font-bold text-gray-900 text-base mb-1">{title}</h4>
-        <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
+      <div className="min-w-0">
+        <h4 className="font-semibold md:font-bold text-[#222222] text-[15px] md:text-base mb-0 md:mb-1 leading-5">
+          {title}
+        </h4>
+        <p className="text-[#757575] md:text-gray-500 text-[13px] md:text-sm leading-5 md:leading-relaxed">
+          {desc}
+        </p>
       </div>
+    </div>
+  );
+}
+
+function HighlightCard({
+  icon: Icon,
+  label,
+}: {
+  icon: any;
+  label: string;
+}) {
+  return (
+    <div className="flex-1 min-w-0 self-stretch flex flex-col justify-between gap-2 border border-[#e2e2e2] rounded-2xl p-3">
+      <Icon className="h-7 w-7 text-[#222222] shrink-0" />
+      <p className="font-semibold text-[12px] leading-4 tracking-[0.04px] text-[#222222] break-words">
+        {label}
+      </p>
     </div>
   );
 }
@@ -367,10 +436,10 @@ function RelatedApartments({ related }: { related: Apartment[] }) {
   if (related.length === 0) return null;
 
   return (
-    <div className="py-12 md:py-16">
+    <div className="py-8 md:py-16">
       <div className="container mx-auto px-4 md:px-6">
         <div className="rounded-[2.5rem] bg-gray-50/65 p-6 md:p-10 border border-gray-100/80 shadow-sm relative">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4 md:mb-8">
             <h3 className="font-headline text-2xl md:text-3xl font-bold text-gray-900">
               Có thể bạn cũng thích
             </h3>
@@ -399,7 +468,7 @@ function RelatedApartments({ related }: { related: Apartment[] }) {
               </Link>
             </div>
           </div>
-          <div className="md:hidden text-center text-xs font-medium text-gray-400 flex items-center justify-center gap-3 mb-6">
+          <div className="md:hidden text-center text-xs font-medium text-gray-400 flex items-center justify-center gap-3 mb-3">
             <span className="opacity-60 text-base">←</span>
             <span>Vuốt ngang để xem thêm</span>
             <span className="opacity-60 text-base">→</span>
@@ -407,7 +476,7 @@ function RelatedApartments({ related }: { related: Apartment[] }) {
           <div
             ref={scrollRef}
             onScroll={checkScroll}
-            className="flex gap-6 overflow-x-auto snap-x snap-mandatory py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full scroll-smooth"
+            className="flex w-full gap-6 overflow-x-auto snap-x snap-mandatory py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x_pan-y]"
           >
             {related.map((apt) => (
               <div
@@ -424,24 +493,6 @@ function RelatedApartments({ related }: { related: Apartment[] }) {
   );
 }
 
-function ApartmentDetailsSkeleton() {
-  return (
-    <div className="container mx-auto px-4 py-8 animate-pulse">
-      <Skeleton className="w-full aspect-[16/9] md:aspect-[21/9] rounded-[1.5rem] mb-8" />
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-        <div className="lg:col-span-8 space-y-6">
-          <Skeleton className="h-10 w-3/4" />
-          <Skeleton className="h-16 w-1/3" />
-          <Skeleton className="h-32 w-full" />
-        </div>
-        <div className="lg:col-span-4">
-          <Skeleton className="h-64 w-full rounded-2xl" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function ApartmentDetailsPageClient({
   initialApartment,
   initialRelated,
@@ -449,7 +500,7 @@ export default function ApartmentDetailsPageClient({
   initialApartment: Apartment;
   initialRelated: Apartment[];
 }) {
-  const { user, userData, loading: authLoading } = useAuth();
+  const { user, userData, favoriteIds, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -458,25 +509,47 @@ export default function ApartmentDetailsPageClient({
 
   const [isFavorited, setIsFavorited] = useState(false);
   const [isFavLoading, setIsFavLoading] = useState(false);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
+
   const [shareOpen, setShareOpen] = useState(false);
-  const [mobileIndex, setMobileIndex] = useState(0);
-  const [mobileCarouselApi, setMobileCarouselApi] = useState<CarouselApi>();
+  const [isGalleryLightboxOpen, setIsGalleryLightboxOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-
-  // STATE CHO MODAL THÔNG TIN KIỂU AIRBNB
   const [isDescModalOpen, setIsDescModalOpen] = useState(false);
+  const descRef = useRef<HTMLDivElement>(null);
+  const infoCopyRef = useRef<HTMLTextAreaElement>(null);
+  const infoCopyLockRef = useRef(false);
+  const [descOverflows, setDescOverflows] = useState(false);
 
-  const isMobileSwipeRef = useRef(false);
-  const touchStartXRef = useRef(0);
-  const touchStartYRef = useRef(0);
+  useEffect(() => {
+    ensureCopyField();
+  }, []);
 
-  // KIỂM TRA QUYỀN TRUY CẬP
+  const sharePayload: SharePayload = {
+    title: apartment.title,
+    text: `${apartment.title} — ${formatPrice(apartment.price)}`,
+    url: "",
+  };
+
+  const handleOpenShare = async () => {
+    const payload: SharePayload = {
+      ...sharePayload,
+      url: getPageShareUrl(),
+    };
+
+    if (shouldUseSystemShare()) {
+      const result = await shareViaSystem(payload);
+      if (result === "shared" || result === "cancelled") return;
+    }
+
+    setShareOpen(true);
+  };
+
   const isAdmin = userData?.role === "admin";
   const isCollaborator = userData?.role === "collaborator" || isAdmin;
+  const displaySourceCode = getDisplaySourceCode(
+    apartment.sourceCode,
+    userData?.role,
+  );
 
-  // Thêm hàm xử lý tải ảnh (Giữ nguyên 100% logic toast từ lightbox)
   const handleDownloadImages = async () => {
     const images = apartment.imageUrls;
     const apartmentCode = apartment.sourceCode;
@@ -689,6 +762,7 @@ export default function ApartmentDetailsPageClient({
       setIsDownloading(false);
     }
   };
+
   const formatCommission = (commissionValue: Apartment["commission"]) => {
     if (
       commissionValue === undefined ||
@@ -706,22 +780,42 @@ export default function ApartmentDetailsPageClient({
       setIsFavorited(false);
       return;
     }
-    const currentFavorites = userData?.favorites ?? [];
-    setIsFavorited(currentFavorites.includes(apartmentId));
-  }, [user, userData?.favorites, apartmentId]);
+    setIsFavorited(favoriteIds.includes(apartmentId));
+  }, [user, favoriteIds, apartmentId]);
 
-  useEffect(() => {
-    if (!mobileCarouselApi) return;
-    const syncMobileIndex = () =>
-      setMobileIndex(mobileCarouselApi.selectedScrollSnap());
-    syncMobileIndex();
-    mobileCarouselApi.on("select", syncMobileIndex);
-    mobileCarouselApi.on("reInit", syncMobileIndex);
-    return () => {
-      mobileCarouselApi.off("select", syncMobileIndex);
-      mobileCarouselApi.off("reInit", syncMobileIndex);
+  useLayoutEffect(() => {
+    if (authLoading || isCollaborator) {
+      setDescOverflows(false);
+      return;
+    }
+
+    const el = descRef.current;
+    if (!el) return;
+
+    const checkOverflow = () => {
+      const node = descRef.current;
+      if (!node) return;
+      const inner = node.firstElementChild as HTMLElement | null;
+      const clampedOverflow = node.scrollHeight > node.clientHeight + 1;
+      const innerOverflow = inner
+        ? inner.scrollHeight > node.clientHeight + 1
+        : false;
+      setDescOverflows(clampedOverflow || innerOverflow);
     };
-  }, [mobileCarouselApi]);
+
+    checkOverflow();
+    const observer = new ResizeObserver(checkOverflow);
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    return () => observer.disconnect();
+  }, [
+    authLoading,
+    isCollaborator,
+    apartmentId,
+    apartment.details,
+    apartment.aiContent?.description,
+    apartment.aiContent?.highlights,
+  ]);
 
   const handleFavoriteToggle = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -735,15 +829,7 @@ export default function ApartmentDetailsPageClient({
     }
     setIsFavLoading(true);
     const nextIsFavorited = !isFavorited;
-    setDoc(
-      doc(db, "users", user.uid),
-      {
-        favorites: nextIsFavorited
-          ? arrayUnion(apartmentId)
-          : arrayRemove(apartmentId),
-      },
-      { merge: true },
-    )
+    setApartmentFavorite(user, apartmentId, nextIsFavorited)
       .then(() => {
         setIsFavorited(nextIsFavorited);
         toast({
@@ -763,90 +849,63 @@ export default function ApartmentDetailsPageClient({
       .finally(() => setIsFavLoading(false));
   };
 
-  const openLightbox = (index: number) => {
-    setLightboxIndex(index);
-    setLightboxOpen(true);
-  };
-
-  const handleMobileTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    const firstTouch = event.touches[0];
-    touchStartXRef.current = firstTouch.clientX;
-    touchStartYRef.current = firstTouch.clientY;
-    isMobileSwipeRef.current = false;
-  };
-
-  const handleMobileTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (!event.touches.length) return;
-    const firstTouch = event.touches[0];
-    const deltaX = Math.abs(firstTouch.clientX - touchStartXRef.current);
-    const deltaY = Math.abs(firstTouch.clientY - touchStartYRef.current);
-    if (deltaX > 8 || deltaY > 8) isMobileSwipeRef.current = true;
-  };
-
-  const handleMobileImageClick = (index: number) => {
-    if (isMobileSwipeRef.current) {
-      isMobileSwipeRef.current = false;
-      return;
-    }
-    openLightbox(index);
-  };
-
-  // NÚT COPY THÔNG TIN DÀNH CHO CTV (Đã tách riêng Admin & CTV)
   const handleCopyInternalInfo = async () => {
+    if (infoCopyLockRef.current) return;
+    infoCopyLockRef.current = true;
+    window.setTimeout(() => {
+      infoCopyLockRef.current = false;
+    }, 700);
+
     let copyText = "";
 
     if (isAdmin) {
-      // Admin được copy full info
-      copyText = `📍 Mã căn: ${apartment.sourceCode}\n`;
+      copyText = `📍 Mã căn: ${displaySourceCode}\n`;
       copyText += `💰 Giá: ${formatPrice(apartment.price)}/tháng\n`;
       copyText += `🤝 Hoa hồng: ${formatCommission(apartment.commission)}\n`;
       copyText += `📞 SĐT Chủ nhà: ${apartment.landlordPhoneNumber || "Chưa có"}\n`;
       copyText += `\n--- THÔNG TIN CHUNG ---\n${apartment.details || "Chưa có thông tin chi tiết."}`;
     } else {
-      // CTV chỉ được copy nội dung trong Prompt thông tin thô
-      copyText = `📍 Mã căn: ${apartment.sourceCode}\n`;
+      copyText = `📍 Mã căn: ${displaySourceCode}\n`;
       copyText += `\n--- THÔNG TIN CHUNG ---\n${apartment.details || "Chưa có thông tin chi tiết."}`;
     }
 
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(copyText);
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = copyText;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand("copy");
-        textArea.remove();
-      }
+    if (
+      !prefersNativeShare() &&
+      (copyFromElement(infoCopyRef.current, copyText) || copyTextNow(copyText))
+    ) {
       toast({
         title: "Đã copy thông tin!",
         className: "bg-white text-green-900 border-none",
       });
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Lỗi sao chép",
-        description: "Trình duyệt của bạn không hỗ trợ tính năng này.",
-      });
+      return;
     }
+
+    const result = await copyOrShareText(copyText, {
+      title: `Thông tin ${displaySourceCode}`,
+    });
+
+    if (result === "copied") {
+      toast({
+        title: "Đã copy thông tin!",
+        className: "bg-white text-green-900 border-none",
+      });
+      return;
+    }
+
+    if (result === "shared" || result === "cancelled") return;
+
+    toast({
+      variant: "destructive",
+      title: "Không sao chép được",
+      description: "Hãy chọn Copy trong bảng chia sẻ của iPhone.",
+    });
   };
 
-  if (authLoading) {
-    return (
-      <>
-        <Header />
-        <ApartmentDetailsSkeleton />
-        <Footer />
-      </>
-    );
-  }
-
   const isRented = apartment.status === "rented";
+  const formattedPrice =
+    typeof apartment.price === "number"
+      ? `₫${(apartment.price * 1000000).toLocaleString("vi-VN")}`
+      : formatPrice(apartment.price);
   const displayDate = apartment.updatedAt?.seconds
     ? apartment.updatedAt
     : apartment.createdAt;
@@ -856,7 +915,7 @@ export default function ApartmentDetailsPageClient({
   const daysPassed = Math.floor(
     (Date.now() - dateInMs) / (1000 * 60 * 60 * 24),
   );
-  const isOldListing = daysPassed >= 14;
+  const isOldListing = daysPassed >= 10;
 
   let statusLabel = "";
   let statusTextColor = "";
@@ -925,60 +984,67 @@ export default function ApartmentDetailsPageClient({
     }
   }
 
-  // Helper render B2C Markdown
+  // ✅ Đã bọc ReactMarkdown bằng div và đọc chuẩn aiContent.description
   const renderB2CContent = () => {
-    if (!apartment.aiContent)
-      return apartment.details || "Thông tin đang được cập nhật...";
+    const ai = apartment.aiContent;
+
+    if (!ai || !ai.description) {
+      return (
+        <div className="whitespace-pre-wrap text-[16px] text-gray-700 leading-relaxed">
+          {apartment.details || "Thông tin đang được cập nhật..."}
+        </div>
+      );
+    }
+
     return (
-      <ReactMarkdown>
-        {apartment.aiContent.b2cDescription +
-          (apartment.aiContent.highlights &&
-          apartment.aiContent.highlights.length > 0
-            ? "\n\n**Điểm nổi bật:**\n" +
-              apartment.aiContent.highlights
-                .map((h: string) => `- ${h}`)
-                .join("\n")
-            : "")}
-      </ReactMarkdown>
+      <div className="prose prose-gray max-w-none text-gray-700">
+        <ReactMarkdown>
+          {ai.description +
+            (ai.highlights && ai.highlights.length > 0
+              ? "\n\n**Điểm nổi bật:**\n" +
+                ai.highlights.map((h: string) => `- ${h}`).join("\n")
+              : "")}
+        </ReactMarkdown>
+      </div>
     );
   };
 
   return (
     <>
-      {!lightboxOpen && <Header />}
-      <ImageLightbox
-        images={apartment.imageUrls}
-        selectedIndex={lightboxIndex}
-        isOpen={lightboxOpen}
-        onClose={() => setLightboxOpen(false)}
-        apartmentCode={apartment.sourceCode}
+      {!isGalleryLightboxOpen && <Header />}
+
+      <textarea
+        ref={infoCopyRef}
+        aria-hidden="true"
+        tabIndex={-1}
+        readOnly
+        inputMode="none"
+        autoComplete="off"
+        className="pointer-events-none fixed left-0 top-0 h-px w-px caret-transparent opacity-[0.01]"
+        style={{ fontSize: 16 }}
       />
+
       <ShareModal
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
-        title={apartment.title}
+        payload={sharePayload}
       />
 
-      {/* COMPONENT POPUP NẢY LÊN CHO THÔNG TIN CHI TIẾT */}
       <Dialog open={isDescModalOpen} onOpenChange={setIsDescModalOpen}>
         <DialogContent
           className={cn(
             "p-0 border-none shadow-2xl z-[100] gap-0 bg-white flex flex-col [&>button.absolute]:hidden",
-
-            // --- XỬ LÝ DESKTOP ---
             "sm:max-w-[780px] sm:max-h-[85vh] sm:rounded-2xl overflow-hidden",
-
-            // --- XỬ LÝ MOBILE ---
-            "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:translate-x-0 max-sm:translate-y-0",
-            "max-sm:h-[100dvh] max-sm:w-full max-sm:rounded-none",
-            "max-sm:will-change-transform", // Báo trước cho browser tối ưu layer riêng
+            "dialog-fullscreen-mobile",
             "max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out",
             "max-sm:data-[state=open]:slide-in-from-bottom-full max-sm:data-[state=closed]:slide-out-to-bottom-full",
-            "max-sm:duration-350 max-sm:ease-out", // Thêm easing + nhích thời gian
+            "max-sm:duration-350 max-sm:ease-out",
           )}
         >
-          <DialogHeader className="px-5 py-4 sm:px-6 sm:py-5 border-b border-gray-100 flex flex-row items-center gap-4 sticky top-0 bg-white z-10 shrink-0 text-left">
+          <DialogHeader className="pwa-safe-header px-5 py-4 sm:px-6 sm:py-5 border-b border-gray-100 flex flex-row items-center gap-4 sticky top-0 bg-white z-10 shrink-0 text-left">
             <button
+              type="button"
+              aria-label="Trở về"
               onClick={() => setIsDescModalOpen(false)}
               className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none"
             >
@@ -992,11 +1058,9 @@ export default function ApartmentDetailsPageClient({
             </DialogTitle>
           </DialogHeader>
 
-          {/* Khu vực cuộn chuột (scrollable area) */}
-          <div className="px-6 py-6 overflow-y-auto flex-1">
+          <div className="px-6 py-6 overflow-y-auto flex-1 pwa-safe-footer">
             {isCollaborator ? (
               <div className="bg-white rounded-2xl mb-6">
-                {/* HAI CỘT HOA HỒNG & SĐT/MÃ CĂN SONG SONG TẠI MODAL */}
                 <div className="grid grid-cols-2 gap-4 mb-5">
                   <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm">
                     <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
@@ -1022,7 +1086,7 @@ export default function ApartmentDetailsPageClient({
                         Mã căn:
                       </div>
                       <div className="text-gray-900 font-bold text-lg">
-                        {apartment.sourceCode}
+                        {displaySourceCode}
                       </div>
                     </div>
                   )}
@@ -1055,83 +1119,14 @@ export default function ApartmentDetailsPageClient({
         </DialogContent>
       </Dialog>
 
-      <main className="flex-1 bg-white min-h-screen font-body text-gray-800">
+      <main className="flex-1 bg-white min-h-screen font-body text-[#222222] overflow-x-clip">
         <div className="pt-0 md:pt-6">
           <div className="container mx-auto px-0 md:px-6">
-            <div className="relative group md:rounded-[2rem] overflow-hidden">
-              {/* --- BẮT ĐẦU PHẦN RENDER ẢNH MOBILE --- */}
-              <div className="md:hidden">
-                <Carousel
-                  setApi={setMobileCarouselApi}
-                  opts={{
-                    align: "start",
-                    containScroll: "trimSnaps",
-                    loop: apartment.imageUrls.length > 1,
-                  }}
-                  className="w-full aspect-[4/3]"
-                >
-                  <CarouselContent className="-ml-0 select-none [touch-action:pan-y_pinch-zoom]">
-                    {apartment.imageUrls.map((url, idx) => (
-                      <CarouselItem
-                        key={idx}
-                        className="pl-0"
-                        onTouchStart={handleMobileTouchStart}
-                        onTouchMove={handleMobileTouchMove}
-                        onClick={() => handleMobileImageClick(idx)}
-                      >
-                        <div className="relative w-full h-full aspect-[4/3]">
-                          <Image
-                            src={url}
-                            alt={`View ${idx}`}
-                            fill
-                            draggable={false}
-                            className="object-cover pointer-events-none select-none"
-                            priority={idx === 0}
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                          />
-                        </div>
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                </Carousel>
-                <div className="absolute bottom-4 right-4 bg-black/60 text-white text-xs px-3 py-1 rounded-full font-medium backdrop-blur-sm pointer-events-none z-10">
-                  {mobileIndex + 1} / {apartment.imageUrls.length}
-                </div>
-              </div>
-              {/* --- KẾT THÚC PHẦN RENDER ẢNH MOBILE --- */}
-
-              {/* --- BẮT ĐẦU PHẦN RENDER ẢNH DESKTOP --- */}
-              <div className="hidden md:grid grid-cols-4 grid-rows-2 gap-2 h-[480px]">
-                {apartment.imageUrls.slice(0, 5).map((url, idx) => (
-                  <div
-                    key={idx}
-                    className={cn(
-                      "relative cursor-pointer hover:brightness-90 transition-all duration-500",
-                      idx === 0
-                        ? "col-span-2 row-span-2"
-                        : "col-span-1 row-span-1",
-                    )}
-                    onClick={() => openLightbox(idx)}
-                  >
-                    <Image
-                      src={url}
-                      alt="Apartment"
-                      fill
-                      className="object-cover"
-                    />
-                    {idx === 4 && apartment.imageUrls.length > 5 && (
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white font-headline font-bold text-xl backdrop-blur-[2px]">
-                        Xem tất cả ảnh
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {/* --- KẾT THÚC PHẦN RENDER ẢNH DESKTOP --- */}
-
-              {/* --- BẮT ĐẦU CỤM NÚT TƯƠNG TÁC NỔI TRÊN ẢNH (MOBILE) --- */}
-
-              {/* CỤM BÊN TRÁI: NÚT TẢI ẢNH (CHỈ DÀNH CHO ADMIN/CTV) */}
+            <ApartmentImageGallery
+              imageUrls={apartment.imageUrls}
+              apartmentCode={apartment.sourceCode}
+              onLightboxChange={setIsGalleryLightboxOpen}
+            >
               {isCollaborator && (
                 <div className="md:hidden absolute top-4 left-4 z-10 flex items-center gap-2">
                   <button
@@ -1148,17 +1143,14 @@ export default function ApartmentDetailsPageClient({
                 </div>
               )}
 
-              {/* CỤM BÊN PHẢI: NÚT CHIA SẺ & LƯU TIN (DÀNH CHO MỌI NGƯỜI) */}
               <div className="md:hidden absolute top-4 right-4 z-10 flex items-center gap-2">
-                {/* NÚT CHIA SẺ */}
                 <button
-                  onClick={() => setShareOpen(true)}
+                  type="button"
+                  onClick={handleOpenShare}
                   className="h-10 w-10 bg-white/90 backdrop-blur-md rounded-full shadow-sm active:scale-95 transition-all flex items-center justify-center"
                 >
                   <Share className="h-5 w-5 text-gray-700" />
                 </button>
-
-                {/* NÚT LƯU TIN (FAVORITE) */}
                 <button
                   onClick={handleFavoriteToggle}
                   disabled={isFavLoading}
@@ -1174,28 +1166,22 @@ export default function ApartmentDetailsPageClient({
                   />
                 </button>
               </div>
-
-              {/* --- KẾT THÚC CỤM NÚT TƯƠNG TÁC --- */}
-            </div>
+            </ApartmentImageGallery>
           </div>
         </div>
 
-        <div className="container mx-auto px-6 mt-8 md:mt-12 mb-16">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+        <div className="container mx-auto px-6 mt-0 md:mt-12 mb-6 lg:mb-16 pb-20 lg:pb-0">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 lg:gap-12">
             <div className="lg:col-span-8">
-              {/* BẮT ĐẦU BLOCK HEADER TỐI ƯU CSS (AIRBNB STYLE) */}
-              <div className="border-b border-gray-200 pb-6 mb-8 mt-2">
-                {/* HÀNG 1: TIÊU ĐỀ & NÚT CHIA SẺ */}
+              <div className="pt-4 pb-3 md:py-0 md:border-b md:border-gray-200 md:pb-6 md:mb-8 md:mt-2">
                 <div className="flex justify-between items-start gap-4 mb-2">
-                  <h1 className="text-[26px] md:text-[28px] font-semibold text-[#222222] leading-[1.2] tracking-tight font-airbnb">
+                  <h1 className="text-[24px] md:text-[28px] font-semibold text-[#222222] leading-[30px] md:leading-[1.2] tracking-[-0.1px] font-airbnb">
                     {isCollaborator
                       ? apartment.title
                       : apartment.aiContent?.seoTitle || apartment.title}
                   </h1>
 
-                  {/* THÊM LẠI "hidden md:flex" ĐỂ CHỈ HIỂN THỊ CỤM NÀY TRÊN DESKTOP/TABLET */}
                   <div className="hidden md:flex shrink-0 mt-1 gap-2 items-center">
-                    {/* NÚT TẢI ẢNH CHỈ DÀNH CHO ADMIN/CTV */}
                     {isCollaborator && (
                       <Button
                         variant="outline"
@@ -1212,47 +1198,74 @@ export default function ApartmentDetailsPageClient({
                       </Button>
                     )}
 
-                    {/* NÚT CHIA SẺ HIỆN CÓ */}
                     <Button
                       variant="outline"
                       className="rounded-full border-gray-200 hover:bg-gray-100 hover:text-green-800 gap-2 font-bold text-gray-600 transition-all h-10 px-4"
-                      onClick={() => setShareOpen(true)}
+                      onClick={handleOpenShare}
                     >
                       <Share className="h-4 w-4 shrink-0" /> Chia sẻ
                     </Button>
                   </div>
                 </div>
 
-                {/* HÀNG 2: GIÁ - MÃ CĂN (TRÁI) & CẬP NHẬT (PHẢI) */}
-                <div className="flex flex-wrap items-center justify-between gap-y-3 mt-4">
-                  <div className="flex items-center flex-wrap gap-x-2 text-[15px] text-[#222222]">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-[30px] md:text-[24px] font-bold tracking-tight text-[#cda533]">
-                        {typeof apartment.price === "number"
-                          ? `₫${(apartment.price * 1000000).toLocaleString("vi-VN")}`
-                          : formatPrice(apartment.price)}
-                      </span>
-                      <span className="text-gray-500 font-normal text-base">
-                        /tháng
-                      </span>
-                    </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] leading-5 text-[#222222]">
+                  <span className="inline-flex items-center gap-1">
+                    <Star className="h-4 w-4 fill-[#222222] text-[#222222]" />
+                    <span className={cn("font-normal", statusTextColor)}>
+                      {statusLabel}
+                    </span>
+                  </span>
+                  <span>·</span>
+                  <span className="font-semibold underline underline-offset-2">
+                    {displaySourceCode}
+                  </span>
+                  <span>·</span>
+                  <span>
+                    {apartment.district}
+                    {apartment.district ? ", Hà Nội" : "Hà Nội"}
+                  </span>
+                </div>
 
-                    <span className="text-gray-300 font-bold mx-1">·</span>
+                <div className="flex flex-col gap-2 mt-3 md:mt-4">
+                  <div className="hidden md:flex items-baseline gap-1">
+                    <span className="text-[24px] font-bold tracking-tight text-[#cda533]">
+                      {formattedPrice}
+                    </span>
+                    <span className="text-gray-500 font-normal text-[16px]">
+                      /tháng
+                    </span>
                   </div>
 
-                  {/* BÊN PHẢI: NGÀY CẬP NHẬT */}
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+                  <div className="flex items-center gap-1.5 text-[13px] md:text-xs font-medium text-[#757575] md:text-gray-500 md:bg-gray-50 md:px-3 md:py-1.5 md:rounded-full md:border md:border-gray-100 md:w-fit">
                     <Clock className="h-3.5 w-3.5" />
                     <span>
-                      Cập nhật: <ClientFormattedDate date={displayDate} />
+                      Ngày đăng: <ClientFormattedDate date={displayDate} />
                     </span>
                   </div>
                 </div>
               </div>
-              {/* KẾT THÚC BLOCK HEADER */}
 
-              <div className="border-b border-gray-100 pb-8 mb-8">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              <div className="h-px w-full bg-[#e2e2e2] md:hidden" />
+
+              <div className="py-4 md:py-0 md:border-b md:border-gray-100 md:pb-8 md:mb-8">
+                <p className="font-semibold text-[18px] md:text-[20px] leading-6 md:leading-7 tracking-[-0.08px] text-[#222222] mb-3">
+                  {getRoomTypeLabel(apartment.roomType)} tại{" "}
+                  {apartment.district || "Hà Nội"}
+                </p>
+
+                <div className="flex gap-[11px] md:hidden">
+                  <HighlightCard
+                    icon={Maximize}
+                    label={`${apartment.area} m²`}
+                  />
+                  <HighlightCard
+                    icon={LayoutGrid}
+                    label={getRoomTypeLabel(apartment.roomType)}
+                  />
+                  <HighlightCard icon={Hash} label={displaySourceCode} />
+                </div>
+
+                <div className="hidden md:grid grid-cols-4 gap-4">
                   <InfoBox
                     icon={Maximize}
                     label="Diện tích"
@@ -1271,18 +1284,20 @@ export default function ApartmentDetailsPageClient({
                   <InfoBox
                     icon={Hash}
                     label="Mã căn"
-                    value={apartment.sourceCode}
+                    value={displaySourceCode}
                   />
                 </div>
               </div>
 
-              {/* BẮT ĐẦU BLOCK TEXT PREVIEW + NÚT "HIỂN THỊ THÊM" */}
-              <div className="pb-8 border-b border-gray-100 mb-8">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-2xl font-semibold text-gray-900">
-                    Thông tin chi tiết
+              <div className="h-px w-full bg-[#e2e2e2] md:hidden" />
+
+              <div className="py-4 md:py-0 md:pb-8 md:border-b md:border-gray-100 md:mb-8">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-[18px] md:text-2xl font-semibold text-[#222222] leading-6 md:leading-7 tracking-[-0.08px] md:tracking-normal font-airbnb">
+                    {isCollaborator
+                      ? "Thông tin chi tiết"
+                      : "Giới thiệu về chỗ ở này"}
                   </h3>
-                  {/* Nút copy bên ngoài cho CTV/Admin */}
                   {isCollaborator && (
                     <Button
                       onClick={handleCopyInternalInfo}
@@ -1295,11 +1310,9 @@ export default function ApartmentDetailsPageClient({
                   )}
                 </div>
 
-                {/* HIỂN THỊ CỘT HOA HỒNG (VÀ SĐT NẾU LÀ ADMIN) BÊN NGOÀI */}
                 {isCollaborator && (
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    {/* BOX HOA HỒNG (Đã thêm background xanh nhạt để nổi bật thông tin quan trọng) */}
-                    <div className=" bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm">
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className=" bg-gray-50 border border-gray-100 p-3 rounded-xl shadow-sm">
                       <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
                         Hoa hồng:
                       </div>
@@ -1308,9 +1321,8 @@ export default function ApartmentDetailsPageClient({
                       </div>
                     </div>
 
-                    {/* BOX CỘT 2: HIỂN THỊ SĐT (ADMIN) HOẶC MÃ CĂN (CTV) */}
                     {isAdmin ? (
-                      <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm">
+                      <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl shadow-sm">
                         <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
                           SĐT Chủ nhà:
                         </div>
@@ -1319,12 +1331,12 @@ export default function ApartmentDetailsPageClient({
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm">
+                      <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl shadow-sm">
                         <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
                           Mã căn:
                         </div>
                         <div className="text-gray-900 font-bold text-lg">
-                          {apartment.sourceCode}
+                          {displaySourceCode}
                         </div>
                       </div>
                     )}
@@ -1332,12 +1344,13 @@ export default function ApartmentDetailsPageClient({
                 )}
 
                 <div className="relative">
-                  {/* SỬA ĐỔI 1: Tăng line-clamp lên 17. 
-                      Nếu là Collaborator/Admin thì bỏ luôn line-clamp để hiện full text */}
                   <div
+                    ref={descRef}
                     className={cn(
-                      "text-gray-700 text-[16px] leading-[1.6]",
-                      !isCollaborator && "line-clamp-[17]",
+                      "text-[#222222] md:text-gray-700 text-[16px] leading-6 md:leading-[1.6]",
+                      isCollaborator
+                        ? "whitespace-pre-wrap"
+                        : "line-clamp-3 max-h-[4.5rem] md:max-h-[4.8rem] [&_p]:my-0 [&_ul]:my-0 [&_ol]:my-0",
                     )}
                   >
                     {isCollaborator ? (
@@ -1351,25 +1364,43 @@ export default function ApartmentDetailsPageClient({
                     )}
                   </div>
 
-                  {/* SỬA ĐỔI 2: Chỉ hiện Gradient làm mờ đoạn cuối text cho Khách Hàng */}
-                  {!isCollaborator && (
-                    <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+                  {!isCollaborator && descOverflows && (
+                    <div className="absolute bottom-0 left-0 w-full h-6 bg-gradient-to-t from-white to-transparent pointer-events-none" />
                   )}
                 </div>
 
-                {/* SỬA ĐỔI 3: Chỉ hiển thị nút "Hiển thị thêm" (Popup) cho Khách Hàng */}
-                {!isCollaborator && (
+                {!isCollaborator && descOverflows && (
                   <button
                     onClick={() => setIsDescModalOpen(true)}
-                    className="mt-4 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold rounded-xl transition-colors text-base flex items-center"
+                    className="mt-2 inline-flex items-center gap-1 text-[16px] font-semibold text-[#222222] underline underline-offset-2 md:no-underline md:mt-3 md:px-6 md:py-3 md:bg-gray-100 md:hover:bg-gray-200 md:rounded-xl md:transition-colors"
                   >
                     Hiển thị thêm
+                    <ChevronRight className="h-5 w-5 md:hidden" />
                   </button>
                 )}
               </div>
-              {/* KẾT THÚC BLOCK TEXT PREVIEW */}
 
-              <div className="pb-8 space-y-6">
+              <div className="h-px w-full bg-[#e2e2e2] md:hidden" />
+
+              <div className="py-4 space-y-3 md:hidden">
+                <FeatureRow
+                  icon={Star}
+                  title={statusHeader}
+                  desc={statusLabel}
+                />
+                <FeatureRow
+                  icon={Phone}
+                  title="Hotline 24/7"
+                  desc="081.2442.111"
+                />
+                <FeatureRow
+                  icon={Sparkles}
+                  title="Thông tin minh bạch"
+                  desc="Hình ảnh thực tế, giá niêm yết rõ ràng, không thu phí trung gian."
+                />
+              </div>
+
+              <div className="hidden md:block pb-8 space-y-6">
                 <FeatureRow
                   icon={Star}
                   title="Dịch vụ chuyên nghiệp"
@@ -1384,18 +1415,17 @@ export default function ApartmentDetailsPageClient({
             </div>
 
             <div className="lg:col-span-4 relative">
-              <div className="lg:col-span-4 relative">
-                <BookingWidget
-                  apartment={apartment}
-                  isFavorited={isFavorited}
-                  onFavoriteToggle={handleFavoriteToggle}
-                  isFavLoading={isFavLoading}
-                  statusHeader={statusHeader}
-                  statusLabel={statusLabel}
-                  statusTextColor={statusTextColor}
-                  statusDotColor={statusDotColor}
-                />
-              </div>
+              <BookingWidget
+                apartment={apartment}
+                isFavorited={isFavorited}
+                onFavoriteToggle={handleFavoriteToggle}
+                isFavLoading={isFavLoading}
+                statusHeader={statusHeader}
+                statusLabel={statusLabel}
+                statusTextColor={statusTextColor}
+                statusDotColor={statusDotColor}
+                hideMobileBar={isGalleryLightboxOpen}
+              />
             </div>
           </div>
         </div>
@@ -1403,7 +1433,7 @@ export default function ApartmentDetailsPageClient({
           <RelatedApartments related={initialRelated} />
         )}
       </main>
-      {!lightboxOpen && <Footer />}
+      {!isGalleryLightboxOpen && <Footer />}
     </>
   );
 }

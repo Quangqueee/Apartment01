@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useState, useTransition, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { HANOI_DISTRICTS, ROOM_TYPES } from "@/lib/constants";
+import { buildSearchHref } from "@/lib/districts";
 import { Button } from "./ui/button";
 import {
   MapPin,
@@ -49,13 +50,11 @@ const parsePriceInput = (value: string, fallback: number) => {
   return Math.max(PRICE_FILTER_MIN, Math.min(PRICE_FILTER_MAX, parsed));
 };
 
-export default function FilterControls() {
+function FilterControlsInner() {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [mounted, setMounted] = useState(false);
-  const [shouldScroll, setShouldScroll] = useState(false);
 
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
 
@@ -76,19 +75,7 @@ export default function FilterControls() {
     setMounted(true);
   }, [searchParams]);
 
-  useEffect(() => {
-    if (!isPending && shouldScroll) {
-      const element = document.getElementById("apartments-list");
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-      setShouldScroll(false);
-    }
-  }, [isPending, shouldScroll]);
-
   const handleApply = () => {
-    const params = new URLSearchParams(searchParams.toString());
-
     const minValue = parsePriceInput(filters.priceMinInput, PRICE_FILTER_MIN);
     const maxValue = parsePriceInput(filters.priceMaxInput, PRICE_FILTER_MAX);
     const normalizedMin = Math.min(minValue, maxValue);
@@ -99,31 +86,25 @@ export default function FilterControls() {
       max: normalizedMax,
     });
 
-    if (filters.query.trim()) params.set("query", filters.query.trim());
-    else params.delete("query");
-
-    if (filters.district.length > 0)
-      params.set("district", filters.district.join(","));
-    else params.delete("district");
-
-    if (filters.roomType.length > 0)
-      params.set("roomType", filters.roomType.join(","));
-    else params.delete("roomType");
-
     const isNoPriceInput =
       filters.priceMinInput.trim() === "" &&
       filters.priceMaxInput.trim() === "";
     const isDefaultPrice =
       normalizedMin === PRICE_FILTER_MIN && normalizedMax === PRICE_FILTER_MAX;
 
-    if (isNoPriceInput || isDefaultPrice) params.delete("price");
-    else params.set("price", serializedPrice);
-
-    params.set("page", "1");
+    const currentSort = searchParams.get("sort");
 
     startTransition(() => {
-      setShouldScroll(true);
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      router.push(
+        buildSearchHref({
+          query: filters.query.trim(),
+          districts: filters.district,
+          price:
+            isNoPriceInput || isDefaultPrice ? undefined : serializedPrice,
+          roomType: filters.roomType.join(","),
+          sort: currentSort || undefined,
+        }),
+      );
     });
   };
 
@@ -185,7 +166,7 @@ export default function FilterControls() {
             value={filters.query}
             onChange={(e) => setFilters({ ...filters, query: e.target.value })}
             onKeyDown={(e) => e.key === "Enter" && handleApply()}
-            className="h-12 md:h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 text-sm md:text-base font-semibold pl-12 pr-5 shadow-sm transition-all font-body text-gray-900 focus:ring-2 focus:ring-[#cda533]/30 focus:border-[#cda533] focus:bg-white placeholder:text-gray-400 outline-none"
+            className="h-12 md:h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 text-base font-semibold pl-12 pr-5 shadow-sm transition-all font-body text-gray-900 focus:ring-2 focus:ring-[#cda533]/30 focus:border-[#cda533] focus:bg-white placeholder:text-gray-400 outline-none"
           />
         </div>
 
@@ -295,7 +276,7 @@ export default function FilterControls() {
                 onChange={(event) =>
                   setFilters({ ...filters, priceMinInput: event.target.value })
                 }
-                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
+                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-base md:text-sm font-bold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
               />
             </div>
             <div className="space-y-1.5">
@@ -311,7 +292,7 @@ export default function FilterControls() {
                 onChange={(event) =>
                   setFilters({ ...filters, priceMaxInput: event.target.value })
                 }
-                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
+                className="h-11 md:h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-base md:text-sm font-bold text-gray-800 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#cda533]/20 focus:border-[#cda533] shadow-sm transition-all"
               />
             </div>
           </div>
@@ -356,5 +337,13 @@ export default function FilterControls() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function FilterControls() {
+  return (
+    <Suspense fallback={<div className="min-h-[320px] w-full" />}>
+      <FilterControlsInner />
+    </Suspense>
   );
 }

@@ -1,118 +1,99 @@
-import { getApartments } from "@/lib/data";
+import { Suspense } from "react";
+import Link from "next/link";
+import { ArrowRight, MoonStar } from "lucide-react";
+import {
+  getCachedFeaturedDistrictStats,
+  getCachedHomeApartments,
+} from "@/lib/data";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import SortControls from "@/components/sort-controls";
 import ApartmentList from "@/components/apartment-list";
 import Hero from "@/components/hero";
 import FeaturedDistricts from "@/components/featured-districts";
-import MobileNav from "@/components/mobile-nav";
-import Link from "next/link";
-import { X } from "lucide-react";
 import AboutSection from "@/app/about/page";
+import { SHORT_TERM_PUBLIC_ACCESS } from "@/lib/constants";
 
-export const revalidate = 604800;
+/** Cache vô hạn: chỉ làm mới khi revalidateApartmentListings() (push/sửa/xóa). Literal bắt buộc — Next.js không theo dõi import (invalid-page-config). */
+export const revalidate = false;
 
-export default async function Home({ searchParams }: any) {
-  const sParams = await searchParams;
-
-  const { apartments, totalResults } = await getApartments({
-    query: sParams.query,
-    district: sParams.district,
-    priceRange: sParams.price,
-    roomType: sParams.roomType,
-    page: 1,
-    limit: 12,
-    sortBy: sParams.sort,
-  });
-
-  // CHỈ LÀM PHẲNG MẢNG APARTMENTS Ở TRANG CHỦ
-  const serializedApartments = JSON.parse(JSON.stringify(apartments));
-
-  const districtNames = ["Tây Hồ", "Ba Đình", "Đống Đa", "Cầu Giấy"];
-  const districtStats = await Promise.all(
-    districtNames.map(async (name) => {
-      const { totalResults } = await getApartments({
-        district: name,
-        limit: 1,
-      });
-      return { name, count: totalResults };
-    }),
-  );
-
-  // Multi-select: "district" trên URL có thể là nhiều quận phân tách bằng dấu phẩy
-  // -> parse thành mảng để quyết định cách hiển thị tiêu đề bên dưới.
-  const districtArray: string[] = sParams.district
-    ? sParams.district
-        .split(",")
-        .map((d: string) => d.trim())
-        .filter(Boolean)
-    : [];
-
-  let sectionTitle = "CĂN HỘ NỔI BẬT";
-  if (sParams.query) {
-    sectionTitle = `KẾT QUẢ TÌM KIẾM: "${sParams.query}"`;
-  } else if (districtArray.length > 1) {
-    // Chọn nhiều quận cùng lúc -> không liệt kê tên (tránh tiêu đề bị lỗi), dùng tiêu đề chung
-    sectionTitle = "KẾT QUẢ TÌM KIẾM";
-  } else if (districtArray.length === 1) {
-    sectionTitle = `CĂN HỘ TẠI ${districtArray[0].toUpperCase()}`;
-  }
+export default async function Home() {
+  const [{ apartments, totalResults }, districtStats] = await Promise.all([
+    getCachedHomeApartments(),
+    getCachedFeaturedDistrictStats(),
+  ]);
 
   return (
     <>
       <Header />
       <Hero />
       <main className="bg-white">
-        <div className="container mx-auto px-4 py-16">
+        <div className="container mx-auto px-4 py-10 lg:py-12">
           <FeaturedDistricts stats={districtStats} />
 
-          {/* Danh sách căn hộ & Bộ lọc */}
+          {SHORT_TERM_PUBLIC_ACCESS ? (
+            <Link
+              href="/can-ho-ngan-han"
+              className="group mt-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-3xl bg-gradient-to-r from-[#1a1a1a] to-[#33301f] p-6 md:p-8 shadow-lg overflow-hidden"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#cda533]/20 text-[#cda533]">
+                  <MoonStar className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl md:text-2xl font-black text-white tracking-tight">
+                    Căn hộ ngắn hạn theo đêm
+                  </h2>
+                  <p className="text-sm text-gray-300 mt-1 max-w-xl">
+                    Lưu trú linh hoạt vài đêm tại Hà Nội — chọn ngày, gửi yêu
+                    cầu, đội ngũ xác nhận trong ngày.
+                  </p>
+                </div>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#cda533] px-5 py-3 text-sm font-bold text-white transition-all group-hover:gap-3 group-hover:bg-[#b88e22]">
+                Khám phá ngay <ArrowRight className="h-4 w-4" />
+              </span>
+            </Link>
+          ) : null}
+
           <div
             id="apartments-list"
-            className="mt-24 mb-12 flex flex-col md:flex-row justify-between items-center md:items-end border-b border-gray-100 pb-10 gap-6 scroll-mt-32"
+            className="mt-12 mb-8 flex flex-col md:flex-row justify-between items-center md:items-end border-b border-gray-100 pb-6 gap-4 scroll-mt-32"
           >
-            <div className="flex flex-col gap-3 text-center md:text-left w-full md:w-auto">
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
-                <h2 className="text-3xl md:text-4xl font-headline font-black uppercase tracking-tighter text-gray-900 leading-tight">
-                  {sectionTitle}
-                </h2>
-                {(sParams.district ||
-                  sParams.query ||
-                  sParams.price ||
-                  sParams.roomType) && (
-                  <Link
-                    href="/"
-                    className="flex items-center gap-1 text-[10px] font-black text-gray-400 hover:text-red-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 uppercase tracking-widest transition-colors"
-                  >
-                    <X className="h-3 w-3" /> Xóa lọc
-                  </Link>
-                )}
-              </div>
-              <p className="text-xs md:text-sm font-bold text-primary uppercase tracking-[0.2em] italic">
+            <div className="flex flex-col gap-2 text-center md:text-left w-full md:w-auto">
+              <h2 className="text-3xl md:text-4xl font-headline font-black uppercase tracking-tighter text-gray-900 leading-tight">
+                CĂN HỘ NỔI BẬT
+              </h2>
+              <p className="text-sm font-bold text-amber-700 uppercase tracking-[0.2em] italic">
                 Tìm thấy {totalResults} căn hộ
               </p>
             </div>
-            <SortControls />
+            <Suspense
+              fallback={
+                <div className="flex items-center gap-2">
+                  <div className="h-10 w-[160px] animate-pulse rounded-md bg-gray-100" />
+                </div>
+              }
+            >
+              <SortControls />
+            </Suspense>
           </div>
 
-          {/* Truyền mảng đã được xử lý thay vì mảng gốc */}
           <ApartmentList
-            initialApartments={serializedApartments}
-            searchParams={sParams}
+            initialApartments={apartments}
+            searchParams={{}}
             totalInitialResults={totalResults}
           />
 
-          {/* PHẦN ABOUT */}
           <div
             id="about"
-            className="scroll-mt-28 mt-32 border-t border-gray-100 pt-16"
+            className="scroll-mt-28 mt-20 border-t border-gray-100 pt-12"
           >
             <AboutSection />
           </div>
         </div>
       </main>
       <Footer />
-      <MobileNav />
     </>
   );
 }

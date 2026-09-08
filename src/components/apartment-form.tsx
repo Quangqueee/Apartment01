@@ -2,7 +2,7 @@
 import React from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,9 +32,15 @@ import {
 } from "@/lib/constants";
 import { Apartment, ApartmentStatus, FeatureTag } from "@/lib/types";
 import {
-  createOrUpdateApartmentAction,
   generateSummaryAction,
+  revalidateApartmentCacheAction,
 } from "@/app/actions";
+import {
+  saveAdminApartmentClient,
+  saveLandlordApartmentClient,
+} from "@/lib/apartments-write-client";
+import { notifyAdmins } from "@/lib/notifications";
+import { useAuth as useAppAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import {
   useState,
@@ -44,7 +50,9 @@ import {
   useMemo,
   useEffect,
 } from "react";
-import { Loader2, Trash2, Upload, Dog, Waves } from "lucide-react";
+
+import { Loader2, Trash2, Upload, Dog, Waves, Sparkles } from "lucide-react";
+
 import {
   DndContext,
   closestCenter,
@@ -64,49 +72,110 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { hasHyphenSourceCode } from "@/lib/source-code";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { storage } from "@/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-const MAX_IMAGE_WIDTH = 3840;
-const IMAGE_QUALITY = 0.95;
+const MAX_IMAGE_WIDTH = 1920;
+const IMAGE_QUALITY = 0.82;
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/jpg",
   "image/png",
   "image/webp",
+  "image/heic",
+  "image/heif",
 ];
+const UPLOAD_RETRY_COUNT = 3;
 
-const formSchema = z.object({
-  title: z.string().min(5, "Title must be at least 5 characters."),
-  sourceCode: z.string().min(1, "Internal code is required."),
-  roomType: z.enum(["studio", "1n1k", "2n1k", "other"]),
-  district: z.string().min(1, "District is required."),
-  area: z.coerce.number().min(1, "Area must be greater than 0."),
-  price: z.coerce.number().min(0, "Price must be a positive number."),
-  commission: z.string().optional(),
-  details: z
-    .string()
-    .min(20, "Detailed information must be at least 20 characters."),
-  listingSummary: z.string().optional(),
-  seoTitle: z.string().optional(), // BỔ SUNG TRƯỜNG SEO TITLE
-  address: z.string().min(1, "Exact address is required."),
-  landlordPhoneNumber: z.string().min(1, "Landlord phone number is required."),
-  status: z.enum(["available", "rented"]),
-  tags: z.array(z.enum(["pet_friendly", "lake_view"])),
-  imageUrls: z
-    .array(z.string())
-    .min(
-      1,
-      "Ảnh đầu tiên được chọn làm ảnh bìa, và các ảnh hiển thị theo thứ tự sắp xếp.",
-    )
-    .max(
-      MAX_APARTMENT_IMAGES,
-      `You can upload a maximum of ${MAX_APARTMENT_IMAGES} images.`,
-    ),
-});
+const formSchema = z
+  .object({
+    formMode: z.enum(["admin", "landlord"]),
+    title: z.string().min(5, "Title must be at least 5 characters."),
+    roomType: z.enum([
+      "studio",
+      "1n1k",
+      "2n1k",
+      "3n1k",
+      "4n1k",
+      "duplex",
+      "penthouse",
+      "other",
+    ]),
+    district: z.string().min(1, "District is required."),
+    area: z.coerce.number().min(1, "Area must be greater than 0."),
+    price: z.coerce.number().min(0, "Price must be a positive number."),
+    commission: z.string().optional(),
+    details: z
+      .string()
+      .min(20, "Detailed information must be at least 20 characters."),
+
+    listingSummary: z.string().optional(),
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
+    highlights: z.string().optional(),
+
+    imageUrls: z
+      .array(z.string())
+      .min(
+        1,
+        "Ảnh đầu tiên được chọn làm ảnh bìa, và các ảnh hiển thị theo thứ tự sắp xếp.",
+      )
+      .max(
+        MAX_APARTMENT_IMAGES,
+        `You can upload a maximum of ${MAX_APARTMENT_IMAGES} images.`,
+      ),
+    sourceCode: z.string().optional(),
+    address: z.string().optional(),
+    landlordPhoneNumber: z.string().optional(),
+    status: z.enum(["available", "rented"]).optional(),
+    tags: z.array(z.enum(["pet_friendly", "lake_view"])).optional(),
+    serviceFees: z.string().optional(),
+    contactPhone: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.formMode === "admin") {
+      if (!data.sourceCode || !data.sourceCode.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["sourceCode"],
+          message: "Internal code is required.",
+        });
+      }
+      if (!data.address || !data.address.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["address"],
+          message: "Exact address is required.",
+        });
+      }
+      if (!data.landlordPhoneNumber || !data.landlordPhoneNumber.trim()) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["landlordPhoneNumber"],
+          message: "Landlord phone number is required.",
+        });
+      }
+      if (!data.status) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["status"],
+          message: "Status is required.",
+        });
+      }
+    } else {
+      if (!data.contactPhone || data.contactPhone.trim().length < 8) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["contactPhone"],
+          message: "Số điện thoại không hợp lệ.",
+        });
+      }
+    }
+  });
 
 type FormSchema = z.infer<typeof formSchema>;
 
@@ -165,6 +234,7 @@ const SortableImage = React.memo(function SortableImage({
 
 type ApartmentFormProps = {
   apartment?: Apartment;
+  mode?: "admin" | "landlord";
 };
 
 type PreviewItem = {
@@ -188,41 +258,122 @@ const flattenImageSources = (value: unknown): string[] => {
   return flatImageSources;
 };
 
+const normalizeHighlights = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const getFirstFormErrorMessage = (errors: FieldErrors<FormSchema>): string => {
+  const visit = (value: unknown): string | null => {
+    if (!value || typeof value !== "object") return null;
+    const record = value as { message?: unknown };
+    if (typeof record.message === "string" && record.message.length > 0) {
+      return record.message;
+    }
+    for (const [key, nested] of Object.entries(record)) {
+      if (key === "ref" || key === "type" || key === "types") continue;
+      const found = visit(nested);
+      if (found) return found;
+    }
+    return null;
+  };
+  return (
+    visit(errors) ||
+    "Vui lòng kiểm tra các trường còn thiếu hoặc chưa hợp lệ."
+  );
+};
+
+const isAcceptedImageFile = (file: File) =>
+  !file.type || ACCEPTED_IMAGE_TYPES.includes(file.type);
+
+const uploadBlobWithRetry = async (blob: Blob, path: string): Promise<string> => {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < UPLOAD_RETRY_COUNT; attempt++) {
+    try {
+      const storageRef = ref(storage, path);
+      await uploadBytes(storageRef, blob, {
+        contentType: blob.type || "image/jpeg",
+      });
+      return await getDownloadURL(storageRef);
+    } catch (error) {
+      lastError = error;
+      if (attempt < UPLOAD_RETRY_COUNT - 1) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 400 * (attempt + 1)),
+        );
+      }
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Không thể tải ảnh lên máy chủ.");
+};
+
 const compressImage = (file: File): Promise<{ src: string; blob: Blob }> => {
   return new Promise((resolve, reject) => {
+    const fail = (reason: unknown) => {
+      reject(
+        reason instanceof Error
+          ? reason
+          : new Error(`Không xử lý được ảnh: ${file.name}`),
+      );
+    };
+
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
       const img = document.createElement("img");
       img.src = event.target?.result as string;
       img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        let { width, height } = img;
-        if (width > MAX_IMAGE_WIDTH) {
-          height = (height * MAX_IMAGE_WIDTH) / width;
-          width = MAX_IMAGE_WIDTH;
-        }
-        canvas.width = width;
-        canvas.height = height;
-        ctx?.drawImage(img, 0, 0, width, height);
+        try {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            fail(new Error("Trình duyệt không hỗ trợ xử lý ảnh."));
+            return;
+          }
 
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error("Lỗi xử lý ảnh trên canvas."));
-              return;
-            }
-            const objectUrl = URL.createObjectURL(blob);
-            resolve({ src: objectUrl, blob });
-          },
-          "image/jpeg",
-          IMAGE_QUALITY,
-        );
+          let { width, height } = img;
+          if (width > MAX_IMAGE_WIDTH) {
+            height = (height * MAX_IMAGE_WIDTH) / width;
+            width = MAX_IMAGE_WIDTH;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                fail(new Error(`Lỗi xử lý ảnh trên canvas: ${file.name}`));
+                return;
+              }
+              const objectUrl = URL.createObjectURL(blob);
+              resolve({ src: objectUrl, blob });
+            },
+            "image/jpeg",
+            IMAGE_QUALITY,
+          );
+        } catch (error) {
+          fail(error);
+        }
       };
-      img.onerror = reject;
+      img.onerror = () =>
+        fail(new Error(`Không đọc được ảnh: ${file.name}`));
     };
-    reader.onerror = reject;
+    reader.onerror = () =>
+      fail(new Error(`Không đọc được file: ${file.name}`));
   });
 };
 
@@ -238,13 +389,21 @@ const createInitialPreviewItems = (imageUrls: unknown): PreviewItem[] =>
 const getPreviewSources = (previewItems: PreviewItem[]) =>
   previewItems.map((item) => item.src);
 
-export default function ApartmentForm({ apartment }: ApartmentFormProps) {
+export default function ApartmentForm({
+  apartment,
+  mode = "admin",
+}: ApartmentFormProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const { user } = useAppAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessingImages, setIsProcessingImages] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
-  const [isSeoEnabled, setIsSeoEnabled] = useState(!!apartment?.listingSummary);
+
+  const aiData = apartment?.aiContent || {};
+  const hasOldSeo = !!aiData?.description;
+  const [isSeoEnabled, setIsSeoEnabled] = useState(hasOldSeo);
 
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>(
     createInitialPreviewItems(apartment?.imageUrls || []),
@@ -264,6 +423,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
   const form = useForm<FormSchema, unknown, FormSchema>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      formMode: mode,
       title: apartment?.title || "",
       sourceCode: apartment?.sourceCode || "",
       roomType: apartment?.roomType || "studio",
@@ -273,14 +433,23 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       commission:
         apartment?.commission !== undefined ? String(apartment.commission) : "",
       details: apartment?.details || "",
-      listingSummary: apartment?.listingSummary || "",
-      // Lấy lại tiêu đề SEO cũ nếu đã có
-      seoTitle: (apartment as any)?.aiContent?.seoTitle || "",
+
+      listingSummary: aiData?.description || "",
+      seoTitle: aiData?.seoTitle || "",
+      seoDescription: aiData?.seoDescription || "",
+      highlights: aiData?.highlights
+        ? Array.isArray(aiData.highlights)
+          ? aiData.highlights.join("\n")
+          : aiData.highlights
+        : "",
+
       address: apartment?.address || "",
       landlordPhoneNumber: apartment?.landlordPhoneNumber || "",
       status: apartment?.status || "available",
       tags: apartment?.tags || [],
-      imageUrls: apartment?.imageUrls || [],
+      imageUrls: flattenImageSources(apartment?.imageUrls || []),
+      serviceFees: apartment?.serviceFees || "",
+      contactPhone: apartment?.contactPhone || "",
     },
   });
 
@@ -301,6 +470,45 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     });
   }, [previewItems, form]);
 
+  useEffect(() => {
+    if (apartment) {
+      const currentAiData = apartment?.aiContent || {};
+      form.reset({
+        formMode: mode,
+        title: apartment.title || "",
+        sourceCode: apartment.sourceCode || "",
+        roomType: apartment.roomType || "studio",
+        district: apartment.district || "",
+        area: apartment.area || 0,
+        price: apartment.price || 0,
+        commission:
+          apartment.commission !== undefined
+            ? String(apartment.commission)
+            : "",
+        details: apartment.details || "",
+
+        listingSummary: currentAiData.description || "",
+        seoTitle: currentAiData.seoTitle || "",
+        seoDescription: currentAiData.seoDescription || "",
+        highlights: currentAiData.highlights
+          ? Array.isArray(currentAiData.highlights)
+            ? currentAiData.highlights.join("\n")
+            : currentAiData.highlights
+          : "",
+
+        address: apartment.address || "",
+        landlordPhoneNumber: apartment.landlordPhoneNumber || "",
+        status: apartment.status || "available",
+        tags: apartment.tags || [],
+        imageUrls: flattenImageSources(apartment.imageUrls || []),
+        serviceFees: apartment.serviceFees || "",
+        contactPhone: apartment.contactPhone || "",
+      });
+
+      setPreviewItems(createInitialPreviewItems(apartment.imageUrls || []));
+    }
+  }, [apartment, mode, form]);
+
   const removeImage = useCallback(
     (idToRemove: string) => {
       updatePreviewItems((currentPreviewItems) => {
@@ -319,6 +527,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     [previewItems],
   );
 
+  // TỐI ƯU TỐC ĐỘ UPLOAD: Nén ảnh song song, giữ lại ảnh hợp lệ nếu một file lỗi
   const handleFiles = useCallback(
     (files: File[]) => {
       if (files.length === 0) return;
@@ -331,25 +540,56 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         return;
       }
 
-      const filePromises = files.map((file) => {
-        return new Promise<{ src: string; blob: Blob }>((resolve, reject) => {
-          if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-            return reject(`Định dạng file không được hỗ trợ: ${file.name}`);
-          }
-          compressImage(file).then(resolve).catch(reject);
-        });
-      });
+      setIsProcessingImages(true);
 
-      Promise.all(filePromises)
-        .then((newImages) => {
-          updatePreviewItems((currentPreviewItems) => [
-            ...currentPreviewItems,
-            ...newImages.map((img) => ({
-              id: createPreviewId(),
-              src: img.src,
-              blob: img.blob,
-            })),
-          ]);
+      Promise.allSettled(
+        files.map(async (file) => {
+          if (!isAcceptedImageFile(file)) {
+            throw new Error(`Định dạng file không được hỗ trợ: ${file.name}`);
+          }
+          return compressImage(file);
+        }),
+      )
+        .then((results) => {
+          const succeeded: { src: string; blob: Blob }[] = [];
+          const failedMessages: string[] = [];
+
+          results.forEach((result, index) => {
+            if (result.status === "fulfilled") {
+              succeeded.push(result.value);
+              return;
+            }
+            const reason = result.reason;
+            failedMessages.push(
+              typeof reason === "string"
+                ? reason
+                : reason instanceof Error
+                  ? reason.message
+                  : `Không xử lý được: ${files[index]?.name || "ảnh"}`,
+            );
+          });
+
+          if (succeeded.length > 0) {
+            updatePreviewItems((currentPreviewItems) => [
+              ...currentPreviewItems,
+              ...succeeded.map((img) => ({
+                id: createPreviewId(),
+                src: img.src,
+                blob: img.blob,
+              })),
+            ]);
+          }
+
+          if (failedMessages.length > 0) {
+            toast({
+              variant: "destructive",
+              title:
+                succeeded.length > 0
+                  ? "Một số ảnh bị bỏ qua"
+                  : "Lỗi xử lý ảnh",
+              description: failedMessages.slice(0, 3).join(" "),
+            });
+          }
         })
         .catch((error) => {
           toast({
@@ -360,6 +600,9 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                 ? error
                 : "Đã xảy ra lỗi không mong muốn.",
           });
+        })
+        .finally(() => {
+          setIsProcessingImages(false);
         });
     },
     [previewItems.length, toast, updatePreviewItems],
@@ -396,6 +639,83 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     [handleFiles],
   );
 
+  const handleAutoExtractDetails = () => {
+    const detailsText = form.getValues("details") || "";
+    if (!detailsText.trim()) {
+      toast({
+        title: "Thiếu dữ liệu",
+        description:
+          "Vui lòng dán nội dung vào Thông tin căn hộ trước khi trích xuất.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      let extracted = false;
+
+      const roomMatch = detailsText.match(
+        /(studio|1n1k|2n1k|3n1k|4n1k|duplex|penthouse)/i,
+      );
+      if (roomMatch && roomMatch[1]) {
+        form.setValue("roomType", roomMatch[1].toLowerCase() as any, {
+          shouldValidate: true,
+        });
+        extracted = true;
+      }
+
+      const areaMatch = detailsText.match(
+        /(?:diện tích|thiết kế)[:\s]*(\d+)\s*(?:m2|m²|m)/i,
+      );
+      if (areaMatch && areaMatch[1]) {
+        form.setValue("area", parseInt(areaMatch[1], 10), {
+          shouldValidate: true,
+        });
+        extracted = true;
+      }
+
+      const priceStr = detailsText.toLowerCase();
+      const matchTr = priceStr.match(/giá.*?:?\s*\n*\s*(\d+)\s*tr\s*(\d+)?/);
+
+      if (matchTr) {
+        const base = parseInt(matchTr[1], 10);
+        const fraction = matchTr[2]
+          ? parseInt(matchTr[2], 10) / Math.pow(10, matchTr[2].length)
+          : 0;
+        form.setValue("price", base + fraction, { shouldValidate: true });
+        extracted = true;
+      } else {
+        const matchNum = priceStr.match(
+          /giá.*?:?\s*\n*\s*([\d\.,]+)\s*(vnd|vnđ)?/,
+        );
+        if (matchNum) {
+          let num = parseFloat(
+            matchNum[1].replace(/\./g, "").replace(/,/g, "."),
+          );
+          const finalPrice = num > 1000 ? num / 1000000 : num;
+          form.setValue("price", finalPrice, { shouldValidate: true });
+          extracted = true;
+        }
+      }
+
+      if (extracted) {
+        toast({
+          title: "Trích xuất thành công",
+          description: "Đã tự động điền Dạng phòng, Diện tích và Giá thuê.",
+          className: "bg-green-50 text-green-900 border-green-200",
+        });
+      } else {
+        toast({
+          title: "Không tìm thấy dữ liệu",
+          description: "Không thể tự động nhận diện thông số từ văn bản này.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Lỗi trích xuất dữ liệu:", error);
+    }
+  };
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
@@ -414,81 +734,6 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     [updatePreviewItems],
   );
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (previewItems.length === 0) {
-      form.setError("imageUrls", {
-        type: "manual",
-        message: "Vui lòng tải lên ít nhất 1 ảnh.",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const uploadPromises = previewItems.map(async (item) => {
-        if (item.blob) {
-          const fileName = `apartments/${Date.now()}-${item.id}.webp`;
-          const storageRef = ref(storage, fileName);
-          await uploadBytes(storageRef, item.blob);
-          return await getDownloadURL(storageRef);
-        } else {
-          return item.src;
-        }
-      });
-
-      const uploadedUrls = await Promise.all(uploadPromises);
-
-      const result = await createOrUpdateApartmentAction(apartment?.id, {
-        title: values.title,
-        sourceCode: values.sourceCode,
-        roomType: values.roomType,
-        district: values.district,
-        area: values.area,
-        price: values.price,
-        commission: values.commission,
-        details: values.details,
-        listingSummary: isSeoEnabled ? values.listingSummary : "",
-        seoTitle: isSeoEnabled ? values.seoTitle : "", // Đẩy biến seoTitle lên backend
-        address: values.address,
-        landlordPhoneNumber: values.landlordPhoneNumber,
-        status: values.status,
-        tags: values.tags,
-        imageUrlsJson: JSON.stringify(uploadedUrls),
-      });
-
-      if (result?.error) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: result.error,
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      toast({
-        title: "Thành công",
-        description: apartment ? "Đã cập nhật căn hộ." : "Đã thêm căn hộ mới.",
-        duration: 1000,
-      });
-
-      router.refresh();
-
-      setTimeout(() => {
-        router.push(`/${ADMIN_PATH}/apartments`);
-      }, 100);
-    } catch (error) {
-      console.error("Lỗi khi upload ảnh:", error);
-      toast({
-        variant: "destructive",
-        title: "Lỗi Upload",
-        description: "Không thể tải ảnh lên máy chủ. Vui lòng kiểm tra mạng.",
-      });
-      setIsSubmitting(false);
-    }
-  }
-
   const handleGenerateAi = async () => {
     const title = form.getValues("title");
     const roomType = form.getValues("roomType");
@@ -500,7 +745,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
       toast({
         variant: "destructive",
         title: "Thiếu thông tin",
-        description: "Vui lòng nhập Thông tin thô (chi tiết) trước khi tạo AI.",
+        description: "Vui lòng nhập Thông tin chi tiết trước khi tạo AI.",
       });
       return;
     }
@@ -519,24 +764,34 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
         throw new Error(res.error);
       }
 
-      // Khi AI trả về kết quả, set value cho cả Nội dung và Tiêu đề
-      if (res.summary || res.seoTitle) {
-        if (res.seoTitle) {
-          form.setValue("seoTitle", res.seoTitle, { shouldValidate: true });
-        }
-        if (res.summary) {
-          form.setValue("listingSummary", res.summary, {
-            shouldValidate: true,
-          });
-        }
-
-        toast({
-          title: "Thành công! ✨",
-          description:
-            "AI đã tạo tiêu đề và bài viết tối ưu SEO cho căn hộ này.",
-          className: "bg-purple-50 text-purple-900 border-purple-200",
+      if (res.seoTitle) {
+        form.setValue("seoTitle", res.seoTitle, { shouldValidate: true });
+      }
+      if (res.seoDescription) {
+        form.setValue("seoDescription", res.seoDescription, {
+          shouldValidate: true,
         });
       }
+
+      const generatedContent = res.description;
+      if (generatedContent) {
+        form.setValue("listingSummary", generatedContent, {
+          shouldValidate: true,
+        });
+      }
+
+      if (res.highlights) {
+        const highlightsStr = Array.isArray(res.highlights)
+          ? res.highlights.join("\n")
+          : res.highlights;
+        form.setValue("highlights", highlightsStr, { shouldValidate: true });
+      }
+
+      toast({
+        title: "Thành công! ✨",
+        description: "AI đã tạo tiêu đề, mô tả và điểm nổi bật chuẩn SEO.",
+        className: "bg-purple-50 text-purple-900 border-purple-200",
+      });
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -548,9 +803,209 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
     }
   };
 
+  const onInvalid = (errors: FieldErrors<FormSchema>) => {
+    toast({
+      variant: "destructive",
+      title: "Chưa đủ thông tin để đăng tin",
+      description: getFirstFormErrorMessage(errors),
+    });
+  };
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (isProcessingImages) {
+      toast({
+        variant: "destructive",
+        title: "Ảnh đang được xử lý",
+        description: "Vui lòng đợi ảnh nén xong rồi bấm lưu lại.",
+      });
+      return;
+    }
+
+    if (previewItems.length === 0) {
+      form.setError("imageUrls", {
+        type: "manual",
+        message: "Vui lòng tải lên ít nhất 1 ảnh.",
+      });
+      toast({
+        variant: "destructive",
+        title: "Thiếu hình ảnh",
+        description: "Vui lòng tải lên ít nhất 1 ảnh.",
+      });
+      return;
+    }
+
+    if (!user?.uid) {
+      toast({
+        variant: "destructive",
+        title: "Chưa đăng nhập",
+        description: "Vui lòng đăng nhập lại rồi thử gửi tin.",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const uploadResults = await Promise.allSettled(
+        previewItems.map(async (item) => {
+          if (item.blob) {
+            const fileName = `apartments/${user.uid}/${Date.now()}-${item.id}.jpg`;
+            return await uploadBlobWithRetry(item.blob, fileName);
+          }
+          if (item.src.startsWith("blob:") || item.src.startsWith("data:")) {
+            throw new Error(
+              "Có ảnh chưa tải lên được. Vui lòng xóa và chọn lại.",
+            );
+          }
+          return item.src;
+        }),
+      );
+
+      const uploadedUrls: string[] = [];
+      let failedCount = 0;
+      for (const result of uploadResults) {
+        if (result.status === "fulfilled") {
+          uploadedUrls.push(result.value);
+        } else {
+          failedCount += 1;
+        }
+      }
+
+      if (uploadedUrls.length === 0) {
+        throw new Error("Không tải được ảnh lên. Vui lòng thử lại.");
+      }
+
+      if (failedCount > 0) {
+        throw new Error(
+          `Không tải được ${failedCount}/${previewItems.length} ảnh. Vui lòng thử lại.`,
+        );
+      }
+
+      const parsedHighlights = normalizeHighlights(values.highlights);
+
+      const currentAiContent = apartment?.aiContent || {};
+
+      const aiContentData = {
+        seoTitle: isSeoEnabled
+          ? values.seoTitle
+          : currentAiContent.seoTitle || "",
+        seoDescription: isSeoEnabled
+          ? values.seoDescription
+          : currentAiContent.seoDescription || "",
+        description: isSeoEnabled
+          ? values.listingSummary
+          : currentAiContent.description || "",
+        highlights:
+          isSeoEnabled && parsedHighlights.length > 0
+            ? parsedHighlights
+            : normalizeHighlights(currentAiContent.highlights),
+      };
+
+      const adminPayload = {
+        title: values.title,
+        sourceCode: values.sourceCode || "",
+        roomType: values.roomType,
+        district: values.district,
+        area: values.area,
+        price: values.price,
+        commission: values.commission,
+        details: values.details,
+        aiContent: aiContentData,
+        address: values.address || "",
+        landlordPhoneNumber: values.landlordPhoneNumber || "",
+        status: values.status || "available",
+        tags: (values.tags || []).filter(
+          (tag): tag is FeatureTag =>
+            tag === "pet_friendly" || tag === "lake_view",
+        ),
+        imageUrlsJson: JSON.stringify(uploadedUrls),
+      };
+
+      const landlordPayload = {
+        title: values.title,
+        roomType: values.roomType,
+        district: values.district,
+        area: values.area,
+        price: values.price,
+        details: values.details,
+        commission: values.commission,
+        contactPhone: values.contactPhone || "",
+        status: values.status || "available",
+        imageUrls: uploadedUrls,
+        aiContent: {
+          seoTitle: currentAiContent.seoTitle || "",
+          seoDescription: currentAiContent.seoDescription || "",
+          description: currentAiContent.description || "",
+          highlights: normalizeHighlights(currentAiContent.highlights),
+        },
+      };
+
+      if (mode === "landlord") {
+        await saveLandlordApartmentClient(
+          user.uid,
+          landlordPayload,
+          apartment?.id,
+        );
+        if (!apartment?.id) {
+          await notifyAdmins({
+            title: "Tin đăng mới cần duyệt",
+            message: `Chủ nhà vừa gửi tin đăng "${values.title}" - ${values.district} chờ duyệt.`,
+            type: "new_submission",
+            link: `/${ADMIN_PATH}/submissions`,
+          });
+        }
+      } else {
+        const { imageUrlsJson: _imageUrlsJson, ...adminFields } = adminPayload;
+        await saveAdminApartmentClient(
+          { ...adminFields, imageUrls: uploadedUrls },
+          apartment?.id,
+        );
+      }
+
+      await revalidateApartmentCacheAction(apartment?.id);
+
+      if (mode === "landlord") {
+        toast({
+          title: "Thành công",
+          description: apartment
+            ? "Đã cập nhật thông tin phòng thành công."
+            : "Đã gửi tin đăng, vui lòng chờ admin xét duyệt.",
+          duration: 2000,
+        });
+        router.refresh();
+        setTimeout(() => {
+          router.push(apartment ? "/profile/apartments" : "/");
+        }, 100);
+        return;
+      }
+
+      toast({
+        title: "Thành công",
+        description: apartment ? "Đã cập nhật căn hộ." : "Đã thêm căn hộ mới.",
+        duration: 1000,
+      });
+
+      router.refresh();
+
+      setTimeout(() => {
+        router.push(`/${ADMIN_PATH}/apartments`);
+      }, 100);
+    } catch (error: any) {
+      console.error("Lỗi khi cập nhật căn hộ:", error);
+      toast({
+        variant: "destructive",
+        title: "Lỗi Hệ thống",
+        description:
+          error.message || "Không thể lưu thông tin. Vui lòng kiểm tra lại.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-8">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="space-y-8 lg:col-span-2">
             <Card>
@@ -566,7 +1021,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormLabel>Địa chỉ hiển thị</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="VD. Luxury Apartment with Lake View"
+                          placeholder="VD: 123 Nguyễn Trãi, Thanh Xuân"
                           {...field}
                         />
                       </FormControl>
@@ -580,7 +1035,19 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   name="details"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Thông tin căn hộ</FormLabel>
+                      <div className="flex justify-between items-center">
+                        <FormLabel>Thông tin căn hộ</FormLabel>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleAutoExtractDetails}
+                          className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 mr-1" /> Điền nhanh
+                          thông số
+                        </Button>
+                      </div>
                       <FormControl>
                         <Textarea
                           placeholder="Nhập thông số điện nước, phí dịch vụ, giờ giấc, nội thất thô..."
@@ -593,84 +1060,128 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   )}
                 />
 
-                <div className="flex items-center gap-2 pt-2 border-t mt-6">
-                  <input
-                    type="checkbox"
-                    id="toggleSeo"
-                    checked={isSeoEnabled}
-                    onChange={(e) => setIsSeoEnabled(e.target.checked)}
-                    className="h-4 w-4 rounded border-primary text-primary focus:ring-primary cursor-pointer"
-                  />
-                  <label
-                    htmlFor="toggleSeo"
-                    className="text-sm font-semibold cursor-pointer select-none text-gray-700"
-                  >
-                    Bật cấu hình tạo SEO AI (Dành cho khách thuê)
-                  </label>
-                </div>
-
-                {isSeoEnabled && (
-                  <div className="p-4 border rounded-md bg-purple-50/50 transition-all mt-4 space-y-4">
-                    <div className="flex items-center justify-between border-b border-purple-100 pb-3 mb-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleGenerateAi}
-                        disabled={isGeneratingAi}
-                        className="text-purple-600 border-purple-200 hover:bg-purple-100 gap-1.5 h-8 text-xs font-semibold cursor-pointer shadow-sm bg-white ml-auto"
+                {mode === "admin" && (
+                  <>
+                    <div className="flex items-center gap-2 pt-2 border-t mt-6">
+                      <input
+                        type="checkbox"
+                        id="toggleSeo"
+                        checked={isSeoEnabled}
+                        onChange={(e) => setIsSeoEnabled(e.target.checked)}
+                        className="h-4 w-4 rounded border-primary text-primary focus:ring-primary cursor-pointer"
+                      />
+                      <label
+                        htmlFor="toggleSeo"
+                        className="text-sm font-semibold cursor-pointer select-none text-gray-700"
                       >
-                        {isGeneratingAi ? (
-                          <>
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}
-                            Đang viết...
-                          </>
-                        ) : (
-                          <>✨ Tối ưu SEO AI</>
-                        )}
-                      </Button>
+                        Bật cấu hình tạo SEO AI (Dành cho khách thuê)
+                      </label>
                     </div>
 
-                    <FormField
-                      control={form.control}
-                      name="seoTitle"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-purple-700 font-semibold">
-                            Tiêu đề bài đăng (B2C)
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="VD: Căn hộ Studio view hồ cực chill, full nội thất..."
-                              className="bg-white font-medium"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {isSeoEnabled && (
+                      <div className="p-4 border rounded-md bg-purple-50/50 transition-all mt-4 space-y-4 shadow-inner">
+                        <div className="flex items-center justify-between border-b border-purple-100 pb-3 mb-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleGenerateAi}
+                            disabled={isGeneratingAi}
+                            className="text-purple-600 border-purple-200 hover:bg-purple-100 gap-1.5 h-8 text-xs font-semibold cursor-pointer shadow-sm bg-white ml-auto"
+                          >
+                            {isGeneratingAi ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />{" "}
+                                Đang xử lý...
+                              </>
+                            ) : (
+                              <>✨ Tối ưu bằng AI</>
+                            )}
+                          </Button>
+                        </div>
 
-                    <FormField
-                      control={form.control}
-                      name="listingSummary"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-purple-700 font-semibold">
-                            Nội dung chi tiết (B2C)
-                          </FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Nội dung bài viết sẽ hiển thị ở đây. Bạn cũng có thể tự do chỉnh sửa..."
-                              className="min-h-[250px] md:min-h-[300px] text-base md:text-sm bg-white"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                        <FormField
+                          control={form.control}
+                          name="seoTitle"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-purple-700 font-semibold">
+                                Tiêu đề bài đăng (B2C)
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="VD: Căn hộ Studio view hồ cực chill, full nội thất..."
+                                  className="bg-white font-medium"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="seoDescription"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-purple-700 font-semibold">
+                                Mô tả SEO (Meta Description)
+                              </FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Đoạn mô tả ngắn 2-3 câu..."
+                                  className="bg-white min-h-[60px]"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="listingSummary"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-purple-700 font-semibold">
+                                Nội dung chi tiết (Mô tả dài)
+                              </FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Nội dung bài viết sẽ hiển thị ở đây. Bạn cũng có thể tự do chỉnh sửa..."
+                                  className="min-h-[250px] md:min-h-[300px] text-base md:text-sm bg-white"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="highlights"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-purple-700 font-semibold">
+                                Điểm nổi bật (Mỗi dòng 1 ý)
+                              </FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Điểm nổi bật 1&#10;Điểm nổi bật 2&#10;..."
+                                  className="bg-white min-h-[120px]"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -751,7 +1262,11 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
           <div className="space-y-8 lg:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle>Trạng thái & Đặc trưng</CardTitle>
+                <CardTitle>
+                  {mode === "admin"
+                    ? "Trạng thái & Đặc trưng"
+                    : "Trạng thái phòng"}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField
@@ -762,7 +1277,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormLabel>Trạng thái phòng</FormLabel>
                       <Select
                         onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        value={field.value || undefined}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -779,62 +1294,70 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="tags"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tag nổi bật</FormLabel>
-                      <div className="flex flex-col gap-2 pt-1">
-                        {[
-                          {
-                            id: "pet_friendly",
-                            label: "Pet Friendly",
-                            icon: Dog,
-                          },
-                          { id: "lake_view", label: "Lake View", icon: Waves },
-                        ].map((item) => {
-                          const isChecked = field.value?.includes(
-                            item.id as FeatureTag,
-                          );
-                          const IconComp = item.icon;
-                          return (
-                            <label
-                              key={item.id}
-                              className={cn(
-                                "flex items-center justify-between p-3 rounded-md border cursor-pointer transition-all select-none",
-                                isChecked
-                                  ? "border-primary bg-primary/5 text-primary font-medium"
-                                  : "bg-transparent border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                              )}
-                            >
-                              <div className="flex items-center gap-2">
-                                <IconComp className="h-4 w-4" />
-                                <span className="text-sm">{item.label}</span>
-                              </div>
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded border-primary text-primary focus:ring-primary"
-                                checked={isChecked}
-                                onChange={(e) => {
-                                  const currentTags = field.value || [];
-                                  if (e.target.checked) {
-                                    field.onChange([...currentTags, item.id]);
-                                  } else {
-                                    field.onChange(
-                                      currentTags.filter((t) => t !== item.id),
-                                    );
-                                  }
-                                }}
-                              />
-                            </label>
-                          );
-                        })}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {mode === "admin" && (
+                  <FormField
+                    control={form.control}
+                    name="tags"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tag nổi bật</FormLabel>
+                        <div className="flex flex-col gap-2 pt-1">
+                          {[
+                            {
+                              id: "pet_friendly",
+                              label: "Pet Friendly",
+                              icon: Dog,
+                            },
+                            {
+                              id: "lake_view",
+                              label: "Lake View",
+                              icon: Waves,
+                            },
+                          ].map((item) => {
+                            const isChecked = field.value?.includes(
+                              item.id as FeatureTag,
+                            );
+                            const IconComp = item.icon;
+                            return (
+                              <label
+                                key={item.id}
+                                className={cn(
+                                  "flex items-center justify-between p-3 rounded-md border cursor-pointer transition-all select-none",
+                                  isChecked
+                                    ? "border-primary bg-primary/5 text-primary font-medium"
+                                    : "bg-transparent border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                                )}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <IconComp className="h-4 w-4" />
+                                  <span className="text-sm">{item.label}</span>
+                                </div>
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-primary text-primary focus:ring-primary"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    const currentTags = field.value || [];
+                                    if (e.target.checked) {
+                                      field.onChange([...currentTags, item.id]);
+                                    } else {
+                                      field.onChange(
+                                        currentTags.filter(
+                                          (t) => t !== item.id,
+                                        ),
+                                      );
+                                    }
+                                  }}
+                                />
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </CardContent>
             </Card>
 
@@ -894,7 +1417,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormLabel>Quận</FormLabel>
                       <Select
                         onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        value={field.value || undefined}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -921,7 +1444,7 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
                       <FormLabel>Dạng phòng</FormLabel>
                       <Select
                         onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        value={field.value || undefined}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -943,61 +1466,103 @@ export default function ApartmentForm({ apartment }: ApartmentFormProps) {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Admin Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="sourceCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ID</FormLabel>
-                      <FormControl>
-                        <Input placeholder="VD. TH0012" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Địa chỉ</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="landlordPhoneNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SĐT Chủ nhà</FormLabel>
-                      <FormControl>
-                        <Input placeholder="VD. 09xxxxxxxx" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+            {mode === "admin" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Admin Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="sourceCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ID</FormLabel>
+                        <FormControl>
+                          <Input placeholder="VD. TH0012" {...field} />
+                        </FormControl>
+                        {hasHyphenSourceCode(field.value) && (
+                          <FormDescription>Khách sẽ thấy: 888</FormDescription>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Địa chỉ</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="landlordPhoneNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SĐT Chủ nhà</FormLabel>
+                        <FormControl>
+                          <Input placeholder="VD. 09xxxxxxxx" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {mode === "landlord" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Thông tin liên hệ</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="contactPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Số điện thoại liên hệ</FormLabel>
+                        <FormControl>
+                          <Input placeholder="VD. 09xxxxxxxx" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {apartment ? "Update" : "Create"} Apartment
+          <Button type="submit" disabled={isSubmitting || isProcessingImages}>
+            {(isSubmitting || isProcessingImages) && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            {isProcessingImages
+              ? "Đang xử lý ảnh..."
+              : mode === "landlord"
+                ? "Gửi tin đăng"
+                : `${apartment ? "Update" : "Create"} Apartment`}
           </Button>
           <Button variant="outline" asChild>
-            <Link href={`/${ADMIN_PATH}`}>Cancel</Link>
+            <Link
+              href={
+                mode === "landlord"
+                  ? "/profile/apartments"
+                  : `/${ADMIN_PATH}/apartments`
+              }
+            >
+              Cancel
+            </Link>
           </Button>
         </div>
       </form>
