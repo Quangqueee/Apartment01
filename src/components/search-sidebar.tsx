@@ -156,14 +156,14 @@ export default function SearchSidebar({
             })}
           </div>
         ) : (
-          <div className="grid max-h-44 grid-cols-1 gap-0.5 overflow-y-auto overflow-x-hidden pr-1">
+          <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 overflow-x-hidden">
             {HANOI_DISTRICTS.map((district) => {
               const checked = districts.includes(district);
               return (
                 <label
                   key={district}
                   className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                    "flex cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 text-sm transition-colors",
                     checked
                       ? "bg-[#cda533]/10 font-semibold text-[#9a7b24]"
                       : "text-gray-700 hover:bg-gray-50",
@@ -209,14 +209,14 @@ export default function SearchSidebar({
             })}
           </div>
         ) : (
-          <div className="grid max-h-36 grid-cols-1 gap-0.5 overflow-y-auto overflow-x-hidden pr-1">
+          <div className="grid grid-cols-2 gap-x-1 gap-y-0.5 overflow-x-hidden">
             {ROOM_TYPES.map((roomType) => {
               const checked = roomTypes.includes(roomType.value);
               return (
                 <label
                   key={roomType.value}
                   className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors",
+                    "flex cursor-pointer items-center gap-1.5 rounded-lg px-1.5 py-1 text-sm transition-colors",
                     checked
                       ? "bg-[#cda533]/10 font-semibold text-[#9a7b24]"
                       : "text-gray-700 hover:bg-gray-50",
@@ -303,7 +303,7 @@ export default function SearchSidebar({
     <form
       className={cn(
         "flex min-h-0 flex-col overflow-hidden",
-        hideQuery ? "min-h-0 flex-1" : "flex-1",
+        hideQuery ? "min-h-0 flex-1" : "h-auto",
         className,
       )}
       onSubmit={(event) => {
@@ -314,7 +314,9 @@ export default function SearchSidebar({
       <div
         className={cn(
           "min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain",
-          hideQuery ? "min-h-0 flex-1 space-y-4 pb-2" : "flex-1 space-y-5 pb-4",
+          hideQuery
+            ? "min-h-0 flex-1 space-y-4 pb-2"
+            : "space-y-3.5 pb-3",
         )}
       >
         {!hideQuery ? (

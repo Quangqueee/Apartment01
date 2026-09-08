@@ -12,12 +12,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUser } from "@/firebase/provider";
+import { useAuth } from "@/context/auth-context";
 import { useNavProgress } from "@/components/navigation-progress";
 import { ADMIN_PATH } from "@/lib/constants";
 import { SITE_PATHS } from "@/lib/site";
 import { districtFromPathname } from "@/lib/districts";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 type NavId = "home" | "schedule" | "search" | "favorites" | "account";
 
@@ -83,8 +83,15 @@ function isNavActive(id: NavId, pathname: string): boolean {
 export default function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isUserLoading } = useUser();
+  const { user, loading: authLoading } = useAuth();
   const { start, pendingPath } = useNavProgress();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const authReady = mounted && !authLoading;
 
   useEffect(() => {
     [
@@ -128,15 +135,17 @@ export default function MobileNav() {
     <nav className={MOBILE_NAV_CLASS}>
       <div className="mx-auto flex h-16 w-full max-w-lg items-stretch px-1">
         {navItems.map((item) => {
-          const targetHref =
-            user && item.loggedInHref
+          const targetHref = !authReady
+            ? item.href
+            : user && item.loggedInHref
               ? item.loggedInHref
               : !user && item.guestHref
                 ? item.guestHref
                 : item.href;
 
-          const label =
-            item.id === "account" && !isUserLoading
+          const label = !authReady
+            ? item.label
+            : item.id === "account"
               ? user
                 ? "Tài khoản"
                 : "Đăng nhập"
@@ -152,6 +161,7 @@ export default function MobileNav() {
               key={item.id}
               href={targetHref}
               prefetch
+              suppressHydrationWarning
               aria-current={isActive ? "page" : undefined}
               aria-busy={isPending || undefined}
               aria-label={label}
@@ -178,7 +188,9 @@ export default function MobileNav() {
                   }
                 />
               )}
-              <span className="max-w-full truncate">{label}</span>
+              <span suppressHydrationWarning className="max-w-full truncate">
+                {label}
+              </span>
             </Link>
           );
         })}

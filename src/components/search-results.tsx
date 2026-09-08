@@ -107,14 +107,14 @@ export default async function SearchResults({
             className="lg:hidden"
           />
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
             <aside className="hidden lg:block">
-              <div className="sticky top-[calc(var(--site-header-height)+1rem)] flex h-[calc(100dvh-var(--site-header-height)-2rem)] max-h-[calc(100dvh-var(--site-header-height)-2rem)] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
+              <div className="sticky top-[calc(var(--site-header-height)+1rem)] max-h-[calc(100dvh-var(--site-header-height)-2rem)] overflow-x-hidden overflow-y-auto rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
                 <h2 className="mb-3 shrink-0 font-headline text-base font-bold text-gray-900">
                   Bộ lọc tìm kiếm
                 </h2>
                 <Suspense fallback={null}>
-                  <SearchSidebar className="min-h-0 flex-1" />
+                  <SearchSidebar className="min-h-0" />
                 </Suspense>
               </div>
             </aside>

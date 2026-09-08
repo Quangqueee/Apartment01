@@ -103,7 +103,7 @@ export default function SearchMobileBar() {
           ) : null}
         </div>
 
-        {filterCount > 0 ? (
+        {/* {filterCount > 0 ? (
           <button
             type="button"
             onClick={clearFilters}
@@ -113,7 +113,7 @@ export default function SearchMobileBar() {
             <RotateCcw className="h-4 w-4" />
             <span>Xóa</span>
           </button>
-        ) : null}
+        ) : null} */}
 
         <button
           type="button"
