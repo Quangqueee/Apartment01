@@ -9,7 +9,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Users, TrendingUp, Activity, CalendarClock, UserCheck } from "lucide-react";
+import { BedDouble, Building2, Users, TrendingUp, Activity, CalendarClock, UserCheck } from "lucide-react";
 
 const PENDING_BOOKING_COLLECTIONS = [
   "ctv_bookings",
@@ -17,55 +17,87 @@ const PENDING_BOOKING_COLLECTIONS = [
   "guest_consultations",
 ];
 
+async function safeCount(
+  label: string,
+  run: () => ReturnType<typeof getCountFromServer>,
+): Promise<number> {
+  try {
+    const snap = await run();
+    return snap.data().count;
+  } catch (error) {
+    console.error(
+      `Admin dashboard count (${label}):`,
+      error instanceof Error ? error.message : error,
+    );
+    return 0;
+  }
+}
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState({
     totalApartments: 0,
     totalUsers: 0,
     pendingBookings: 0,
     pendingCtvRequests: 0,
+    pendingStayBookings: 0,
     isLoading: true,
   });
 
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchStats() {
-      try {
-        // Đếm tổng số căn hộ nhanh bằng getCountFromServer (không tốn nhiều reads)
-        const aptCol = collection(db, "apartments");
-        const aptSnapshot = await getCountFromServer(aptCol);
+      const aptCol = collection(db, "apartments");
+      const usersCol = collection(db, "users");
 
-        // Đếm tổng số người dùng
-        const usersCol = collection(db, "users");
-        const usersSnapshot = await getCountFromServer(usersCol);
+      const [
+        totalApartments,
+        totalUsers,
+        pendingCounts,
+        pendingCtvRequests,
+        pendingStayBookings,
+      ] = await Promise.all([
+        safeCount("apartments", () => getCountFromServer(aptCol)),
+        safeCount("users", () => getCountFromServer(usersCol)),
+        Promise.all(
+          PENDING_BOOKING_COLLECTIONS.map((name) =>
+            safeCount(name, () =>
+              getCountFromServer(
+                query(collection(db, name), where("status", "==", "pending")),
+              ),
+            ),
+          ),
+        ),
+        safeCount("ctv-requests", () =>
+          getCountFromServer(
+            query(usersCol, where("requestStatus", "==", "pending")),
+          ),
+        ),
+        safeCount("stay_bookings", () =>
+          getCountFromServer(
+            query(
+              collection(db, "stay_bookings"),
+              where("status", "==", "pending"),
+            ),
+          ),
+        ),
+      ]);
 
-        // Đếm tổng số lịch hẹn đang chờ duyệt trên cả 3 collection
-        const pendingCounts = await Promise.all(
-          PENDING_BOOKING_COLLECTIONS.map(async (name) => {
-            const snap = await getCountFromServer(
-              query(collection(db, name), where("status", "==", "pending")),
-            );
-            return snap.data().count;
-          }),
-        );
-
-        // Đếm số CTV đang chờ duyệt
-        const ctvRequestSnapshot = await getCountFromServer(
-          query(usersCol, where("requestStatus", "==", "pending")),
-        );
-
-        setStats({
-          totalApartments: aptSnapshot.data().count,
-          totalUsers: usersSnapshot.data().count,
-          pendingBookings: pendingCounts.reduce((sum, c) => sum + c, 0),
-          pendingCtvRequests: ctvRequestSnapshot.data().count,
-          isLoading: false,
-        });
-      } catch (error) {
-        console.error("Lỗi lấy dữ liệu thống kê:", error);
-        setStats((prev) => ({ ...prev, isLoading: false }));
-      }
+      if (cancelled) return;
+      setStats({
+        totalApartments,
+        totalUsers,
+        pendingBookings: pendingCounts.reduce((sum, c) => sum + c, 0),
+        pendingCtvRequests,
+        pendingStayBookings,
+        isLoading: false,
+      });
     }
 
     fetchStats();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -137,6 +169,27 @@ export default function AdminDashboardPage() {
               {stats.isLoading ? "..." : stats.pendingBookings}
             </div>
             <p className="text-xs text-orange-600 font-medium flex items-center mt-2">
+              <Activity className="h-3 w-3 mr-1" />
+              Cần Admin xử lý
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Thẻ Thống kê Đặt phòng ngắn hạn chờ duyệt */}
+        <Card className="shadow-sm border-gray-100 transition-all hover:shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-bold uppercase text-gray-500">
+              Đặt phòng ngắn hạn chờ duyệt
+            </CardTitle>
+            <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
+              <BedDouble className="h-5 w-5" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-black text-gray-900">
+              {stats.isLoading ? "..." : stats.pendingStayBookings}
+            </div>
+            <p className="text-xs text-rose-600 font-medium flex items-center mt-2">
               <Activity className="h-3 w-3 mr-1" />
               Cần Admin xử lý
             </p>

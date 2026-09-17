@@ -2,11 +2,12 @@
 import { useEffect, useState, memo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { db } from "@/firebase";
-import { doc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { setApartmentFavorite } from "@/lib/favorites-client";
+import { useToast } from "@/hooks/use-toast";
 import AuthModal from "./auth-modal";
 import Link from "next/link";
 import { Apartment } from "@/lib/types";
+import Image from "next/image";
 import {
   Heart,
   ChevronLeft,
@@ -20,44 +21,114 @@ import {
   Dog,
   Waves,
 } from "lucide-react";
-import { formatRelativeTime, formatPrice } from "@/lib/utils";
-import { Montserrat, Be_Vietnam_Pro } from "next/font/google";
-
-const titleFont = Be_Vietnam_Pro({
-  subsets: ["vietnamese"],
-  weight: ["700"],
-  display: "swap",
-});
-
-const montserrat = Montserrat({
-  subsets: ["vietnamese"],
-  weight: ["700"],
-  display: "swap",
-});
+import { formatRelativeTime, formatPrice, cn, timestampSeconds } from "@/lib/utils";
+import { getDisplaySourceCode } from "@/lib/source-code";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default memo(function ApartmentCard({
   apartment,
   onFavoriteToggle,
   isCompact = false,
+  imagePriority = false,
 }: {
   apartment: Apartment;
   onFavoriteToggle?: (apartmentId: string, isFavorited: boolean) => void;
   isCompact?: boolean;
+  /** Only the first visible card(s) should set this to protect LCP. */
+  imagePriority?: boolean;
 }) {
-  const { user, userData } = useAuth();
+  const { user, userData, favoriteIds } = useAuth();
+  const { toast } = useToast();
   const router = useRouter();
+  const imageUrls = Array.isArray(apartment.imageUrls)
+    ? apartment.imageUrls
+    : [];
+  const isMobile = useIsMobile();
   const [showModal, setShowModal] = useState(false);
   const [isFavoriteUpdating, setIsFavoriteUpdating] = useState(false);
+  /** Desktop (md+): open details in a new tab; mobile stays same-tab. */
+  const detailsLinkTarget = isMobile
+    ? undefined
+    : ({ target: "_blank", rel: "noopener noreferrer" } as const);
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  const [isMouseDragging, setIsMouseDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+  const [loadAllImages, setLoadAllImages] = useState(false);
+  const [mountedImageIndexes, setMountedImageIndexes] = useState<Set<number>>(
+    () => new Set([0, 1]),
+  );
+  const [readyImageIndexes, setReadyImageIndexes] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const [hasDragged, setHasDragged] = useState(false);
+  const hasDraggedRef = useRef(false);
+  const mouseDragRef = useRef<{ x: number; left: number } | null>(null);
+  const gestureRef = useRef({
+    x: 0,
+    y: 0,
+    t: 0,
+    moved: false,
+    scrollLeft: 0,
+  });
 
-  // Phân quyền
+  const markDragged = (next: boolean) => {
+    hasDraggedRef.current = next;
+    setHasDragged(next);
+  };
+
+  const unlockAllImages = () => {
+    if (imageUrls.length <= 1 || loadAllImages) return;
+    setLoadAllImages(true);
+    setMountedImageIndexes(new Set(imageUrls.map((_, index) => index)));
+  };
+
+  const keepImageMounted = (index: number) => {
+    setMountedImageIndexes((prev) => {
+      if (prev.has(index)) return prev;
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+  };
+
+  const getSlideWidth = () => scrollerRef.current?.clientWidth ?? 0;
+
+  const scrollToIndex = (index: number, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const scroller = scrollerRef.current;
+    const width = getSlideWidth();
+    if (!scroller || !width) return;
+    const last = Math.max(0, imageUrls.length - 1);
+    const nextIndex = Math.max(0, Math.min(last, index));
+    if (nextIndex !== currentImageIndex) unlockAllImages();
+    keepImageMounted(nextIndex);
+    setCurrentImageIndex(nextIndex);
+    scroller.scrollTo({
+      left: nextIndex * width,
+      behavior: "smooth",
+    });
+  };
+
+  const handleSliderScroll = () => {
+    const scroller = scrollerRef.current;
+    const width = scroller?.clientWidth ?? 0;
+    if (!scroller || !width) return;
+    const nextIndex = Math.round(scroller.scrollLeft / width);
+    if (nextIndex !== currentImageIndex) {
+      keepImageMounted(nextIndex);
+      setCurrentImageIndex(nextIndex);
+    }
+    if (
+      Math.abs(scroller.scrollLeft - gestureRef.current.scrollLeft) > 10
+    ) {
+      unlockAllImages();
+      markDragged(true);
+    }
+  };
+
   const isCollaborator =
     userData?.role === "collaborator" || userData?.role === "admin";
   const canViewCommission = isCollaborator;
@@ -65,16 +136,16 @@ export default memo(function ApartmentCard({
   const initialFavoriteState =
     typeof apartment.isFavorited === "boolean"
       ? apartment.isFavorited
-      : userData?.favorites?.includes(apartment.id) || false;
+      : favoriteIds.includes(apartment.id);
   const [isFavorite, setIsFavorite] = useState(initialFavoriteState);
 
   useEffect(() => {
     const nextFavoriteState =
       typeof apartment.isFavorited === "boolean"
         ? apartment.isFavorited
-        : userData?.favorites?.includes(apartment.id) || false;
+        : favoriteIds.includes(apartment.id);
     setIsFavorite(nextFavoriteState);
-  }, [apartment.id, apartment.isFavorited, userData?.favorites]);
+  }, [apartment.id, apartment.isFavorited, favoriteIds]);
 
   const formatCommission = (commissionValue: Apartment["commission"]) => {
     if (
@@ -99,52 +170,29 @@ export default memo(function ApartmentCard({
       return;
     }
 
-    const userRef = doc(db, "users", user.uid);
     const nextIsFavorite = !isFavorite;
     setIsFavoriteUpdating(true);
     setIsFavorite(nextIsFavorite);
     onFavoriteToggle?.(apartment.id, nextIsFavorite);
 
     try {
-      await setDoc(
-        userRef,
-        {
-          favorites: nextIsFavorite
-            ? arrayUnion(apartment.id)
-            : arrayRemove(apartment.id),
-        },
-        { merge: true },
-      );
+      await setApartmentFavorite(user, apartment.id, nextIsFavorite);
     } catch (err) {
       setIsFavorite(!nextIsFavorite);
       onFavoriteToggle?.(apartment.id, !nextIsFavorite);
+      toast({
+        variant: "destructive",
+        title: "Không thể lưu yêu thích",
+        description: "Vui lòng thử lại sau.",
+      });
     } finally {
       setIsFavoriteUpdating(false);
     }
   };
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const width = e.currentTarget.clientWidth;
-    if (!width) return;
-    const index = Math.round(e.currentTarget.scrollLeft / width);
-    if (index !== currentImageIndex) {
-      setCurrentImageIndex(index);
-    }
-  };
-
-  const scrollToIndex = (index: number, e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    if (!scrollRef.current) return;
-    const width = scrollRef.current.clientWidth;
-    scrollRef.current.scrollTo({ left: index * width, behavior: "smooth" });
-  };
-
   const handleNextImage = (e?: React.MouseEvent) => {
     const nextIndex =
-      currentImageIndex === apartment.imageUrls.length - 1
+      currentImageIndex === imageUrls.length - 1
         ? 0
         : currentImageIndex + 1;
     scrollToIndex(nextIndex, e);
@@ -153,57 +201,98 @@ export default memo(function ApartmentCard({
   const handlePrevImage = (e?: React.MouseEvent) => {
     const prevIndex =
       currentImageIndex === 0
-        ? apartment.imageUrls.length - 1
+        ? imageUrls.length - 1
         : currentImageIndex - 1;
     scrollToIndex(prevIndex, e);
   };
 
-  const onMouseDown = (e: React.MouseEvent) => {
-    setIsMouseDragging(true);
-    setHasDragged(false);
-    if (scrollRef.current) {
-      setStartX(e.pageX - scrollRef.current.offsetLeft);
-      setScrollLeft(scrollRef.current.scrollLeft);
+  const rememberGestureStart = (event: React.PointerEvent<HTMLDivElement>) => {
+    markDragged(false);
+    gestureRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      t: Date.now(),
+      moved: false,
+      scrollLeft: scrollerRef.current?.scrollLeft ?? 0,
+    };
+    if (event.pointerType === "mouse" && imageUrls.length > 1) {
+      mouseDragRef.current = {
+        x: event.clientX,
+        left: scrollerRef.current?.scrollLeft ?? 0,
+      };
     }
   };
 
-  const stopDragging = () => {
-    if (!isMouseDragging) return;
-    setIsMouseDragging(false);
-    if (scrollRef.current) {
-      const width = scrollRef.current.clientWidth;
-      const currentScroll = scrollRef.current.scrollLeft;
-      const targetIndex = Math.round(currentScroll / width);
-      scrollRef.current.scrollTo({
-        left: targetIndex * width,
-        behavior: "smooth",
-      });
+  const rememberGestureMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const dx = event.clientX - gestureRef.current.x;
+    const dy = event.clientY - gestureRef.current.y;
+    if (Math.hypot(dx, dy) > 12) {
+      gestureRef.current.moved = true;
+      markDragged(true);
+    }
+
+    if (!mouseDragRef.current || event.pointerType !== "mouse") return;
+    if (Math.abs(dx) > 5) {
+      event.preventDefault();
+      markDragged(true);
+      const scroller = scrollerRef.current;
+      if (scroller) {
+        scroller.scrollLeft = mouseDragRef.current.left - dx;
+      }
     }
   };
 
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!isMouseDragging || !scrollRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = x - startX;
-    if (Math.abs(walk) > 5) setHasDragged(true);
-    scrollRef.current.scrollLeft = scrollLeft - walk;
+  const endGesture = () => {
+    mouseDragRef.current = null;
+  };
+
+  useEffect(() => {
+    setCurrentImageIndex(0);
+    setLoadAllImages(false);
+    setMountedImageIndexes(new Set([0, 1]));
+    setReadyImageIndexes(new Set());
+    scrollerRef.current?.scrollTo({ left: 0, behavior: "auto" });
+  }, [apartment.id]);
+
+  const openDetails = () => {
+    const href = `/apartments/${apartment.id}`;
+    if (isMobile) {
+      router.push(href);
+      return;
+    }
+    window.open(href, "_blank", "noopener,noreferrer");
   };
 
   const handleLinkClick = (e: React.MouseEvent) => {
-    if (hasDragged) {
+    if (hasDraggedRef.current || hasDragged) {
       e.preventDefault();
       e.stopPropagation();
     }
   };
 
+  const handleImageAreaClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const scroller = scrollerRef.current;
+    const scrolled = Math.abs(
+      (scroller?.scrollLeft ?? 0) - gestureRef.current.scrollLeft,
+    );
+    if (
+      hasDraggedRef.current ||
+      hasDragged ||
+      gestureRef.current.moved ||
+      scrolled > 10
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    openDetails();
+  };
+
   const displayCommission = formatCommission(apartment.commission);
-  const fullPrice = apartment.price * 1000000;
-  const timeToDisplay = apartment.updatedAt?.seconds
+  const timeToDisplay = timestampSeconds(apartment.updatedAt)
     ? apartment.updatedAt
     : apartment.createdAt;
 
-  // LOGIC HIỂN THỊ TAG TRẠNG THÁI & MARKETING TRÊN CARD
   let tagLabel = null;
   let tagBgClass = "";
   let TagIcon = null;
@@ -215,10 +304,9 @@ export default memo(function ApartmentCard({
   const daysPassed = Math.floor(
     (Date.now() - dateInMs) / (1000 * 60 * 60 * 24),
   );
-  const isOldListing = daysPassed >= 14;
+  const isOldListing = daysPassed >= 10;
 
   if (isCollaborator) {
-    // Trạng thái hiển thị cho CTV/Admin (Dạt góc trái dưới)
     if (isRented) {
       tagLabel = "Tạm hết";
       tagBgClass = "bg-gray-500";
@@ -227,10 +315,9 @@ export default memo(function ApartmentCard({
       tagBgClass = "bg-amber-500";
     } else {
       tagLabel = "Còn trống";
-      tagBgClass = "bg-green-500";
+      tagBgClass = "bg-[#5cb85c]";
     }
   } else {
-    // Trạng thái & Marketing hiển thị cho Khách B2C (Góc trái trên)
     const hasPetFriendly = apartment.tags?.includes("pet_friendly");
     const hasLakeView = apartment.tags?.includes("lake_view");
 
@@ -259,28 +346,59 @@ export default memo(function ApartmentCard({
       tagBgClass = B2C_TAGS[tagIndex].bg;
       TagIcon = B2C_TAGS[tagIndex].icon;
     } else {
-      // Mặc định: Căn mới đăng dưới 5 ngày và đang trống
       tagLabel = "Available";
       tagBgClass = "bg-green-500";
       TagIcon = CheckCircle2;
     }
   }
 
+  // Loại bỏ hoàn toàn tiêu đề chuẩn SEO trên UI để trả lại sự tối giản, ngắn gọn
+  const displayTitle = apartment.title;
+
   return (
     <>
-      <div className="group/slider relative flex flex-col h-full bg-white rounded-xl sm:rounded-2xl border border-gray-200 overflow-hidden transition-all duration-300 ease-out hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1.5 hover:scale-[1.015]">
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
-          {/* GÓC TRÁI TRÊN: Hiển thị Hoa hồng (Cho CTV) & Tag Marketing (Cho Khách) */}
-          <div className="absolute top-3 left-0 z-20 flex flex-col gap-2 pointer-events-none items-start">
+      <div
+        className={cn(
+          "group/slider relative flex h-full flex-col overflow-hidden border border-gray-200 bg-white transition-shadow duration-300 ease-out",
+          isCompact
+            ? "rounded-xl md:hover:shadow-md"
+            : "rounded-xl md:hover:-translate-y-1.5 md:hover:scale-[1.015] md:hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] sm:rounded-2xl",
+        )}
+      >
+        <div
+          className={cn(
+            "relative w-full overflow-hidden overflow-clip bg-gray-100",
+            isCompact ? "aspect-[3/2]" : "aspect-[4/3]",
+          )}
+        >
+          <div
+            className={cn(
+              "absolute left-0 top-3 z-20 flex flex-col items-start gap-2 pointer-events-none",
+              isCompact && "top-2 gap-1.5",
+            )}
+          >
             {canViewCommission && displayCommission && (
-              <div className="bg-[#5cb85c] text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm ml-3">
+              <div
+                className={cn(
+                  "truncate rounded bg-[#5cb85c] font-bold text-white shadow-sm ml-3",
+                  isCompact
+                    ? "px-2 py-0.5 text-[10px]"
+                    : "px-2.5 py-1 text-xs",
+                )}
+              >
                 HH: {displayCommission}
               </div>
             )}
 
             {!isCollaborator && tagLabel && (
               <div
-                className={`${tagBgClass} flex items-center gap-1.5 text-white text-[10px] sm:text-xs font-bold pl-3 pr-4 py-1.5 uppercase tracking-wide drop-shadow-md`}
+                className={cn(
+                  tagBgClass,
+                  "flex items-center gap-1.5 font-bold uppercase tracking-wide text-white drop-shadow-md",
+                  isCompact
+                    ? "py-1 pl-2.5 pr-3 text-[10px]"
+                    : "py-1.5 pl-3 pr-4 text-[10px] sm:text-xs",
+                )}
                 style={{
                   clipPath:
                     "polygon(0% 0%, 90% 0%, 100% 50%, 90% 100%, 0% 100%)",
@@ -292,7 +410,6 @@ export default memo(function ApartmentCard({
             )}
           </div>
 
-          {/* GÓC TRÁI DƯỚI: Trạng thái phòng hiển thị riêng cho CTV/Admin */}
           {isCollaborator && tagLabel && (
             <div className="absolute bottom-6 left-0 z-20 pointer-events-none">
               <div
@@ -303,48 +420,89 @@ export default memo(function ApartmentCard({
             </div>
           )}
 
-          {/* GÓC PHẢI TRÊN: ID Căn hộ */}
-          <div className="absolute top-3 right-3 z-20 bg-black/60 backdrop-blur-md text-white text-xs font-bold px-2 py-1 rounded shadow-sm pointer-events-none">
-            ID: {apartment.sourceCode}
+          <div
+            className={cn(
+              "absolute z-20 rounded bg-black/60 font-bold text-white shadow-sm pointer-events-none backdrop-blur-md",
+              isCompact
+                ? "right-2 top-2 px-1.5 py-0.5 text-[10px]"
+                : "right-3 top-3 px-2 py-1 text-xs",
+            )}
+          >
+            ID: {getDisplaySourceCode(apartment.sourceCode, userData?.role)}
           </div>
 
-          <Link
-            href={`/apartments/${apartment.id}`}
-            className="absolute inset-0 z-0 block"
-            onClick={handleLinkClick}
-            draggable={false}
+          <div
+            role="link"
+            tabIndex={0}
+            aria-label={displayTitle}
+            className="absolute inset-0 z-0 block select-none [-webkit-touch-callout:none]"
+            onClick={handleImageAreaClick}
+            onContextMenu={(e) => e.preventDefault()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openDetails();
+              }
+            }}
           >
             <div
-              ref={scrollRef}
-              onScroll={handleScroll}
-              onMouseDown={onMouseDown}
-              onMouseLeave={stopDragging}
-              onMouseUp={stopDragging}
-              onMouseMove={onMouseMove}
-              className={`flex h-full w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${
-                isMouseDragging
-                  ? "snap-none cursor-grabbing"
-                  : "snap-x snap-mandatory scroll-smooth"
-              }`}
+              ref={scrollerRef}
+              onScroll={handleSliderScroll}
+              onPointerDown={rememberGestureStart}
+              onPointerMove={rememberGestureMove}
+              onPointerUp={endGesture}
+              onPointerCancel={endGesture}
+              onPointerLeave={endGesture}
+              className="flex h-full w-full cursor-grab overflow-x-auto overscroll-x-contain snap-x snap-mandatory [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] select-none [-webkit-touch-callout:none] active:cursor-grabbing"
             >
-              {apartment.imageUrls.map((url, idx) => (
-                <div
-                  key={idx}
-                  className="h-full w-full flex-shrink-0 snap-center"
-                >
-                  <img
-                    src={url}
-                    alt={`${apartment.title} - ảnh ${idx + 1}`}
-                    loading={idx === 0 ? "eager" : "lazy"}
-                    draggable={false}
-                    className="h-full w-full object-cover pointer-events-none select-none"
-                  />
-                </div>
-              ))}
+              {imageUrls.map((url, idx) => {
+                const shouldLoadImage =
+                  loadAllImages ||
+                  mountedImageIndexes.has(idx) ||
+                  Math.abs(idx - currentImageIndex) <= 1;
+                const imageReady = idx === 0 || readyImageIndexes.has(idx);
+                return (
+                  <div
+                    key={idx}
+                    className="relative h-full w-full shrink-0 grow-0 basis-full snap-center snap-always bg-gray-200"
+                  >
+                    {shouldLoadImage ? (
+                      <Image
+                        src={url}
+                        alt={`${displayTitle} - ảnh ${idx + 1}`}
+                        fill
+                        sizes={
+                          isCompact
+                            ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 28vw"
+                            : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                        }
+                        quality={60}
+                        priority={imagePriority && idx === 0}
+                        loading={
+                          loadAllImages || idx === 0 ? "eager" : "lazy"
+                        }
+                        draggable={false}
+                        onLoad={() => {
+                          setReadyImageIndexes((prev) => {
+                            if (prev.has(idx)) return prev;
+                            const next = new Set(prev);
+                            next.add(idx);
+                            return next;
+                          });
+                        }}
+                        className={cn(
+                          "object-cover pointer-events-none select-none [-webkit-touch-callout:none] transition-opacity duration-200",
+                          imageReady ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
-          </Link>
+          </div>
 
-          {apartment.imageUrls.length > 1 && (
+          {imageUrls.length > 1 && (
             <>
               <div
                 onClick={handlePrevImage}
@@ -361,9 +519,9 @@ export default memo(function ApartmentCard({
             </>
           )}
 
-          {apartment.imageUrls.length > 1 && (
+          {imageUrls.length > 1 && (
             <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-1.5 drop-shadow-md pointer-events-none">
-              {apartment.imageUrls.map((_, idx) => (
+              {imageUrls.map((_, idx) => (
                 <div
                   key={idx}
                   className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -380,54 +538,79 @@ export default memo(function ApartmentCard({
         <Link
           href={`/apartments/${apartment.id}`}
           onClick={handleLinkClick}
-          className="flex flex-1 flex-col p-4 sm:p-5"
+          className={cn(
+            "flex flex-1 flex-col",
+            isCompact ? "p-3" : "p-4 sm:p-5",
+          )}
+          {...detailsLinkTarget}
         >
           <div className="relative w-full">
-            <h3
-              className={`${titleFont.className} pr-8 text-[1.1rem] sm:text-lg font-bold text-gray-900 line-clamp-1`}
-              title={apartment.title}
+            {/* Sử dụng font-body không chân, nét đậm vừa (semibold) đảm bảo tính hiện đại */}
+            <div
+              role="heading"
+              aria-level={3}
+              className={cn(
+                "font-body line-clamp-1 pr-8 font-semibold leading-snug tracking-tight text-[#222222]",
+                isCompact
+                  ? "text-sm"
+                  : "text-[0.95rem] sm:text-base",
+              )}
+              title={displayTitle}
             >
-              {apartment.title}
-            </h3>
+              {displayTitle}
+            </div>
 
             <div
               onClick={toggleFavorite}
               className="absolute right-0 top-0 cursor-pointer p-1 active:scale-90 transition-transform z-10"
             >
               <Heart
-                className={`h-5 w-5 transition-colors duration-300 ${
+                className={cn(
+                  "transition-colors duration-300",
+                  isCompact ? "h-4 w-4" : "h-5 w-5",
                   isFavorite
                     ? "fill-red-500 text-red-500"
-                    : "text-gray-400 hover:text-red-400"
-                }`}
+                    : "text-gray-400 md:hover:text-red-400",
+                )}
               />
             </div>
           </div>
 
-          <p className="mt-1 text-[0.85rem] sm:text-sm text-gray-500 line-clamp-1">
+          <p
+            className={cn(
+              "mt-1 line-clamp-1 tracking-tight text-gray-500",
+              isCompact ? "text-xs" : "text-[0.85rem] sm:text-sm",
+            )}
+          >
             {apartment.district}
           </p>
 
-          <div className="mt-1 flex items-center justify-between text-[0.85rem] sm:text-sm text-gray-500">
+          <div
+            className={cn(
+              "mt-1 flex items-center justify-between tracking-tight text-gray-500",
+              isCompact ? "text-xs" : "text-[0.85rem] sm:text-sm",
+            )}
+          >
             <span className="truncate pr-2 font-medium">
               {apartment.roomType} • {apartment.area} m²
             </span>
-            {!isCompact && (
-              <span className="whitespace-nowrap text-gray-400 text-[0.75rem] sm:text-[0.8rem] italic">
-                Cập nhật: {formatRelativeTime(timeToDisplay)}
-              </span>
-            )}
+            <span className="whitespace-nowrap text-gray-400 text-[0.75rem] sm:text-[0.8rem] italic tracking-normal">
+              Cập nhật: {formatRelativeTime(timeToDisplay)}
+            </span>
           </div>
 
-          <div className="mt-auto pt-4 flex items-baseline">
+          <div className={cn("mt-auto flex items-baseline", isCompact ? "pt-1.5" : "pt-2")}>
             <span
-              className={`${montserrat.className} text-[1.4rem] sm:text-[1.45rem] font-bold text-[#cda533] tracking-tight`}
+              className={cn(
+                "font-body font-bold tracking-tighter text-[#cda533]",
+                isCompact ? "text-base" : "text-[1.2rem] sm:text-[1.25rem]",
+              )}
             >
               {typeof apartment.price === "number"
                 ? `₫${(apartment.price * 1000000).toLocaleString("vi-VN")}`
                 : formatPrice(apartment.price)}
             </span>
-            <span className="ml-1 text-[0.85rem] sm:text-sm font-medium text-gray-500">
+            <span className="ml-1 text-xs sm:text-[0.8rem] font-medium text-gray-500 tracking-tight">
               /tháng
             </span>
           </div>

@@ -212,7 +212,7 @@ export default function CtvRegisterPage() {
 
               {/* Số điện thoại trắng nổi bật trên nền xám tối */}
               <span className="z-10 rounded-lg border border-white/10 bg-white/10 px-2.5 py-1.5 text-[13px] font-black tracking-wide text-white shadow-sm backdrop-blur-md">
-                035.5885.851{" "}
+                081.2442.111{" "}
                 <span className="font-medium text-gray-300">(Quang)</span>
               </span>
             </div>

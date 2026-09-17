@@ -13,7 +13,7 @@ import {
   where,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { createNotification } from "@/lib/notifications";
+import { notifyAdmins } from "@/lib/notifications";
 import { ADMIN_PATH } from "@/lib/constants";
 import { Loader2, Search, UserPlus, Users } from "lucide-react";
 import {
@@ -120,20 +120,12 @@ export function AddBookingModal({
     apartmentCode?: string,
   ) => {
     try {
-      const adminsSnap = await getDocs(
-        query(collection(db, "users"), where("role", "==", "admin")),
-      );
-      await Promise.all(
-        adminsSnap.docs.map((adminDoc) =>
-          createNotification({
-            recipientId: adminDoc.id,
-            title: "Lịch hẹn thủ công mới",
-            message: `Đã tạo lịch hẹn thủ công cho khách ${clientName || "khách hàng"}${apartmentCode ? ` - mã căn ${apartmentCode}` : ""}.`,
-            type: "new_booking",
-            link: `/${ADMIN_PATH}/bookings`,
-          }),
-        ),
-      );
+      await notifyAdmins({
+        title: "Lịch hẹn thủ công mới",
+        message: `Đã tạo lịch hẹn thủ công cho khách ${clientName || "khách hàng"}${apartmentCode ? ` - mã căn ${apartmentCode}` : ""}.`,
+        type: "new_booking",
+        link: `/${ADMIN_PATH}/bookings`,
+      });
     } catch (error) {
       console.error("Lỗi gửi thông báo cho admin:", error);
     }

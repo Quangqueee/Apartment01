@@ -44,7 +44,31 @@ export const signup = async (email: string, pass: string, fullName: string, phon
 // ĐÃ THÊM: Sửa lỗi Build cho Google Login
 export const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    return await signInWithPopup(auth, provider);
+    const res = await signInWithPopup(auth, provider);
+    try {
+        const userRef = doc(db, "users", res.user.uid);
+        const snap = await getDoc(userRef);
+        if (!snap.exists()) {
+            await setDoc(userRef, {
+                uid: res.user.uid,
+                email: res.user.email || "",
+                displayName: res.user.displayName || "",
+                phoneNumber: res.user.phoneNumber || "",
+                role: "user",
+                favorites: [],
+                createdAt: serverTimestamp(),
+            });
+            await notifyAdmins({
+                title: "Thành viên mới đăng ký",
+                message: `${res.user.displayName || res.user.email} vừa đăng ký tài khoản mới trên hệ thống.`,
+                type: "system",
+                link: `/${ADMIN_PATH}/users`,
+            });
+        }
+    } catch (error) {
+        console.error("Lỗi tạo hồ sơ Google:", error);
+    }
+    return res;
 };
 
 export const resetPassword = async (email: string) => {

@@ -255,10 +255,10 @@ export function DetailsModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={
-          "p-0 border-none shadow-2xl z-[100] gap-0 bg-gray-50 flex flex-col [&>button.absolute]:hidden sm:max-w-[650px] sm:max-h-[85vh] sm:rounded-2xl overflow-hidden max-sm:fixed max-sm:inset-0 max-sm:w-full max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out max-sm:data-[state=open]:slide-in-from-bottom-full max-sm:data-[state=closed]:slide-out-to-bottom-full max-sm:duration-300 max-sm:ease-out"
+          "p-0 border-none shadow-2xl z-[100] gap-0 bg-gray-50 flex flex-col [&>button.absolute]:hidden sm:max-w-[650px] sm:max-h-[85vh] sm:rounded-2xl overflow-hidden dialog-fullscreen-mobile max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out max-sm:data-[state=open]:slide-in-from-bottom-full max-sm:data-[state=closed]:slide-out-to-bottom-full max-sm:duration-300 max-sm:ease-out"
         }
       >
-        <div className="px-4 py-3.5 sm:px-6 sm:py-5 border-b border-gray-200 flex flex-row items-center justify-between bg-white z-20 shrink-0 shadow-sm w-full">
+        <div className="pwa-safe-header px-4 py-3.5 sm:px-6 sm:py-5 border-b border-gray-200 flex flex-row items-center justify-between bg-white z-20 shrink-0 shadow-sm w-full">
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
@@ -431,7 +431,7 @@ export function DetailsModal({
                 />
               </div>
             </div>
-            <div className="shrink-0 p-3 sm:px-6 sm:py-4 border-t border-gray-200 bg-white z-20 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+            <div className="shrink-0 p-3 sm:px-6 sm:py-4 border-t border-gray-200 bg-white z-20 pwa-safe-footer">
               <button
                 type="submit"
                 disabled={isSaving}

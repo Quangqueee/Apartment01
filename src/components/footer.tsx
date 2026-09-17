@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Phone,
   Mail,
@@ -6,127 +7,169 @@ import {
   Instagram,
   MessageCircle,
 } from "lucide-react";
-// Nếu bạn dùng Next.js, hãy import Link từ "next/link" và thay các thẻ <a> bằng <Link>
+import { SITE, SITE_PATHS } from "@/lib/site";
+import { districtPath } from "@/lib/districts";
 
 export default function Footer() {
   return (
     <footer className="border-t bg-secondary/30 text-secondary-foreground">
-      <div className="container mx-auto px-4 py-12 lg:py-16">
+      <div className="container mx-auto overflow-x-hidden px-4 py-12 lg:py-16">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
-          {/* Cột 1: Thông tin thương hiệu */}
           <div className="space-y-4">
             <h2 className="font-headline text-2xl font-bold tracking-tight">
-              Hanoi Residences
+              {SITE.name}
             </h2>
             <p className="text-sm leading-relaxed text-muted-foreground">
               Không gian sống lý tưởng. Giải pháp tối ưu cho mọi ngân sách.
             </p>
             <div className="flex gap-4 pt-2">
               <a
-                href="https://www.facebook.com/quangluxury.9999/"
+                href={SITE.sameAs[0]}
                 className="text-muted-foreground transition-colors hover:text-primary"
+                aria-label="Facebook"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <Facebook className="h-5 w-5" />
               </a>
               <a
-                href="https://www.instagram.com/qquangquee/"
+                href={SITE.sameAs[1]}
                 className="text-muted-foreground transition-colors hover:text-primary"
+                aria-label="Instagram"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 <Instagram className="h-5 w-5" />
               </a>
               <a
-                href="https://zalo.me/0355885851"
+                href={SITE.sameAs[2]}
                 className="text-muted-foreground transition-colors hover:text-primary"
+                aria-label="Zalo"
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                <MessageCircle className="h-5 w-5" />{" "}
-                {/* Icon tượng trưng cho Zalo */}
+                <MessageCircle className="h-5 w-5" />
               </a>
             </div>
           </div>
 
-          {/* Cột 2: Điều hướng nhanh */}
           <div>
             <h3 className="mb-4 text-base font-semibold">Khám phá</h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
-                <a href="/" className="transition-colors hover:text-primary">
+                <Link href="/" className="transition-colors hover:text-primary">
                   Trang chủ
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#apartment-list"
+                <Link
+                  href={SITE_PATHS.search}
                   className="transition-colors hover:text-primary"
                 >
                   Danh sách căn hộ
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#about"
+                <Link
+                  href={SITE_PATHS.about}
                   className="transition-colors hover:text-primary"
                 >
                   Về chúng tôi
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#about"
+                <Link
+                  href={SITE_PATHS.partnerRegister}
                   className="transition-colors hover:text-primary"
                 >
                   Dành cho Chủ nhà & Nhà đầu tư
-                </a>
+                </Link>
               </li>
+            </ul>
+            <p className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Khu vực cho thuê
+            </p>
+            <ul className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm text-muted-foreground">
+              {["Tây Hồ", "Ba Đình", "Cầu Giấy", "Đống Đa", "Thanh Xuân", "Nam Từ Liêm"].map(
+                (name) => (
+                  <li key={name}>
+                    <Link
+                      href={districtPath(name)}
+                      className="transition-colors hover:text-primary"
+                    >
+                      {name}
+                    </Link>
+                  </li>
+                ),
+              )}
             </ul>
           </div>
 
-          {/* Cột 3: Hỗ trợ khách hàng */}
           <div>
             <h3 className="mb-4 text-base font-semibold">Hỗ trợ khách hàng</h3>
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li>
-                <a href="#" className="transition-colors hover:text-primary">
+                <Link
+                  href={SITE_PATHS.faq}
+                  className="transition-colors hover:text-primary"
+                >
                   Câu hỏi thường gặp
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="transition-colors hover:text-primary">
+                <Link
+                  href={SITE_PATHS.privacy}
+                  className="transition-colors hover:text-primary"
+                >
                   Chính sách bảo mật
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="transition-colors hover:text-primary">
+                <Link
+                  href={SITE_PATHS.terms}
+                  className="transition-colors hover:text-primary"
+                >
                   Điều khoản dịch vụ
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
 
-          {/* Cột 4: Liên hệ */}
           <div>
             <h3 className="mb-4 text-base font-semibold">Liên hệ</h3>
             <ul className="space-y-4 text-sm text-muted-foreground">
               <li className="flex items-start gap-3">
                 <Phone className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>+84 355 885 851 (Quang)</span>
+                <a
+                  href={`tel:${SITE.telephone}`}
+                  className="transition-colors hover:text-primary"
+                >
+                  {SITE.telephoneDisplay} (Quang)
+                </a>
               </li>
               <li className="flex items-start gap-3">
                 <Mail className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span className="break-all">quangluxury6886@gmail.com</span>
+                <a
+                  href={`mailto:${SITE.email}`}
+                  className="break-all transition-colors hover:text-primary"
+                >
+                  {SITE.email}
+                </a>
               </li>
               <li className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>173B Trường Chinh, Đống Đa, Hà Nội</span>
+                <span>
+                  {SITE.streetAddress}, {SITE.addressLocality},{" "}
+                  {SITE.addressRegion}
+                </span>
               </li>
             </ul>
           </div>
         </div>
 
-        {/* Bottom Bar: Copyright & DMCA */}
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t pt-6 text-sm text-muted-foreground md:flex-row">
           <p>
-            &copy; {new Date().getFullYear()} Hanoi Residences. All rights
-            reserved.
+            &copy; {new Date().getFullYear()} {SITE.name}. All rights reserved.
           </p>
 
           <div className="flex items-center gap-2">

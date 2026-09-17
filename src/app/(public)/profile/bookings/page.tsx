@@ -28,6 +28,9 @@ import {
 } from "lucide-react";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
+import StayBookingsList from "@/components/stay-bookings-list";
+import { cn } from "@/lib/utils";
+import { SHORT_TERM_PUBLIC_ACCESS } from "@/lib/constants";
 import Link from "next/link";
 import {
   Dialog,
@@ -69,6 +72,14 @@ export default function BookingsManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // Tab: lịch xem nhà (mặc định) / đặt phòng ngắn hạn (?tab=stay)
+  const [viewTab, setViewTab] = useState<"viewing" | "stay">("viewing");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab === "stay" && SHORT_TERM_PUBLIC_ACCESS) setViewTab("stay");
+  }, []);
 
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -373,8 +384,44 @@ export default function BookingsManagementPage() {
           </div>
         </div>
 
+        {SHORT_TERM_PUBLIC_ACCESS ? (
+          <div className="inline-flex bg-white border border-gray-200 p-1 rounded-xl mb-6 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setViewTab("viewing")}
+              className={cn(
+                "px-4 py-2 text-sm font-bold rounded-lg transition-all",
+                viewTab === "viewing"
+                  ? "bg-[#cda533]/10 text-[#b88e22]"
+                  : "text-gray-500 hover:text-gray-700",
+              )}
+            >
+              {isCollaborator ? "Lịch dẫn khách" : "Lịch xem phòng"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewTab("stay")}
+              className={cn(
+                "px-4 py-2 text-sm font-bold rounded-lg transition-all",
+                viewTab === "stay"
+                  ? "bg-[#cda533]/10 text-[#b88e22]"
+                  : "text-gray-500 hover:text-gray-700",
+              )}
+            >
+              Đặt phòng ngắn hạn
+            </button>
+          </div>
+        ) : null}
+
+        {viewTab === "stay" && <StayBookingsList />}
+
         {/* --- VIEW DESKTOP --- */}
-        <div className="hidden md:flex flex-col bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden w-full">
+        <div
+          className={cn(
+            "hidden flex-col bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden w-full",
+            viewTab === "viewing" && "md:flex",
+          )}
+        >
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left border-collapse min-w-[1100px]">
               <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
@@ -556,7 +603,12 @@ export default function BookingsManagementPage() {
         </div>
 
         {/* --- VIEW MOBILE THIẾT KẾ CARD --- */}
-        <div className="md:hidden flex flex-col gap-4 w-full">
+        <div
+          className={cn(
+            "md:hidden flex-col gap-4 w-full",
+            viewTab === "viewing" ? "flex" : "hidden",
+          )}
+        >
           {currentBookings.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center text-gray-400 shadow-sm border border-gray-100">
               Bạn chưa có lịch hẹn nào.
@@ -684,17 +736,15 @@ export default function BookingsManagementPage() {
         <DialogContent
           className={
             "p-0 border-none shadow-2xl z-[100] gap-0 bg-gray-100 flex flex-col [&>button.absolute]:hidden " +
-            // --- XỬ LÝ DESKTOP ---
             "sm:max-w-[500px] sm:max-h-[90vh] sm:rounded-3xl overflow-hidden " +
-            // --- XỬ LÝ MOBILE ---
-            "max-sm:fixed max-sm:inset-0 max-sm:w-full max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:translate-x-0 max-sm:translate-y-0 " +
+            "dialog-fullscreen-mobile " +
             "max-sm:data-[state=open]:animate-in max-sm:data-[state=closed]:animate-out " +
             "max-sm:data-[state=open]:slide-in-from-bottom-full max-sm:data-[state=closed]:slide-out-to-bottom-full " +
             "max-sm:duration-300 max-sm:ease-out"
           }
         >
           {/* HEADER SIÊU GỌN */}
-          <div className="px-4 py-3.5 sm:px-6 sm:py-5 border-b border-gray-200 flex flex-row items-center justify-between bg-white z-20 shrink-0 shadow-sm w-full">
+          <div className="pwa-safe-header px-4 py-3.5 sm:px-6 sm:py-5 border-b border-gray-200 flex flex-row items-center justify-between bg-white z-20 shrink-0 shadow-sm w-full">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsDetailsModalOpen(false)}
@@ -903,7 +953,7 @@ export default function BookingsManagementPage() {
               </div>
 
               {/* FOOTER CỐ ĐỊNH, NHỎ GỌN */}
-              <div className="shrink-0 p-3 sm:px-6 sm:py-4 border-t border-gray-200 bg-white sticky bottom-0 z-20 flex gap-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] w-full">
+              <div className="shrink-0 p-3 sm:px-6 sm:py-4 border-t border-gray-200 bg-white sticky bottom-0 z-20 flex gap-3 pwa-safe-footer w-full">
                 <button
                   type="button"
                   onClick={() => setIsDetailsModalOpen(false)}

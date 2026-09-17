@@ -1,23 +1,25 @@
-"use client";
+import { Suspense } from "react";
 import Image from "next/image"; // 1. Import thẻ Image của Next.js
 import FilterControls from "./filter-controls";
 
 export default function Hero() {
   return (
-    <section className="relative min-h-[90vh] w-full flex items-center overflow-hidden">
+    <section className="relative -mt-24 flex min-h-[90vh] w-full items-center overflow-hidden md:-mt-28 lg:-mt-[7.25rem]">
       <div className="absolute inset-0 z-0">
         <Image
           src="/images/hero-bg.webp"
           alt="Hanoi Residences Hero"
           fill // Tự động lấp đầy thẻ div cha
           priority // QUAN TRỌNG NHẤT: Ép trình duyệt tải ảnh này đầu tiên, không được delay!
+          fetchPriority="high" // THÊM DÒNG NÀY ĐỂ FIX LỖI PAGESPEED
+          quality={50} // Giảm chất lượng ảnh xuống 50% để tăng tốc độ tải trang
           sizes="100vw" // Khẳng định ảnh này luôn chiếm 100% chiều rộng màn hình
           className="object-cover"
         />
         <div className="absolute inset-0 bg-black/40 bg-gradient-to-r from-black/80 to-transparent" />
       </div>
 
-      <div className="container relative z-10 mx-auto px-6 lg:px-12">
+      <div className="container relative z-10 mx-auto px-6 pt-24 lg:px-12 md:pt-28 lg:pt-[7.25rem]">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-20">
           <div className="flex-1 text-white text-center lg:text-left max-w-2xl">
             <h1 className="font-headline text-5xl md:text-8xl font-black uppercase leading-[0.95] tracking-tighter mb-8 animate-in fade-in slide-in-from-bottom-10 duration-1000">
@@ -29,7 +31,9 @@ export default function Hero() {
             </p>
           </div>
           <div className="w-full sm:max-w-[480px] lg:w-[450px] shrink-0 animate-in fade-in slide-in-from-right-10 duration-1000 delay-300">
-            <FilterControls />
+            <Suspense fallback={<div className="min-h-[320px] w-full" />}>
+              <FilterControls />
+            </Suspense>
           </div>
         </div>
       </div>

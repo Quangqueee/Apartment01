@@ -159,7 +159,9 @@ export default function ProfileEditPage() {
                         storage,
                         `avatars/${user.uid}/${Date.now()}`,
                       );
-                      await uploadBytes(storageRef, file);
+                      await uploadBytes(storageRef, file, {
+                        contentType: file.type || "image/jpeg",
+                      });
                       const url = await getDownloadURL(storageRef);
 
                       // Cập nhật URL vào Firestore

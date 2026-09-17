@@ -5,7 +5,7 @@ export default function AuthModal({ isOpen, onClose, onConfirm }: any) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 pt-[max(1rem,var(--safe-top))] pb-[max(1rem,var(--safe-bottom))] animate-in fade-in duration-300">
       <div className="w-full max-w-sm overflow-hidden rounded-[3rem] bg-white p-10 shadow-2xl transition-all scale-100 border border-gray-100">
         <div className="flex justify-end -mt-4 -mr-4">
           <button

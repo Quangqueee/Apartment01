@@ -1,36 +1,108 @@
 import OpenAI from "openai";
 
-// Khởi tạo client Groq
-const groq = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY,
-  baseURL: "https://api.groq.com/openai/v1",
-});
+// ==========================================
+// 1. CƠ CHẾ XOAY VÒNG API KEY (ROUND-ROBIN)
+// ==========================================
+// Lấy tất cả các key từ biến môi trường (bạn có thể cấu hình GROQ_API_KEY_2, GROQ_API_KEY_3... trong .env)
+const API_KEYS = [
+  process.env.GROQ_API_KEY,
+  process.env.GROQ_API_KEY_2,
+  process.env.GROQ_API_KEY_3,
+].filter(Boolean) as string[]; // Lọc bỏ các giá trị undefined/null
 
-// Hàm tạo Slug tự động bằng Code (Chống lỗi font tiếng Việt)
-function generateSlug(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD") // Chuẩn hóa unicode
-    .replace(/[\u0300-\u036f]/g, "") // Xóa dấu
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9\s-]/g, "") // Xóa ký tự đặc biệt
-    .replace(/\s+/g, "-") // Thay khoảng trắng bằng dấu gạch ngang
-    .replace(/-+/g, "-") // Xóa các dấu gạch ngang thừa
-    .replace(/^-+|-+$/g, ""); // Trim dấu gạch ngang ở hai đầu
+let currentKeyIndex = 0;
+
+type SeoModelConfig = {
+  id: string;
+  reasoningEffort: "none" | "low";
+  maxCompletionTokens: number;
+};
+
+// Qwen 3.8: model Groq còn host, viết tiếng Việt tốt hơn gpt-oss.
+// Free/on_demand giới hạn ~1000 OTPM cho Qwen — max_completion_tokens 4096 bị 429 "Request too large".
+// gpt-oss-120b là production fallback khi Qwen lỗi JSON / bị gỡ / hết quota output.
+const SEO_MODELS: SeoModelConfig[] = [
+  { id: "qwen/qwen3.8-27b", reasoningEffort: "none", maxCompletionTokens: 900 },
+  { id: "openai/gpt-oss-120b", reasoningEffort: "low", maxCompletionTokens: 4096 },
+];
+
+function getGroqClient() {
+  if (API_KEYS.length === 0) {
+    throw new Error("Hệ thống chưa cấu hình GROQ_API_KEY.");
+  }
+  return new OpenAI({
+    apiKey: API_KEYS[currentKeyIndex],
+    baseURL: "https://api.groq.com/openai/v1",
+  });
 }
 
-// --- CẤU HÌNH RATE LIMITER ---
+function groqErrorMessage(error: any): string {
+  return String(error?.error?.message || error?.message || "");
+}
+
+function isRequestTooLargeError(error: any): boolean {
+  const msg = groqErrorMessage(error).toLowerCase();
+  return msg.includes("request too large") || msg.includes("otpm");
+}
+
+function isRateLimitError(error: any): boolean {
+  return error?.status === 429 && !isRequestTooLargeError(error);
+}
+
+function isQuotaExceededError(error: any): boolean {
+  return error?.status === 402 || error?.error?.code === "insufficient_quota";
+}
+
+function isModelUnavailableError(error: any): boolean {
+  const status = error?.status;
+  const code = String(error?.error?.code || error?.code || "").toLowerCase();
+  const msg = groqErrorMessage(error).toLowerCase();
+  if (status === 404) return true;
+  if (
+    code.includes("model_decommissioned") ||
+    code.includes("model_not_found") ||
+    code === "json_validate_failed"
+  ) {
+    return true;
+  }
+  return (
+    msg.includes("decommissioned") ||
+    msg.includes("does not exist") ||
+    msg.includes("is not available") ||
+    msg.includes("failed to generate json")
+  );
+}
+
+function extractOtpmLimit(error: any): number | null {
+  const match = groqErrorMessage(error).match(/Limit (\d+), Requested (\d+)/i);
+  if (!match) return null;
+  return Number(match[1]);
+}
+
+// ==========================================
+// 2. UTILS & RATE LIMITER
+// ==========================================
+export function generateSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 const TPM_LIMIT = 12000;
 const SAFETY_MARGIN = 0.85;
 const EFFECTIVE_LIMIT = TPM_LIMIT * SAFETY_MARGIN;
-
 let tokenWindow: { tokens: number; timestamp: number }[] = [];
 
 async function waitForTokenBudget(estimatedTokens: number) {
   while (true) {
     const now = Date.now();
     tokenWindow = tokenWindow.filter((entry) => now - entry.timestamp < 60000);
-
     const usedTokens = tokenWindow.reduce((sum, entry) => sum + entry.tokens, 0);
 
     if (usedTokens + estimatedTokens <= EFFECTIVE_LIMIT) {
@@ -45,7 +117,58 @@ async function waitForTokenBudget(estimatedTokens: number) {
   }
 }
 
-// --- HÀM CHÍNH ---
+// ==========================================
+// 3. ĐỒNG BỘ LUỒNG DỮ LIỆU (DATA FLOW)
+// ==========================================
+export interface AiSummaryResponse {
+  seoTitle: string;
+  seoDescription: string;
+  description: string; // Trả đúng key description để nạp vào aiContent object
+  highlights: string[];
+  slug?: string;
+}
+
+function normalizeSummary(parsedData: any, fallbackTitle: string): AiSummaryResponse {
+  const description = String(parsedData?.description || "")
+    .replace(/^[ \t]+/gm, "")
+    .trim();
+  const highlights = Array.isArray(parsedData?.highlights)
+    ? parsedData.highlights.filter((item: unknown) => typeof item === "string")
+    : [];
+
+  return {
+    seoTitle: parsedData?.seoTitle || "",
+    seoDescription: parsedData?.seoDescription || "",
+    description,
+    highlights,
+    slug: generateSlug(parsedData?.seoTitle || fallbackTitle),
+  };
+}
+
+/** Groq JSON mode đôi khi trả description bị tách thành string mồ côi — ghép lại rồi parse. */
+function salvageFailedGeneration(raw: unknown): any | null {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+
+  const candidates = [
+    raw,
+    raw.replace(
+      /("description"\s*:\s*")((?:\\.|[^"\\])*)(")\s*,\s*"((?:\\.|[^"\\])*)"\s*,/,
+      (_m, prefix: string, desc: string, suffix: string, orphan: string) =>
+        `${prefix}${desc}${orphan}${suffix},`
+    ),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch {
+      // thử candidate tiếp theo
+    }
+  }
+  return null;
+}
+
 export async function generateListingSummary(input: {
   title: string;
   roomType: string;
@@ -54,149 +177,131 @@ export async function generateListingSummary(input: {
   price: number;
   area: number;
   detailedInformation: string;
-}) {
+}): Promise<AiSummaryResponse> {
 
-  console.log(`Đang gọi Groq AI để tạo bài viết mới...`);
+  const formattedPrice = input.price > 0 ? `${(input.price * 1000000).toLocaleString('de-DE')} VNĐ/tháng` : "Thỏa thuận";
+  const formattedArea = input.area > 0 ? `${input.area} m2` : "Không cung cấp";
 
-  // System Prompt giữ nguyên theo cấu trúc SEO
-  const systemPrompt = `Bạn là chuyên gia SEO bất động sản cho thuê tại Hà Nội.
+  const systemPrompt = `Bạn là chuyên gia Content SEO Bất động sản cao cấp tại Hà Nội.
+MỤC TIÊU: Viết bài mô tả chuẩn SEO, văn phong tự nhiên như người môi giới giàu kinh nghiệm — hấp dẫn, cụ thể, không sáo rỗng, không dịch máy. TUYỆT ĐỐI tuân thủ cấu trúc Markdown (H2, Bullet points) bên trong trường "description". KHÔNG bịa thông tin.
 
-Mục tiêu:
-- Viết bài chuẩn SEO Google.
-- Nội dung tự nhiên, không nhồi nhét từ khóa.
-- Tối ưu cho người thuê căn hộ và công cụ tìm kiếm.
-
-QUY TẮC BẮT BUỘC:
-1. Trả về JSON hợp lệ.
-2. description phải là Markdown hợp lệ.
-3. Cấu trúc Markdown:
-
-
-Đoạn mô tả ngắn 2-3 câu.
-
-## Thông tin căn hộ
-- Địa chỉ
-- Quận
-- Diện tích
-- Loại phòng
-
-## Chi phí & dịch vụ
-- Giá thuê
-- Điện
-- Nước (Nếu có thì ghi rõ giá tiền, nếu không có thì bỏ qua)
-- Internet (Nếu có thì ghi rõ giá tiền, nếu không có thì bỏ qua)
-- Dịch vụ (Nếu có thì ghi rõ giá tiền, nếu không có thì ghi miễn phí dịch vụ)
-- Gửi xe (Nếu có thì ghi rõ giá tiền, nếu không có thì bỏ qua không ghi vào)
-
-(LƯU Ý QUAN TRỌNG VỀ ĐỊNH DẠNG SỐ: Nếu không có phí thì ghi "Miễn phí dịch vụ" và bỏ qua các phần phí còn thiếu. Ví dụ: Không có internet - bỏ qua và không đề cập; không có tiền nước - bỏ qua và không đề cập, không có tiền gửi xe - bỏ qua và không đề cập thì bỏ qua. Mọi loại giá tiền và chi phí khác BẮT BUỘC phải sử dụng dấu chấm "." để phân cách hàng nghìn. Tuyệt đối không viết số liền nhau. Ví dụ ĐÚNG: 4.000 VNĐ, 120.000 VNĐ, 5.800.000 VNĐ).
-
-## Vị trí & kết nối giao thông
-Phân tích vị trí thực tế.
-Đề cập cụ thể: Tuyến đường lớn, Khu văn phòng, Trường đại học, tiện ích xung quanh (nếu phù hợp với vị trí).
-
-## Vì sao nên thuê căn hộ này?
-Viết 4-6 bullet nổi bật.
-
-## Từ khóa liên quan
-Liệt kê 8-12 từ khóa SEO liên quan.
-
-YÊU CẦU SEO:
-- Xuất hiện từ khóa chính 3-5 lần.
-- Có tên quận trong tiêu đề.
-- Có địa chỉ trong bài viết.
-- Có giá thuê trong bài viết (Hiển thị đầy đủ số VNĐ).
-- Có diện tích trong bài viết.
-- Tiêu đề phải theo cấu trúc: Cho thuê căn hộ [loại phòng] tại [Địa chỉ], [Quận] - [Giá thuê triệu VNĐ/tháng]
-
-KHÔNG:
-- Không dùng icon.
-- Không dùng emoji.
-- Không viết hoa toàn bộ.
-- Không bịa thông tin.
-
-Format JSON trả về thuần túy:
+CẤU TRÚC JSON PHẢI TRẢ VỀ:
 {
-  "seoTitle": "",
-  "seoDescription": "",
-  "description": "",
-  "highlights": []
-}`;
+  "seoTitle": "Cho thuê căn hộ [Loại phòng] [Diện tích (m2)] tại [Đường], [Quận]",
+  "seoDescription": "Mô tả ngắn gọn, hấp dẫn khoảng 2-3 câu...",
+  "description": "Đoạn mở đầu.\\n\\n## Thông tin căn hộ\\n- Địa chỉ: ...\\n- Diện tích: ...\\n\\n## Chi phí & dịch vụ\\n- Giá thuê: ...\\n- (Liệt kê phí điện, nước, dịch vụ. KHÔNG tự bịa phí. Nếu miễn phí ghi 'Miễn phí').\\n\\n## Vị trí & kết nối\\n- Phân tích điểm mạnh...\\n\\n## Vì sao nên thuê?\\n- (4 bullet points)",
+  "highlights": ["Điểm nhấn 1", "Điểm nhấn 2"]
+}
+CHỈ được trả đúng 4 key trên. Trường "description" là MỘT chuỗi JSON duy nhất chứa toàn bộ 4 mục Markdown — không tách heading thành key JSON khác.`;
 
-  const formattedPrice = (input.price * 1000000).toLocaleString('de-DE');
-
-  const userPrompt = `Hãy viết mô tả dựa trên dữ liệu sau:
+  const userPrompt = `Hãy xử lý thông tin sau thành bài viết chuẩn JSON:
 - Tiêu đề gốc: ${input.title}
 - Loại phòng: ${input.roomType}
 - Quận: ${input.district}
 - Địa chỉ: ${input.address}
-- Giá thuê: ${input.price} triệu/tháng (Tự động quy đổi thành số VNĐ và BẮT BUỘC dùng dấu chấm ngăn cách hàng nghìn. Ví dụ: ${formattedPrice} VNĐ/tháng).- Diện tích: ${input.area} m2
-- Thông tin thô/Chi phí: ${input.detailedInformation}`;
+- Giá thuê: ${formattedPrice}
+- Diện tích: ${formattedArea}
+- Thông tin thô/Chi phí:
+"""
+${input.detailedInformation}
+"""`;
 
-  const estimatedInputTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 2.5);
-  const estimatedTokens = estimatedInputTokens + 800;
+  const estimatedTokens = Math.ceil((systemPrompt.length + userPrompt.length) / 2.5) + 1000;
   const MAX_RETRIES = 5;
+  let lastError: unknown;
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const tokenEntry = await waitForTokenBudget(estimatedTokens);
+  for (const model of SEO_MODELS) {
+    let maxCompletionTokens = model.maxCompletionTokens;
 
-    try {
-      const response = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7,
-      });
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const tokenEntry = await waitForTokenBudget(estimatedTokens);
 
-      if (response.usage?.total_tokens) {
-        tokenEntry.tokens = response.usage.total_tokens;
-      }
-
-      const content = response.choices[0].message.content || "{}";
-
-      let parsedData: any;
       try {
-        parsedData = JSON.parse(content);
-      } catch (parseError) {
-        throw new Error("AI trả về định dạng JSON không hợp lệ.");
-      }
+        const groq = getGroqClient();
+        console.log(
+          `[Groq] Đang gọi AI (model: ${model.id}, Key Index: ${currentKeyIndex}, max_tokens: ${maxCompletionTokens})...`
+        );
 
-      // Loại bỏ khoảng trắng đầu dòng tránh lỗi giao diện
-      if (parsedData.description) {
-        parsedData.description = parsedData.description.replace(/^[ \t]+/gm, "");
-      }
+        const response = await groq.chat.completions.create({
+          model: model.id,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.7,
+          top_p: 0.8,
+          max_completion_tokens: maxCompletionTokens,
+          reasoning_effort: model.reasoningEffort,
+        });
 
-      // Bổ sung Slug được tạo bằng code vào Data Object cuối cùng
-      if (parsedData.seoTitle) {
-        parsedData.slug = generateSlug(parsedData.seoTitle);
-      } else {
-        parsedData.slug = generateSlug(input.title);
-      }
-
-      return parsedData;
-
-    } catch (error: any) {
-      const isRateLimit = error?.status === 429;
-
-      if (isRateLimit && attempt < MAX_RETRIES) {
-        const retryAfterHeader = error?.headers?.get?.("retry-after");
-        const retryAfterSeconds = retryAfterHeader ? parseFloat(retryAfterHeader) : Math.pow(2, attempt);
-
-        if (retryAfterSeconds > 15) {
-          throw new Error(`Hệ thống đang bận. Vui lòng thử lại sau ${Math.ceil(retryAfterSeconds)} giây.`);
+        if (response.usage?.total_tokens) {
+          tokenEntry.tokens = response.usage.total_tokens;
         }
 
-        const waitMs = Math.max(retryAfterSeconds * 1000, 1000) + Math.random() * 500;
-        console.warn(`[Groq] Rate limit, thử lại lần ${attempt + 1}/${MAX_RETRIES} sau ${Math.round(waitMs)}ms`);
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
-        continue;
-      }
+        const content = response.choices[0].message.content || "{}";
+        return normalizeSummary(JSON.parse(content), input.title);
+      } catch (error: any) {
+        lastError = error;
 
-      throw error;
+        if (error instanceof SyntaxError) {
+          console.warn(`⚠️ [Groq] JSON không hợp lệ từ ${model.id}. Thử model tiếp theo...`);
+          break;
+        }
+
+        const failedGeneration =
+          error?.error?.failed_generation || error?.failed_generation;
+        if (failedGeneration) {
+          const salvaged = salvageFailedGeneration(failedGeneration);
+          if (salvaged?.seoTitle || salvaged?.description) {
+            console.warn(
+              `⚠️ [Groq] JSON lỗi từ ${model.id}, đã ghép lại failed_generation.`
+            );
+            return normalizeSummary(salvaged, input.title);
+          }
+        }
+
+        if (isRequestTooLargeError(error)) {
+          const otpmLimit = extractOtpmLimit(error) ?? 1000;
+          if (maxCompletionTokens > otpmLimit) {
+            maxCompletionTokens = Math.max(256, otpmLimit - 100);
+            console.warn(
+              `⚠️ [Groq] OTPM quá lớn. Giảm max_completion_tokens xuống ${maxCompletionTokens}...`
+            );
+            continue;
+          }
+          console.warn(
+            `⚠️ [Groq] ${model.id} vượt OTPM free tier. Chuyển model tiếp theo...`
+          );
+          break;
+        }
+
+        if (
+          (isRateLimitError(error) || isQuotaExceededError(error)) &&
+          attempt < MAX_RETRIES
+        ) {
+          currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+          console.warn(
+            `⚠️ [Groq] Lỗi 429/402. Đang tự động chuyển sang API Key thứ ${currentKeyIndex + 1}...`
+          );
+          tokenWindow = [];
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          continue;
+        }
+
+        if (isModelUnavailableError(error)) {
+          console.warn(
+            `⚠️ [Groq] Model ${model.id} không dùng được (${groqErrorMessage(error)}). Thử model tiếp theo...`
+          );
+          break;
+        }
+
+        throw error;
+      }
     }
   }
 
-  throw new Error("Đã vượt quá số lần thử lại do rate limit từ hệ thống.");
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Đã vượt quá số lần thử lại do rate limit hoặc các Key đều cạn kiệt.");
 }

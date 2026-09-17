@@ -2,3 +2,7 @@
 env:
   - variable: NEXT_PUBLIC_ADMIN_SECRET_PATH
     value: 'dhnatncnegzrag'
+  - variable: NEXT_PUBLIC_GTM_ID
+    value: 'GTM-WBW36JRV'
+  - variable: NEXT_PUBLIC_GA_ID
+    value: 'G-4LXVB7FZW8'
