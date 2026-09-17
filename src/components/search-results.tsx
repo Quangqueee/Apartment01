@@ -1,4 +1,4 @@
-import { getApartments } from "@/lib/data";
+import { getCachedPublishedApartments } from "@/lib/data";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import SortControls from "@/components/sort-controls";
@@ -72,18 +72,18 @@ export default async function SearchResults({
   let nextCursor: string | null = null;
 
   try {
-    const result = await getApartments({
+    const result = await getCachedPublishedApartments(
       query,
       district,
-      priceRange: price,
+      price,
       roomType,
-      page: cursor || before ? 1 : requestedPage,
-      limit: SEARCH_PAGE_SIZE,
-      sortBy: sort,
-      cursor: cursor || undefined,
-      before: before || undefined,
-    });
-    apartments = JSON.parse(JSON.stringify(result.apartments)) as Apartment[];
+      cursor || before ? 1 : requestedPage,
+      SEARCH_PAGE_SIZE,
+      sort,
+      cursor,
+      before,
+    );
+    apartments = result.apartments;
     totalResults = result.totalResults;
     nextCursor = result.nextCursor;
   } catch (error) {

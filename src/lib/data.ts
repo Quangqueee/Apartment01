@@ -423,6 +423,10 @@ type HomeApartmentsPage = {
   nextCursor: string | null;
 };
 
+function cloneListingPage(result: HomeApartmentsPage): HomeApartmentsPage {
+  return JSON.parse(JSON.stringify(result)) as HomeApartmentsPage;
+}
+
 export const getCachedHomeApartments = unstable_cache(
   async () => {
     const result = await getApartments({
@@ -430,25 +434,54 @@ export const getCachedHomeApartments = unstable_cache(
       limit: 12,
       sortBy: "newest",
     });
-    return JSON.parse(JSON.stringify(result)) as HomeApartmentsPage;
+    return cloneListingPage(result);
   },
-  ["home-apartments-v2"],
+  ["home-apartments-v3"],
   { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
 );
 
-/** Cache từng trang chủ (lọc mặc định). Giữ đến khi push/sửa/xóa tin. */
+/** Cache từng trang chủ (lọc mặc định). Count lấy từ getCachedHomeApartments. */
 export const getCachedHomeApartmentsPage = unstable_cache(
-  async (page: number, pageSize: number, totalHint: number) => {
+  async (page: number, pageSize: number) => {
     const result = await getApartments({
       page,
       limit: pageSize,
       sortBy: "newest",
       skipCount: true,
-      totalHint,
     });
-    return JSON.parse(JSON.stringify(result)) as HomeApartmentsPage;
+    return cloneListingPage(result);
   },
-  ["home-apartments-page-v2"],
+  ["home-apartments-page-v3"],
+  { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
+);
+
+/** Cache listing công khai (tìm kiếm / landing quận). Key = args, không gồm totalHint. */
+export const getCachedPublishedApartments = unstable_cache(
+  async (
+    queryText: string,
+    district: string,
+    priceRange: string,
+    roomType: string,
+    page: number,
+    pageSize: number,
+    sortBy: string,
+    cursor: string,
+    before: string,
+  ) => {
+    const result = await getApartments({
+      query: queryText || undefined,
+      district: district || undefined,
+      priceRange: priceRange || undefined,
+      roomType: roomType || undefined,
+      page,
+      limit: pageSize,
+      sortBy: sortBy || undefined,
+      cursor: cursor || undefined,
+      before: before || undefined,
+    });
+    return cloneListingPage(result);
+  },
+  ["published-apartments-v1"],
   { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
 );
 

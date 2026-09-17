@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import DistrictLandingPage from "@/components/district-landing-page";
 import { districtMetadata, getDistrictBySlug } from "@/lib/districts";
 
-/** District `page.tsx` files must `export const revalidate = false` locally. Next.js cannot follow re-exports for segment config. */
+/** District `page.tsx` files must `export const dynamic = "force-dynamic"` locally. Next.js cannot follow re-exports for segment config. */
 
 export function districtGenerateMetadata(slug: string) {
   return async function generateMetadata(): Promise<Metadata> {

@@ -14,8 +14,8 @@ import FeaturedDistricts from "@/components/featured-districts";
 import AboutSection from "@/app/about/page";
 import { SHORT_TERM_PUBLIC_ACCESS } from "@/lib/constants";
 
-/** Cache vô hạn: chỉ làm mới khi revalidateApartmentListings() (push/sửa/xóa). Literal bắt buộc — Next.js không theo dõi import (invalid-page-config). */
-export const revalidate = false;
+/** Không nướng HTML lúc build. Data listing nằm trong unstable_cache (tag apartments). */
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const [{ apartments, totalResults }, districtStats] = await Promise.all([

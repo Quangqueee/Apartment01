@@ -3,6 +3,6 @@ import {
   districtGenerateMetadata,
 } from "@/lib/district-page";
 
-export const revalidate = false;
+export const dynamic = "force-dynamic";
 export const generateMetadata = districtGenerateMetadata("bac-tu-liem");
 export default DistrictSlugPage("bac-tu-liem");

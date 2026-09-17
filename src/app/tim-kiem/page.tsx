@@ -5,8 +5,8 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-/** Literal bắt buộc — Next.js không theo dõi import (invalid-page-config). Đồng bộ với LISTING_REVALIDATE. */
-export const revalidate = false;
+/** Không nướng HTML lúc build. Data listing nằm trong unstable_cache (tag apartments). */
+export const dynamic = "force-dynamic";
 
 export const generateMetadata = async (): Promise<Metadata> => ({
   title: "Tìm kiếm căn hộ",

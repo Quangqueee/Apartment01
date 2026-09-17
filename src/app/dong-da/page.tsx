@@ -3,6 +3,6 @@ import {
   districtGenerateMetadata,
 } from "@/lib/district-page";
 
-export const revalidate = false;
+export const dynamic = "force-dynamic";
 export const generateMetadata = districtGenerateMetadata("dong-da");
 export default DistrictSlugPage("dong-da");
