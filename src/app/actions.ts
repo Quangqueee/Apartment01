@@ -12,7 +12,6 @@ import {
   deleteApartment as deleteApartmentFromDb,
   getApartmentById,
   getApartments,
-  getCachedHomeApartments,
   getCachedHomeApartmentsPage,
   addFavorite,
   removeFavorite,
@@ -319,16 +318,7 @@ export async function fetchApartmentsAction(options: {
 
     const result =
       isHomeDefault && !options.cursor && page > 1
-        ? await (async () => {
-            const [pageResult, home] = await Promise.all([
-              getCachedHomeApartmentsPage(page, options.limit ?? 12),
-              getCachedHomeApartments(),
-            ]);
-            return {
-              ...pageResult,
-              totalResults: home.totalResults,
-            };
-          })()
+        ? await getCachedHomeApartmentsPage(page, options.limit ?? 12)
         : await getApartments({
             query: options.query,
             district: options.district,

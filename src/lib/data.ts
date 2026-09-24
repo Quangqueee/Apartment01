@@ -310,8 +310,14 @@ export async function getApartments(
     return { apartments: [], totalResults: 0, nextCursor: null as string | null };
   }
 
-  const maxPage = Math.max(1, Math.ceil(totalResults / pageSize));
-  const safePage = Math.min(Math.max(1, page), maxPage);
+  const requestedPage = Math.max(1, page);
+  // skipCount + missing totalHint used to yield totalResults=0 → maxPage=1 →
+  // every "page 2+" request was clamped back to page 1.
+  const maxPage =
+    totalResults > 0
+      ? Math.max(1, Math.ceil(totalResults / pageSize))
+      : requestedPage;
+  const safePage = Math.min(requestedPage, maxPage);
   let paginatedApartments: Apartment[] = [];
 
   if (before) {
@@ -440,18 +446,23 @@ export const getCachedHomeApartments = unstable_cache(
   { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
 );
 
-/** Cache từng trang chủ (lọc mặc định). Count lấy từ getCachedHomeApartments. */
+/** Cache từng trang chủ (lọc mặc định). Count lấy từ getCachedHomeApartments — không đưa vào cache key. */
 export const getCachedHomeApartmentsPage = unstable_cache(
   async (page: number, pageSize: number) => {
+    const home = await getCachedHomeApartments();
     const result = await getApartments({
       page,
       limit: pageSize,
       sortBy: "newest",
       skipCount: true,
+      totalHint: home.totalResults,
     });
-    return cloneListingPage(result);
+    return cloneListingPage({
+      ...result,
+      totalResults: home.totalResults,
+    });
   },
-  ["home-apartments-page-v3"],
+  ["home-apartments-page-v4"],
   { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
 );
 
