@@ -13,6 +13,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+import { customerAccessApi, accessApi } from "@/lib/access-client";
 import { db } from "@/firebase";
 import { createNotification, notifyAdmins } from "@/lib/notifications";
 import { ADMIN_PATH } from "@/lib/constants";
@@ -63,10 +64,7 @@ export async function createLandlordRequestClient(
 
 export async function approveLandlordClient(targetUid: string) {
   try {
-    await updateDoc(doc(db, "users", targetUid), {
-      role: "landlord",
-      landlordApprovalStatus: "approved",
-    });
+    await accessApi("role", { uid: targetUid, role: "landlord", approveLandlord: true });
     await createNotification({
       recipientId: targetUid,
       title: "Yêu cầu chủ nhà đã được duyệt",
@@ -172,31 +170,8 @@ export async function fetchPendingSubmissionsClient() {
 }
 
 export async function fetchPartnersClient() {
-  try {
-    const q = query(
-      collection(db, "users"),
-      where("landlordApprovalStatus", "in", ["pending", "approved", "rejected"]),
-    );
-    const snapshot = await getDocs(q);
-    const partners = snapshot.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        email: data.email,
-        role: data.role,
-        status: data.landlordApprovalStatus,
-        ...data.landlordRequestData,
-        submittedAt: stampOf(data.landlordRequestSubmittedAt),
-      };
-    });
-    partners.sort(
-      (a, b) => (b.submittedAt?.seconds || 0) - (a.submittedAt?.seconds || 0),
-    );
-    return { partners };
-  } catch (error) {
-    console.error("fetchPartnersClient:", error);
-    return { error: "Không thể tải danh sách đối tác.", partners: [] as any[] };
-  }
+  try { return await customerAccessApi('partners'); }
+  catch { return { error: 'Không thể tải danh sách đối tác.', partners: [] as any[] }; }
 }
 
 export async function fetchLandlordApartmentStatsClient(landlordId: string) {
@@ -223,26 +198,8 @@ export async function fetchLandlordApartmentStatsClient(landlordId: string) {
 }
 
 export async function fetchPartnerByIdClient(partnerId: string) {
-  try {
-    const docSnap = await getDoc(doc(db, "users", partnerId));
-    if (!docSnap.exists()) {
-      return { error: "Không tìm thấy đối tác.", partner: null };
-    }
-    const data = docSnap.data();
-    return {
-      partner: {
-        id: docSnap.id,
-        email: data.email,
-        role: data.role,
-        status: data.landlordApprovalStatus,
-        ...data.landlordRequestData,
-        submittedAt: stampOf(data.landlordRequestSubmittedAt),
-      },
-    };
-  } catch (error) {
-    console.error("fetchPartnerByIdClient:", error);
-    return { error: "Lỗi tải thông tin đối tác.", partner: null };
-  }
+  try { const result = await customerAccessApi('partners', { id: partnerId }); return { partner: result.partners[0] || null }; }
+  catch { return { error: 'Lỗi tải thông tin đối tác.', partner: null }; }
 }
 
 export async function fetchLandlordApartmentsClient(landlordId: string) {

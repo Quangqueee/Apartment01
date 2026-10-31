@@ -86,7 +86,7 @@ export default function AdminPartnersPage() {
   }, [user, toast]);
 
   useEffect(() => {
-    if (!loading && user && userData?.role === "admin") {
+    if (!loading && user && (userData?.role === "admin" || userData?.role === "director")) {
       fetchPartners();
     } else if (!loading) {
       setIsLoading(false);
@@ -178,7 +178,7 @@ export default function AdminPartnersPage() {
         <Loader2 className="h-8 w-8 animate-spin text-[#cda533]" />
       </div>
     );
-  if (userData?.role !== "admin")
+  if ((userData?.role !== "admin" && userData?.role !== "director"))
     return (
       <div className="text-center py-20 text-red-600 font-bold">
         Truy cập bị từ chối

@@ -2,10 +2,8 @@
  * Hook and utilities để xử lý hiển thị dữ liệu dựa trên role
  */
 
-import { useUser } from "@/firebase/provider";
-import { useEffect, useState } from "react";
 import { UserRole } from "@/lib/rbac";
-import { getCurrentUserRole } from "@/lib/auth-service";
+import { useAuth } from "@/context/auth-context";
 
 /**
  * Hook lấy role của user hiện tại
@@ -17,56 +15,12 @@ export function useUserRole(): {
   isCollaborator: boolean;
   isRegularUser: boolean;
 } {
-  const { user, isUserLoading } = useUser() as any;
-  const [role, setRole] = useState<UserRole | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchRole = async () => {
-      // Chờ user loading hoàn toàn trước khi fetch role
-      if (isUserLoading) {
-        console.log(`[useUserRole] Waiting for user auth state...`);
-        return;
-      }
-
-      // Nếu không có user, role là null
-      if (!user) {
-        console.log(`[useUserRole] No user found`);
-        setRole(null);
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        console.log(`[useUserRole] Fetching role for user: ${user.uid}`);
-        
-        // Set a timeout to prevent infinite loading
-        const rolePromise = getCurrentUserRole(user.uid);
-        const timeoutPromise = new Promise<UserRole>((resolve) => {
-          setTimeout(() => {
-            console.warn(`[useUserRole] Fetch timeout after 5s, using default 'user'`);
-            resolve("user");
-          }, 5000);
-        });
-        
-        const userRole = await Promise.race([rolePromise, timeoutPromise]);
-        console.log(`[useUserRole] Role fetched successfully:`, userRole);
-        setRole(userRole);
-      } catch (error) {
-        console.error("[useUserRole] Error fetching user role:", error);
-        setRole("user");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchRole();
-  }, [user, isUserLoading]); // Thêm isUserLoading vào dependency
-
+  const { user, userData, loading: isLoading } = useAuth();
+  const role = user ? userData?.role || null : null;
   return {
     role,
     isLoading,
-    isAdmin: role === "admin",
+    isAdmin: (role === "admin" || role === "director"),
     isCollaborator: role === "collaborator",
     isRegularUser: role === "user",
   };
@@ -77,7 +31,7 @@ export function useUserRole(): {
  */
 export function formatAddressForDisplay(address: string, role: UserRole | null): string {
   // Admin, collaborator có thể xem full address
-  if (role === "admin" || role === "collaborator") {
+  if ((role === "admin" || role === "director") || role === "collaborator") {
     return address;
   }
 
@@ -97,12 +51,12 @@ export function formatAddressForDisplay(address: string, role: UserRole | null):
  * Check xem có phải show commission không
  */
 export function shouldShowCommission(role: UserRole | null): boolean {
-  return role === "collaborator" || role === "admin";
+  return role === "collaborator" || (role === "admin" || role === "director");
 }
 
 /**
  * Check xem có phải show full address không
  */
 export function shouldShowFullAddress(role: UserRole | null): boolean {
-  return role === "admin" || role === "collaborator";
+  return (role === "admin" || role === "director") || role === "collaborator";
 }

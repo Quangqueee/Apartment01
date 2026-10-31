@@ -23,7 +23,7 @@ const toPlainTimestamp = (ts: any) => {
 export const toShortTermApartment = (
   docSnap: DocumentData,
 ): ShortTermApartment => {
-  const data = docSnap.data();
+  const { actualLandlordPhone: _privatePhone, ownerPhone: _ownerPhone, ...data } = docSnap.data();
   const aiContent = data.aiContent
     ? {
         ...data.aiContent,

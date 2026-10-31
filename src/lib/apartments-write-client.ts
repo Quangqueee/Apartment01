@@ -14,7 +14,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { deleteObject, ref as storageRef } from "firebase/storage";
-import { db, storage } from "@/firebase";
+import { auth, db, storage } from "@/firebase";
 import { generateSearchKeywords } from "@/lib/utils";
 import { notifyAdmins } from "@/lib/notifications";
 import { ADMIN_PATH } from "@/lib/constants";
@@ -106,6 +106,7 @@ export async function saveAdminApartmentClient(
     const created = await addDoc(collection(db, "apartments"), {
       ...payload,
       submissionStatus: "published",
+      ownerAdminId: auth.currentUser!.uid,
       createdAt: serverTimestamp(),
     });
     return { id: created.id };

@@ -1,9 +1,9 @@
 'use client';
+import { watchDoc } from '@/lib/firestore-listener';
     
 import { useState, useEffect } from 'react';
 import {
   DocumentReference,
-  onSnapshot,
   DocumentData,
   FirestoreError,
   DocumentSnapshot,
@@ -59,7 +59,7 @@ export function useDoc<T = any>(
     setError(null);
     // Optional: setData(null); // Clear previous data instantly
 
-    const unsubscribe = onSnapshot(
+    const unsubscribe = watchDoc(
       memoizedDocRef,
       (snapshot: DocumentSnapshot<DocumentData>) => {
         if (snapshot.exists()) {
@@ -71,7 +71,13 @@ export function useDoc<T = any>(
         setError(null); // Clear any previous error on successful snapshot (even if doc doesn't exist)
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
+      (error: Error) => {
+        if ((error as FirestoreError).code !== 'permission-denied') {
+          setError(error);
+          setData(null);
+          setIsLoading(false);
+          return;
+        }
         const contextualError = new FirestorePermissionError({
           operation: 'get',
           path: memoizedDocRef.path,

@@ -42,7 +42,7 @@ export function AddBookingModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
   const [ctvList, setCtvList] = useState<any[]>([]);
@@ -69,16 +69,22 @@ export function AddBookingModal({
   );
 
   useEffect(() => {
+    let cancelled = false;
+    setCtvList([]);
     const fetchCTVs = async () => {
+      try {
       const q = query(
         collection(db, "users"),
         where("role", "==", "collaborator"),
+          ...(userData?.role === "director" ? [] : [where("ownerAdminId", "==", user?.uid || "")]),
       );
       const snap = await getDocs(q);
-      setCtvList(snap.docs.map((doc) => ({ uid: doc.id, ...doc.data() })));
+      if (!cancelled) setCtvList(snap.docs.map((doc) => ({ uid: doc.id, ...doc.data() })));
+      } catch { if (!cancelled) { setCtvList([]); toast({ variant: "destructive", title: "Không thể tải danh sách CTV trong phạm vi của bạn" }); } }
     };
     fetchCTVs();
-  }, []);
+    return () => { cancelled = true; };
+  }, [user?.uid, userData?.role]);
 
   const filteredCtvs = ctvList.filter(
     (c) =>
@@ -158,6 +164,7 @@ export function AddBookingModal({
           clientName: addForm.name,
           clientPhone: addForm.phone,
           createdByAdminId: user?.uid,
+          ownerAdminId: user?.uid,
         };
         await addDoc(collection(db, "ctv_bookings"), payload);
       } else {
@@ -167,6 +174,7 @@ export function AddBookingModal({
           phone: addForm.phone,
           isExternal: true,
           createdByAdminId: user?.uid,
+          ownerAdminId: user?.uid,
         };
         await addDoc(collection(db, "user_bookings"), payload);
       }

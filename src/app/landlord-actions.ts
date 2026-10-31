@@ -32,7 +32,7 @@ async function assertIsAdmin(uid: string | undefined): Promise<boolean> {
   try {
     const userDoc = await getDoc(doc(firestore, "users", uid));
     if (!userDoc.exists()) return false;
-    return userDoc.data().role === "admin";
+    return (userDoc.data().role === "admin" || userDoc.data().role === "director");
   } catch (error) {
     console.error("Error checking admin access (landlord-actions):", error);
     return false;
@@ -704,6 +704,7 @@ export async function updateLandlordApartmentStatusAction(
       status: newStatus,
       updatedAt: Timestamp.now(), // Đồng bộ kiểu dữ liệu Timestamp
     });
+    await revalidateApartmentListings(apartmentId);
 
     const statusText = newStatus === "available" ? "Còn trống" : "Tạm hết";
     await notifyAdminsServer({

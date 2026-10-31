@@ -199,7 +199,7 @@ function SubmitApartmentContent() {
                   : "text-gray-500 hover:text-gray-700",
               )}
             >
-              Cho thuê ngắn hạn (theo đêm)
+              Cho thuê ngắn ngày (giờ/ngày/tuần)
             </button>
           </div>
         )}

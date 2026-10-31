@@ -1,4 +1,5 @@
 "use client";
+import { watchDoc } from "@/lib/firestore-listener";
 
 import {
   Table,
@@ -31,13 +32,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { customerAccessApi, accessApi } from "@/lib/access-client";
+import { useAuth } from "@/context/auth-context";
 import { db } from "@/firebase";
 import {
-  collection,
-  deleteField,
   doc,
-  onSnapshot,
-  updateDoc,
   deleteDoc,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +49,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import CustomerWorkPanel from "@/components/customer-work-panel";
 
 // IMPORT date-fns ĐỂ XỬ LÝ THỜI GIAN
 import { formatDistanceToNow } from "date-fns";
@@ -64,8 +64,11 @@ interface UserData {
   dob?: string;
   gender?: string;
   interests?: string;
+  ownerAdminId?: string;
+  canManage?: boolean;
+  canExport?: boolean;
   ctvIntroduction?: string;
-  role?: "user" | "collaborator" | "admin" | "landlord";
+  role?: "user" | "collaborator" | "admin" | "landlord" | "director";
   requestStatus?: "pending" | string;
   createdAt?: any;
   lastActiveAt?: any; // THÊM TRƯỜNG lastActiveAt
@@ -75,6 +78,7 @@ type ManageableRole = "user" | "collaborator";
 
 export default function UsersPage() {
   const { toast } = useToast();
+  const { user, userData } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [processingUserId, setProcessingUserId] = useState<string | null>(null);
@@ -84,39 +88,32 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
 
   useEffect(() => {
-    setIsLoadingUsers(true);
-    const usersRef = collection(db, "users");
-    const unsubscribe = onSnapshot(
-      usersRef,
-      (querySnapshot) => {
-        const usersData: UserData[] = [];
-        querySnapshot.forEach((doc) => {
-          usersData.push({ uid: doc.id, ...doc.data() } as UserData);
-        });
-
-        // SẮP XẾP MỚI NHẤT LÊN ĐẦU
-        usersData.sort((a, b) => {
-          const timeA = a.createdAt?.seconds || 0;
-          const timeB = b.createdAt?.seconds || 0;
-          return timeB - timeA;
-        });
-
-        setUsers(usersData);
-        setIsLoadingUsers(false);
-      },
-      (error) => {
-        console.error("Lỗi tải danh sách người dùng:", error);
-        toast({
-          variant: "destructive",
-          title: "Không thể tải danh sách người dùng",
-          description: "Vui lòng thử lại sau.",
-        });
-        setIsLoadingUsers(false);
-      },
-    );
-
-    return () => unsubscribe();
-  }, [toast]);
+    let cancelled = false, running = false, queued = false, revision = 0;
+    setUsers([]); setIsLoadingUsers(true);
+    if (!user || !userData) return;
+    const refresh = async (invalidate = false) => {
+      if (invalidate) { revision++; setUsers([]); }
+      if (running) { queued = true; return; }
+      running = true;
+      const current = revision;
+      try {
+        const result = await customerAccessApi('list');
+        if (!cancelled && current === revision) {
+          const rows = result.rows as UserData[];
+          rows.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+          setUsers(rows);
+        }
+      } catch {
+        if (!cancelled) { setUsers([]); toast({ variant: 'destructive', title: 'Không thể tải danh sách người dùng' }); }
+      } finally { running = false; if (!cancelled) { setIsLoadingUsers(false); if (queued) { queued = false; void refresh(); } } }
+    };
+    void refresh();
+    const unsubscribe = watchDoc(doc(db, 'customerAccessState', 'records'), () => { void refresh(true); }, () => { revision++; setUsers([]); });
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 60000);
+    const onFocus = () => { void refresh(); };
+    window.addEventListener('focus', onFocus);
+    return () => { cancelled = true; unsubscribe(); clearInterval(interval); window.removeEventListener('focus', onFocus); };
+  }, [toast, user?.uid, userData?.role]);
 
   // Logic lọc danh sách user (Tìm kiếm + Bộ lọc vai trò)
   const filteredUsers = useMemo(() => {
@@ -136,21 +133,25 @@ export default function UsersPage() {
   }, [users, query, roleFilter]);
 
   // Hàm xuất file CSV
-  const exportToCSV = () => {
+  const exportToCSV = async () => {
+    try {
     if (filteredUsers.length === 0) {
       toast({ title: "Không có dữ liệu để xuất", variant: "destructive" });
       return;
     }
 
     const headers = ["Tên", "Email", "SĐT", "Vai trò", "Nhu cầu/Ghi chú"];
-    const csvRows = filteredUsers.map((u) => {
+    const exportable = filteredUsers.filter(u => u.canExport);
+    if (!exportable.length) { toast({ title: "Không có dữ liệu để xuất", variant: "destructive" }); return; }
+    const result = await customerAccessApi('export', { ids: exportable.map(u => u.uid) });
+    const csvRows = (result.rows as UserData[]).map((u) => {
       return [
         u.displayName || "Chưa đặt tên",
         u.email || "",
         u.phoneNumber || "",
         u.role || "user",
         (u.interests || u.ctvIntroduction || "").replace(/\n/g, " "),
-      ].map((item) => `"${item}"`);
+      ].map((item) => `"${(/^[=+@\-\t\r]/.test(item) ? "'" : "") + item.replace(/"/g, '""')}"`);
     });
 
     const csvContent = [
@@ -171,8 +172,10 @@ export default function UsersPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 
     toast({ title: "Đã xuất file thành công!" });
+    } catch (error) { toast({ variant: 'destructive', title: error instanceof Error ? error.message : 'Không thể xuất dữ liệu' }); }
   };
 
   const handleCopy = (text: string) => {
@@ -181,6 +184,7 @@ export default function UsersPage() {
   };
 
   const getRoleLabel = (role: UserData["role"]) => {
+    if (role === "director") return "Giám đốc";
     if (role === "admin") return "Admin";
     if (role === "collaborator") return "CTV";
     if (role === "landlord") return "Chủ nhà";
@@ -188,7 +192,7 @@ export default function UsersPage() {
   };
 
   const getRoleBadgeClass = (role: UserData["role"]) => {
-    if (role === "admin") return "bg-red-50 text-red-700 border-red-200";
+    if ((role === "admin" || role === "director")) return "bg-red-50 text-red-700 border-red-200";
     if (role === "collaborator")
       return "bg-blue-50 text-blue-700 border-blue-200";
     if (role === "landlord")
@@ -247,10 +251,7 @@ export default function UsersPage() {
 
     setProcessingUserId(targetUser.uid);
     try {
-      await updateDoc(doc(db, "users", targetUser.uid), {
-        role: nextRole,
-        requestStatus: deleteField(),
-      });
+      await accessApi("role", { uid: targetUser.uid, role: nextRole });
       toast({
         title: "Cập nhật vai trò thành công",
         description: `Đã chuyển vai trò sang ${nextRole}.`,
@@ -271,10 +272,7 @@ export default function UsersPage() {
     if (processingUserId) return;
     setProcessingUserId(targetUser.uid);
     try {
-      await updateDoc(doc(db, "users", targetUser.uid), {
-        role: "collaborator",
-        requestStatus: deleteField(),
-      });
+      await accessApi("role", { uid: targetUser.uid, role: "collaborator" });
       toast({
         title: "Duyệt CTV thành công",
         description: "Người dùng đã được chuyển thành cộng tác viên.",
@@ -300,6 +298,7 @@ export default function UsersPage() {
     setProcessingUserId(targetUser.uid);
     try {
       await deleteDoc(doc(db, "users", targetUser.uid));
+      setUsers(previous => previous.filter(u => u.uid !== targetUser.uid));
       toast({
         title: "Đã xóa khách hàng",
         description: "Bản ghi đã được gỡ khỏi danh sách.",
@@ -317,13 +316,14 @@ export default function UsersPage() {
   };
 
   const renderRoleControl = (u: UserData) => {
-    if (u.role === "admin" || u.role === "landlord") {
+    if (!u.canManage) return <Badge variant="outline" className={getRoleBadgeClass(u.role)}>{getRoleLabel(u.role)}</Badge>;
+    if ((u.role === "admin" || u.role === "director") || u.role === "landlord") {
       return (
         <div className="space-y-1">
           <Badge variant="outline" className={getRoleBadgeClass(u.role)}>
             {getRoleLabel(u.role)}
           </Badge>
-          {u.role === "admin" ? (
+          {(u.role === "admin" || u.role === "director") ? (
             <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">
               Tài khoản quản trị
             </p>
@@ -364,6 +364,8 @@ export default function UsersPage() {
         </h2>
         <p className="text-gray-500">Thông tin người dùng đã đăng ký.</p>
       </div>
+
+      <CustomerWorkPanel />
 
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         {/* THANH CÔNG CỤ: TÌM KIẾM, LỌC VÀ XUẤT CSV */}
@@ -449,6 +451,7 @@ export default function UsersPage() {
                           </span>
                           {/* HIỂN THỊ TRẠNG THÁI HOẠT ĐỘNG DESKTOP */}
                           {renderActiveStatus(u.lastActiveAt)}
+                          {userData?.role === "director" && <p className="text-xs text-gray-500 break-all">Admin sở hữu: {u.ownerAdminId || "Chưa phân công"}</p>}
                         </div>
                       </div>
                     </TableCell>
@@ -512,7 +515,7 @@ export default function UsersPage() {
                     <TableCell>{renderRoleControl(u)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {u.requestStatus === "pending" && (
+                        {u.canManage && u.requestStatus === "pending" && (
                           <Button
                             onClick={() => approveCollaboratorRequest(u)}
                             disabled={processingUserId === u.uid}
@@ -533,7 +536,7 @@ export default function UsersPage() {
                           </Button>
                         )}
 
-                        {u.role !== "admin" && (
+                        {(u.canManage && u.role !== "admin" && u.role !== "director") && (
                           <Button
                             onClick={() => handleDeleteUser(u)}
                             disabled={processingUserId === u.uid}
@@ -586,6 +589,7 @@ export default function UsersPage() {
                       <p className="text-xs text-gray-500">{u.email}</p>
                       {/* HIỂN THỊ TRẠNG THÁI HOẠT ĐỘNG MOBILE */}
                       {renderActiveStatus(u.lastActiveAt)}
+                      {userData?.role === "director" && <p className="text-xs text-gray-500 break-all">Admin sở hữu: {u.ownerAdminId || "Chưa phân công"}</p>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -597,7 +601,7 @@ export default function UsersPage() {
                         <Phone size={16} />
                       </a>
                     )}
-                    {u.role !== "admin" && (
+                    {(u.canManage && u.role !== "admin" && u.role !== "director") && (
                       <Button
                         onClick={() => handleDeleteUser(u)}
                         disabled={processingUserId === u.uid}
@@ -632,7 +636,7 @@ export default function UsersPage() {
                   <span className="text-xs text-gray-400 block">Vai trò</span>
                   {renderRoleControl(u)}
                 </div>
-                {u.requestStatus === "pending" && (
+                {u.canManage && u.requestStatus === "pending" && (
                   <Button
                     onClick={() => approveCollaboratorRequest(u)}
                     disabled={processingUserId === u.uid}

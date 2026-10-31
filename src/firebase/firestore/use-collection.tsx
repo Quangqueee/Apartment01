@@ -1,9 +1,9 @@
 'use client';
+import { watchQuery } from '@/lib/firestore-listener';
 
 import { useState, useEffect } from 'react';
 import {
   Query,
-  onSnapshot,
   DocumentData,
   FirestoreError,
   QuerySnapshot,
@@ -73,7 +73,7 @@ export function useCollection<T = any>(
     setError(null);
 
     // Directly use memoizedTargetRefOrQuery as it's assumed to be the final query
-    const unsubscribe = onSnapshot(
+    const unsubscribe = watchQuery(
       memoizedTargetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
         const results: ResultItemType[] = [];
@@ -84,7 +84,13 @@ export function useCollection<T = any>(
         setError(null);
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
+      (error: Error) => {
+        if ((error as FirestoreError).code !== 'permission-denied') {
+          setError(error);
+          setData(null);
+          setIsLoading(false);
+          return;
+        }
         // This logic extracts the path from either a ref or a query
         const path: string =
           memoizedTargetRefOrQuery.type === 'collection'

@@ -1,10 +1,10 @@
 "use client";
+import { watchQuery } from "@/lib/firestore-listener";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   collection,
-  onSnapshot,
   orderBy,
   query,
 } from "firebase/firestore";
@@ -95,9 +95,9 @@ export default function AdminStayBookingsPage() {
   const [deleteTarget, setDeleteTarget] = useState<StayBooking | null>(null);
 
   useEffect(() => {
-    if (loading || userData?.role !== "admin") return;
+    if (loading || (userData?.role !== "admin" && userData?.role !== "director")) return;
     const q = query(collection(db, "stay_bookings"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(
+    const unsubscribe = watchQuery(
       q,
       (snap) => {
         setBookings(
@@ -224,7 +224,7 @@ export default function AdminStayBookingsPage() {
             Đặt phòng ngắn hạn
           </h2>
           <p className="text-gray-500">
-            Quản lý yêu cầu đặt phòng theo đêm ({bookings.length} đơn,{" "}
+            Quản lý yêu cầu đặt phòng theo giờ và theo đêm ({bookings.length} đơn,{" "}
             {pendingCount} chờ duyệt).
           </p>
         </div>
@@ -273,7 +273,7 @@ export default function AdminStayBookingsPage() {
                 <TableHead>Khách</TableHead>
                 <TableHead>Căn hộ</TableHead>
                 <TableHead>Nhận → Trả</TableHead>
-                <TableHead>Đêm/Khách</TableHead>
+                <TableHead>Thời lượng/Khách</TableHead>
                 <TableHead>Tổng tiền</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead className="text-center">Thao tác</TableHead>
@@ -305,6 +305,8 @@ export default function AdminStayBookingsPage() {
                         <p className="text-xs text-gray-500">
                           {booking.guestPhone}
                         </p>
+                        {booking.ctvId && <p className="text-xs font-semibold text-emerald-700">CTV: {booking.ctvName || booking.ctvId}</p>}
+                        {booking.commissionSnapshot && <p className="text-xs text-emerald-700">Hoa hồng: {booking.commissionSnapshot}</p>}
                       </TableCell>
                       <TableCell className="max-w-[220px]">
                         <p className="font-semibold text-gray-900 truncate">
@@ -317,11 +319,10 @@ export default function AdminStayBookingsPage() {
                         )}
                       </TableCell>
                       <TableCell className="whitespace-nowrap font-semibold">
-                        {formatVnDate(booking.checkIn)} →{" "}
-                        {formatVnDate(booking.checkOut)}
+                        {booking.stayType === "hourly" ? `${formatVnDate(booking.checkIn)} · ${booking.checkInAt?.slice(11)}–${booking.checkOutAt?.slice(11)}` : `${formatVnDate(booking.checkIn)} → ${formatVnDate(booking.checkOut)}`}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {booking.nights} đêm · {booking.guestsCount} khách
+                        {booking.stayType === "hourly" ? `${booking.hours} giờ` : `${booking.nights} đêm`} · {booking.guestsCount} khách
                       </TableCell>
                       <TableCell className="font-bold text-green-600 whitespace-nowrap">
                         {(booking.totalAmount || 0).toLocaleString("vi-VN")}đ
@@ -416,8 +417,9 @@ export default function AdminStayBookingsPage() {
           </DialogHeader>
           <p className="text-sm text-gray-500">
             Khách {rejectTarget?.guestName} ·{" "}
-            {formatVnDate(rejectTarget?.checkIn)} →{" "}
-            {formatVnDate(rejectTarget?.checkOut)}
+            {formatVnDate(rejectTarget?.checkIn)} {rejectTarget?.stayType === "hourly"
+              ? `${rejectTarget.checkInAt?.slice(11)}–${rejectTarget.checkOutAt?.slice(11)}`
+              : `→ ${formatVnDate(rejectTarget?.checkOut)}`}
           </p>
           <Textarea
             placeholder="Lý do từ chối (khách sẽ nhìn thấy)..."

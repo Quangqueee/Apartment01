@@ -1,18 +1,18 @@
 "use client";
+import { watchDoc, watchQuery } from "@/lib/firestore-listener";
 import { createContext, useContext, useEffect, useState, useMemo } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 // BỔ SUNG: import thêm updateDoc và serverTimestamp
 import {
   collection,
   doc,
-  onSnapshot,
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "@/firebase/app";
 import { mergeFavoriteIds } from "@/lib/favorites";
 
-export type UserRole = "user" | "collaborator" | "admin" | "landlord";
+export type UserRole = "user" | "collaborator" | "admin" | "landlord" | "director";
 
 export type UserData = {
   uid?: string;
@@ -63,6 +63,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      setUserData(null);
+      setLoading(true);
 
       // Xóa các listener và interval cũ nếu có
       if (unsubscribeUserDoc) {
@@ -84,7 +86,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSubcollectionFavoriteIds([]);
 
         // 1. Lắng nghe dữ liệu User
-        unsubscribeUserDoc = onSnapshot(
+        unsubscribeUserDoc = watchDoc(
           userDocRef,
           (docSnap) => {
             if (docSnap.exists()) {
@@ -96,11 +98,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           },
           (error) => {
             console.error("Auth Snapshot Error:", error);
+            setUserData(null);
             setLoading(false);
           },
         );
 
-        unsubscribeFavorites = onSnapshot(
+        unsubscribeFavorites = watchQuery(
           collection(db, "users", currentUser.uid, "favorites"),
           (favSnap) => {
             setSubcollectionFavoriteIds(favSnap.docs.map((favDoc) => favDoc.id));

@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { differenceInCalendarDays, format } from "date-fns";
+import { doc, getDoc } from "firebase/firestore";
+import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { CalendarDays, Loader2, Minus, Plus } from "lucide-react";
 import { db } from "@/firebase";
@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { createNotification, notifyAdmins } from "@/lib/notifications";
 import { ADMIN_PATH } from "@/lib/constants";
 import { rangeHasConflict } from "@/lib/short-term-data-client";
+import { quoteStay, stayInterval, stayIntervalsOverlap, type StaySelection } from "@/lib/stay-pricing";
+import { createStayBooking } from "@/lib/stay-bookings-client";
 import type { ShortTermApartment } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -27,12 +29,14 @@ import { cn } from "@/lib/utils";
 type StayBookingWidgetProps = {
   apartment: ShortTermApartment;
   unavailableDates: Set<string>;
+  bookedIntervals: Array<{ start: string; end: string }>;
   hideMobileBar?: boolean;
 };
 
 export default function StayBookingWidget({
   apartment,
   unavailableDates,
+  bookedIntervals,
   hideMobileBar = false,
 }: StayBookingWidgetProps) {
   const { user, userData } = useAuth();
@@ -43,19 +47,38 @@ export default function StayBookingWidget({
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [range, setRange] = useState<DateRange | undefined>();
+  const [stayType, setStayType] = useState<"nightly" | "hourly">("nightly");
+  const [hourlyDate, setHourlyDate] = useState("");
+  const [hourlyStart, setHourlyStart] = useState("10:00");
+  const [hours, setHours] = useState(apartment.minHours || 2);
+  const [commission, setCommission] = useState<string | null>(null);
   const [guests, setGuests] = useState(1);
-  const [guestName, setGuestName] = useState(userData?.displayName || "");
-  const [guestPhone, setGuestPhone] = useState(userData?.phoneNumber || "");
+  const [guestName, setGuestName] = useState(userData?.role === "collaborator" ? "" : userData?.displayName || "");
+  const [guestPhone, setGuestPhone] = useState(userData?.role === "collaborator" ? "" : userData?.phoneNumber || "");
   const [notes, setNotes] = useState("");
 
   const isPaused = apartment.status === "rented";
 
-  const nights = useMemo(() => {
-    if (!range?.from || !range?.to) return 0;
-    return differenceInCalendarDays(range.to, range.from);
-  }, [range]);
+  const selection: StaySelection | null = stayType === "hourly"
+    ? hourlyDate ? { stayType, checkIn: hourlyDate, startTime: hourlyStart, hours } : null
+    : range?.from && range?.to ? { stayType, checkIn: format(range.from, "yyyy-MM-dd"), checkOut: format(range.to, "yyyy-MM-dd") } : null;
+  const quote = useMemo(() => {
+    if (!selection) return null;
+    try { return quoteStay(apartment, selection); } catch { return null; }
+  }, [apartment, selection?.stayType, selection?.checkIn, selection?.stayType === "nightly" ? selection.checkOut : selection?.startTime, selection?.stayType === "hourly" ? selection.hours : 0]);
+  const nights = quote?.nights || 0;
+  const totalAmount = quote?.totalAmount || 0;
+  const selectedInterval = quote ? stayInterval({ ...quote, bookingSchemaVersion: 2, stayType,
+    checkInAt: quote.checkInAt || `${quote.checkIn}T${apartment.checkInTime}`,
+    checkOutAt: quote.checkOutAt || `${quote.checkOut}T${apartment.checkOutTime}` }, apartment) : null;
+  const hourlyUnavailable = stayType === "hourly" && quote &&
+    (apartment.blockedDates?.includes(quote.checkIn) ||
+      selectedInterval && bookedIntervals.some(other => stayIntervalsOverlap(selectedInterval, other)));
 
-  const totalAmount = nights * (apartment.nightlyPrice || 0);
+  useEffect(() => {
+    if (userData?.role !== "collaborator" && userData?.role !== "admin" && userData?.role !== "director") return;
+    getDoc(doc(db, "short_term_commissions", apartment.id)).then(snap => setCommission(snap.data()?.commission || null)).catch(() => setCommission(null));
+  }, [apartment.id, userData?.role]);
 
   const disabledDays = useMemo(() => {
     const blocked = Array.from(unavailableDates).map(
@@ -65,16 +88,12 @@ export default function StayBookingWidget({
   }, [unavailableDates]);
 
   const validate = (): string | null => {
-    if (!range?.from || !range?.to) return "Vui lòng chọn ngày nhận và trả phòng.";
-    if (nights < (apartment.minNights || 1)) {
-      return `Căn này yêu cầu ở tối thiểu ${apartment.minNights || 1} đêm.`;
-    }
+    if (!selection || !quote) return "Vui lòng chọn thời gian lưu trú hợp lệ.";
     if (guests < 1 || guests > (apartment.maxGuests || 1)) {
       return `Căn này nhận tối đa ${apartment.maxGuests || 1} khách.`;
     }
-    const checkIn = format(range.from, "yyyy-MM-dd");
-    const checkOut = format(range.to, "yyyy-MM-dd");
-    if (rangeHasConflict(checkIn, checkOut, unavailableDates)) {
+    if (stayType === "nightly" && rangeHasConflict(quote.checkIn, quote.checkOut, unavailableDates) ||
+        hourlyUnavailable) {
       return "Khoảng ngày bạn chọn có ngày đã kín. Vui lòng chọn lại.";
     }
     if (!guestName.trim() || guestName.trim().length < 2) {
@@ -99,37 +118,19 @@ export default function StayBookingWidget({
     }
     setIsSubmitting(true);
     try {
-      const checkIn = format(range!.from!, "yyyy-MM-dd");
-      const checkOut = format(range!.to!, "yyyy-MM-dd");
-      await addDoc(collection(db, "stay_bookings"), {
-        apartmentId: apartment.id,
-        apartmentTitle: apartment.title,
-        apartmentCode: apartment.sourceCode || "",
-        userId: user.uid,
-        guestName: guestName.trim(),
-        guestPhone: guestPhone.trim(),
-        checkIn,
-        checkOut,
-        nights,
-        guestsCount: guests,
-        nightlyPrice: apartment.nightlyPrice,
-        totalAmount,
-        notes: notes.trim(),
-        status: "pending",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+      await createStayBooking({ apartmentId: apartment.id, selection: selection!, guestsCount: guests,
+        guestName: guestName.trim(), guestPhone: guestPhone.trim(), notes: notes.trim() });
 
       await notifyAdmins({
         title: "Yêu cầu đặt phòng ngắn hạn mới",
-        message: `Khách ${guestName.trim()} yêu cầu đặt "${apartment.title}" từ ${checkIn} đến ${checkOut} (${nights} đêm).`,
+        message: `Khách ${guestName.trim()} yêu cầu đặt "${apartment.title}" ${quote!.rateLabel} từ ${quote!.checkIn}.`,
         type: "new_booking",
         link: `/${ADMIN_PATH}/stay-bookings`,
       });
       await createNotification({
         recipientId: user.uid,
         title: "Đã gửi yêu cầu đặt phòng",
-        message: `Yêu cầu đặt "${apartment.title}" (${nights} đêm) đang chờ xác nhận. Chúng tôi sẽ phản hồi sớm nhất.`,
+        message: `Yêu cầu đặt "${apartment.title}" (${quote!.rateLabel}) đang chờ xác nhận. Chúng tôi sẽ phản hồi sớm nhất.`,
         type: "new_booking",
         link: "/profile/bookings?tab=stay",
       });
@@ -147,7 +148,7 @@ export default function StayBookingWidget({
       toast({
         variant: "destructive",
         title: "Lỗi",
-        description: "Không thể gửi yêu cầu. Vui lòng thử lại.",
+        description: error instanceof Error ? error.message : "Không thể gửi yêu cầu. Vui lòng thử lại.",
       });
     } finally {
       setIsSubmitting(false);
@@ -160,6 +161,15 @@ export default function StayBookingWidget({
 
   const bookingForm = (
     <div className="flex flex-col gap-4">
+      {apartment.hourlyPrice ? <div className="grid grid-cols-2 gap-2 rounded-xl bg-gray-100 p-1">
+        <Button type="button" variant={stayType === "nightly" ? "default" : "ghost"} onClick={() => setStayType("nightly")}>Theo ngày/đêm</Button>
+        <Button type="button" variant={stayType === "hourly" ? "default" : "ghost"} onClick={() => setStayType("hourly")}>Theo giờ</Button>
+      </div> : null}
+      {stayType === "hourly" ? <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <label className={labelClass}>Ngày<input type="date" min={format(new Date(), "yyyy-MM-dd")} value={hourlyDate} onChange={e => setHourlyDate(e.target.value)} className={inputClass} /></label>
+        <label className={labelClass}>Giờ bắt đầu<input type="time" value={hourlyStart} onChange={e => setHourlyStart(e.target.value)} className={inputClass} /></label>
+        <label className={labelClass}>Số giờ<input type="number" min={apartment.minHours || 2} max={12} value={hours} onChange={e => setHours(Number(e.target.value))} className={inputClass} /></label>
+      </div> :
       <div className="flex flex-col items-center gap-2">
         <Calendar
           mode="range"
@@ -175,6 +185,8 @@ export default function StayBookingWidget({
             : `Chọn ngày nhận và trả phòng (tối thiểu ${apartment.minNights || 1} đêm)`}
         </p>
       </div>
+      }
+      {hourlyUnavailable ? <p className="text-xs font-semibold text-red-600">Khung giờ đã kín. Vui lòng chọn giờ khác.</p> : null}
 
       <div className="flex items-center justify-between rounded-xl border border-[#e2e2e2] px-4 py-3">
         <span className={labelClass}>
@@ -209,7 +221,7 @@ export default function StayBookingWidget({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <label className={labelClass}>
-            Họ và tên <span className="text-red-500">*</span>
+            {userData?.role === "collaborator" ? "Tên khách của CTV" : "Họ và tên"} <span className="text-red-500">*</span>
           </label>
           <input
             required
@@ -243,12 +255,11 @@ export default function StayBookingWidget({
         />
       </div>
 
-      {nights > 0 && (
+      {quote && (
         <div className="rounded-xl bg-gray-50 border border-gray-100 p-4 space-y-1.5 text-sm">
           <div className="flex justify-between text-gray-600">
             <span>
-              {(apartment.nightlyPrice || 0).toLocaleString("vi-VN")}đ ×{" "}
-              {nights} đêm
+              {quote.rateLabel}
             </span>
             <span>{totalAmount.toLocaleString("vi-VN")}đ</span>
           </div>
@@ -308,6 +319,9 @@ export default function StayBookingWidget({
               Nhận phòng {apartment.checkInTime} · Trả phòng{" "}
               {apartment.checkOutTime}
             </p>
+            {apartment.hourlyPrice ? <p className="text-xs text-[#757575] mt-1">Theo giờ: {apartment.hourlyPrice.toLocaleString("vi-VN")}đ/giờ</p> : null}
+            {apartment.weeklyPrice ? <p className="text-xs text-[#757575] mt-1">7 đêm: {apartment.weeklyPrice.toLocaleString("vi-VN")}đ</p> : null}
+            {commission ? <p className="text-sm font-semibold text-emerald-700 mt-2 rounded-lg bg-emerald-50 px-3 py-2">Hoa hồng CTV: {commission}</p> : null}
           </div>
           {bookingForm}
         </div>

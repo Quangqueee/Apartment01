@@ -130,7 +130,7 @@ export default memo(function ApartmentCard({
   };
 
   const isCollaborator =
-    userData?.role === "collaborator" || userData?.role === "admin";
+    userData?.role === "collaborator" || (userData?.role === "admin" || userData?.role === "director");
   const canViewCommission = isCollaborator;
 
   const initialFavoriteState =

@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/.test-runtime/
+*-migration-report.json
 
 # next.js
 /.next/

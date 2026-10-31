@@ -7,15 +7,12 @@ import {
   query,
   where,
 } from "firebase/firestore";
+import { useAuth } from "@/context/auth-context";
+import { customerAccessApi } from "@/lib/access-client";
 import { db } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BedDouble, Building2, Users, TrendingUp, Activity, CalendarClock, UserCheck } from "lucide-react";
 
-const PENDING_BOOKING_COLLECTIONS = [
-  "ctv_bookings",
-  "user_bookings",
-  "guest_consultations",
-];
 
 async function safeCount(
   label: string,
@@ -34,6 +31,7 @@ async function safeCount(
 }
 
 export default function AdminDashboardPage() {
+  const { user, userData, loading } = useAuth();
   const [stats, setStats] = useState({
     totalApartments: 0,
     totalUsers: 0,
@@ -44,11 +42,12 @@ export default function AdminDashboardPage() {
   });
 
   useEffect(() => {
+    if (loading || !user || !userData) return;
     let cancelled = false;
 
     async function fetchStats() {
       const aptCol = collection(db, "apartments");
-      const usersCol = collection(db, "users");
+      const customerRows = customerAccessApi("list").then(result => result.rows).catch(() => []);
 
       const [
         totalApartments,
@@ -58,21 +57,9 @@ export default function AdminDashboardPage() {
         pendingStayBookings,
       ] = await Promise.all([
         safeCount("apartments", () => getCountFromServer(aptCol)),
-        safeCount("users", () => getCountFromServer(usersCol)),
-        Promise.all(
-          PENDING_BOOKING_COLLECTIONS.map((name) =>
-            safeCount(name, () =>
-              getCountFromServer(
-                query(collection(db, name), where("status", "==", "pending")),
-              ),
-            ),
-          ),
-        ),
-        safeCount("ctv-requests", () =>
-          getCountFromServer(
-            query(usersCol, where("requestStatus", "==", "pending")),
-          ),
-        ),
+        customerRows.then(rows => rows.filter((row: {role?: string}) => row.role === 'user').length),
+        customerAccessApi('bookings').then(result => [result.rows.filter((row: {status?: string}) => row.status === 'pending').length]).catch(() => [0]),
+        customerRows.then(rows => rows.filter((row: { requestStatus?: string }) => row.requestStatus === "pending").length),
         safeCount("stay_bookings", () =>
           getCountFromServer(
             query(
@@ -98,7 +85,7 @@ export default function AdminDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loading, user?.uid, userData?.role]);
 
   return (
     <div className="space-y-8">

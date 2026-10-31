@@ -4,7 +4,7 @@
  */
 
 // Định nghĩa các role có trong hệ thống
-export type UserRole = 'user' | 'collaborator' | 'admin' | 'landlord';
+export type UserRole = 'user' | 'collaborator' | 'admin' | 'landlord' | 'director';
 
 // Định nghĩa các permission (quyền hạn)
 export type Permission =
@@ -18,6 +18,7 @@ export type Permission =
 
 // Mapping giữa role và các permission tương ứng
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+    director: ['view_full_address', 'view_commission', 'manage_apartments', 'approve_collaborators', 'view_analytics', 'manage_notifications', 'submit_apartments'],
     user: [
         // User thường chỉ có quyền xem tin đăng cơ bản
     ],
@@ -45,7 +46,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
  * @returns true nếu user có permission đó
  */
 export function hasPermission(role: UserRole, permission: Permission): boolean {
-    return ROLE_PERMISSIONS[role].includes(permission);
+    return ROLE_PERMISSIONS[role]?.includes(permission) || false;
 }
 
 /**
@@ -70,6 +71,7 @@ export function hasMinimumRole(role: UserRole | null | undefined, minRequiredRol
         collaborator: 1,
         landlord: 1,
         admin: 2,
+        director: 3,
     };
 
     if (!role) return false;
@@ -80,7 +82,7 @@ export function hasMinimumRole(role: UserRole | null | undefined, minRequiredRol
  * Kiểm tra xem user là admin không
  */
 export function isAdmin(role: UserRole | null | undefined): boolean {
-    return role === 'admin';
+    return role === 'admin' || role === 'director';
 }
 
 /**
@@ -113,6 +115,7 @@ export function getRoleLabel(role: UserRole): string {
         collaborator: 'Cộng tác viên',
         landlord: 'Chủ nhà',
         admin: 'Quản trị viên',
+        director: 'Giám đốc',
     };
     return labels[role];
 }

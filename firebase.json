@@ -5,5 +5,29 @@
   },
   "storage": {
     "rules": "storage.rules"
-  }
+  },
+  "apphosting": [
+    {
+      "backendId": "hanoiresidences",
+      "rootDir": ".",
+      "ignore": [
+        "node_modules",
+        ".git",
+        ".next",
+        ".next-turbo",
+        ".test-runtime",
+        ".env*",
+        "serviceAccountKey.json",
+        "firebase-service-account.json",
+        "*firebase-adminsdk*.json",
+        "*.pem",
+        "graphify-out",
+        "coverage",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "firestore-debug.log"
+      ],
+      "alwaysDeployFromSource": true
+    }
+  ]
 }

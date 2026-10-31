@@ -1,4 +1,5 @@
 "use client";
+import { LandlordContact } from "@/components/landlord-contact";
 
 import React, { useRef, useState, DragEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -46,6 +47,9 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { storage } from "@/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/firebase";
+import { useEffect } from "react";
 
 const MAX_IMAGE_WIDTH = 1920;
 const IMAGE_QUALITY = 0.82;
@@ -78,6 +82,14 @@ const formSchema = z
     nightlyPrice: z.coerce
       .number()
       .min(50000, "Giá mỗi đêm tối thiểu 50.000đ."),
+    hourlyPrice: z.coerce.number().min(0).default(0),
+    weeklyPrice: z.coerce.number().min(0).default(0),
+    minHours: z.coerce.number().int().min(2).max(12).default(2),
+    buildingName: z.string().max(100).optional(),
+    unitCode: z.string().max(40).optional(),
+    operationModel: z.enum(["self", "partner"]),
+    distributionChannels: z.array(z.string()),
+    commission: z.string().max(100).optional(),
     minNights: z.coerce.number().min(1, "Số đêm tối thiểu là 1."),
     maxGuests: z.coerce.number().min(1, "Số khách tối đa phải từ 1."),
     checkInTime: z.string().min(1, "Chọn giờ nhận phòng."),
@@ -95,6 +107,8 @@ const formSchema = z
     status: z.enum(["available", "rented"]),
   })
   .superRefine((data, ctx) => {
+    if (data.hourlyPrice > 0 && data.hourlyPrice < 50000) ctx.addIssue({ code: "custom", path: ["hourlyPrice"], message: "Giá theo giờ tối thiểu 50.000đ." });
+    if (data.weeklyPrice > 0 && data.weeklyPrice < 50000) ctx.addIssue({ code: "custom", path: ["weeklyPrice"], message: "Giá theo tuần tối thiểu 50.000đ." });
     if (data.formMode === "admin") {
       if (!data.sourceCode?.trim()) {
         ctx.addIssue({
@@ -114,7 +128,7 @@ const formSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["landlordPhoneNumber"],
-          message: "SĐT chủ nhà là bắt buộc.",
+          message: "Số liên hệ hiển thị là bắt buộc.",
         });
       }
     } else if (!data.contactPhone || data.contactPhone.trim().length < 8) {
@@ -270,6 +284,14 @@ export default function ShortTermForm({
       district: apartment?.district || "",
       area: apartment?.area || 0,
       nightlyPrice: apartment?.nightlyPrice || 0,
+      hourlyPrice: apartment?.hourlyPrice || 0,
+      weeklyPrice: apartment?.weeklyPrice || 0,
+      minHours: apartment?.minHours || 2,
+      buildingName: apartment?.buildingName || "",
+      unitCode: apartment?.unitCode || "",
+      operationModel: apartment?.operationModel || (mode === "admin" ? "self" : "partner"),
+      distributionChannels: apartment?.distributionChannels || ["website", "ctv"],
+      commission: "",
       minNights: apartment?.minNights || 1,
       maxGuests: apartment?.maxGuests || 2,
       checkInTime: apartment?.checkInTime || "14:00",
@@ -284,6 +306,13 @@ export default function ShortTermForm({
       status: apartment?.status || "available",
     },
   });
+
+  useEffect(() => {
+    if (mode !== "admin" || !apartment?.id) return;
+    getDoc(doc(db, "short_term_commissions", apartment.id)).then(snap => {
+      if (snap.exists()) form.setValue("commission", snap.data().commission || "");
+    }).catch(() => {});
+  }, [mode, apartment?.id, form]);
 
   const syncFormImages = (items: PreviewItem[]) => {
     form.setValue(
@@ -376,6 +405,14 @@ export default function ShortTermForm({
             district: values.district,
             area: values.area,
             nightlyPrice: values.nightlyPrice,
+            hourlyPrice: values.hourlyPrice || undefined,
+            weeklyPrice: values.weeklyPrice || undefined,
+            minHours: values.minHours,
+            buildingName: values.buildingName || "",
+            unitCode: values.unitCode || "",
+            operationModel: values.operationModel,
+            distributionChannels: values.distributionChannels,
+            commission: values.commission || "",
             minNights: values.minNights,
             maxGuests: values.maxGuests,
             checkInTime: values.checkInTime,
@@ -407,6 +444,13 @@ export default function ShortTermForm({
             district: values.district,
             area: values.area,
             nightlyPrice: values.nightlyPrice,
+            hourlyPrice: values.hourlyPrice || undefined,
+            weeklyPrice: values.weeklyPrice || undefined,
+            minHours: values.minHours,
+            buildingName: values.buildingName || "",
+            unitCode: values.unitCode || "",
+            operationModel: "partner",
+            distributionChannels: values.distributionChannels,
             minNights: values.minNights,
             maxGuests: values.maxGuests,
             checkInTime: values.checkInTime,
@@ -556,7 +600,7 @@ export default function ShortTermForm({
                 name="nightlyPrice"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Giá mỗi đêm (VND) *</FormLabel>
+                    <FormLabel>Giá mỗi ngày/đêm (VND) *</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -596,6 +640,20 @@ export default function ShortTermForm({
                 )}
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="hourlyPrice" render={({ field }) => <FormItem><FormLabel>Giá theo giờ (VND)</FormLabel><FormControl><Input type="number" min="0" placeholder="0 = không nhận theo giờ" {...field} /></FormControl><FormMessage /></FormItem>} />
+              <FormField control={form.control} name="minHours" render={({ field }) => <FormItem><FormLabel>Số giờ tối thiểu</FormLabel><FormControl><Input type="number" min="2" max="12" {...field} /></FormControl><FormMessage /></FormItem>} />
+            </div>
+            <FormField control={form.control} name="weeklyPrice" render={({ field }) => <FormItem><FormLabel>Giá 7 đêm (VND)</FormLabel><FormControl><Input type="number" min="0" placeholder="0 = tính theo giá đêm" {...field} /></FormControl><FormMessage /></FormItem>} />
+            <p className="text-xs text-gray-500">Giá tuần áp dụng cho mỗi nhóm 7 đêm; đêm lẻ tính theo giá đêm. Giá theo giờ cần kết thúc trong cùng ngày.</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField control={form.control} name="buildingName" render={({ field }) => <FormItem><FormLabel>Tòa nhà / cơ sở</FormLabel><FormControl><Input placeholder="VD: Hanoi Residences Tây Hồ" {...field} /></FormControl><FormMessage /></FormItem>} />
+              <FormField control={form.control} name="unitCode" render={({ field }) => <FormItem><FormLabel>Số phòng / mã căn</FormLabel><FormControl><Input placeholder="VD: 501" {...field} /></FormControl><FormMessage /></FormItem>} />
+            </div>
+            {isAdmin ? <FormField control={form.control} name="operationModel" render={({ field }) => <FormItem><FormLabel>Mô hình vận hành</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="self">Tự vận hành</SelectItem><SelectItem value="partner">Phòng đối tác</SelectItem></SelectContent></Select><FormMessage /></FormItem>} /> : null}
+            <FormField control={form.control} name="distributionChannels" render={({ field }) => <FormItem><FormLabel>Kênh nhận khách</FormLabel><div className="flex flex-wrap gap-3">{[["website", "Website"], ["ctv", "CTV"], ["partner", "Đối tác phân phối"]].map(([value, label]) => <label key={value} className="flex items-center gap-2 text-sm"><Checkbox checked={field.value.includes(value)} onCheckedChange={checked => field.onChange(checked ? [...field.value, value] : field.value.filter(v => v !== value))} />{label}</label>)}</div><p className="text-xs text-gray-500">Đây là kênh dự kiến. Chỉ website và CTV đang nhận yêu cầu trực tiếp; kênh đối tác chưa đồng bộ lịch tự động.</p><FormMessage /></FormItem>} />
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -802,6 +860,7 @@ export default function ShortTermForm({
           <CardContent className="space-y-4">
             {isAdmin ? (
               <>
+                <FormField control={form.control} name="commission" render={({ field }) => <FormItem><FormLabel>Hoa hồng CTV (nội bộ)</FormLabel><FormControl><Input placeholder="VD: 10% hoặc 200.000đ/đơn" {...field} /></FormControl><p className="text-xs text-gray-500">Chỉ Admin và CTV xem được. Khách chỉ thấy giá thuê.</p><FormMessage /></FormItem>} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -821,7 +880,7 @@ export default function ShortTermForm({
                     name="landlordPhoneNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>SĐT chủ nhà *</FormLabel>
+                        <FormLabel>Số liên hệ hiển thị *</FormLabel>
                         <FormControl>
                           <Input type="tel" className="text-base" {...field} />
                         </FormControl>
@@ -898,6 +957,7 @@ export default function ShortTermForm({
             "Gửi tin chờ duyệt"
           )}
         </Button>
+        <LandlordContact id={apartment?.id} collection="short_term_apartments" editable />
       </form>
     </Form>
   );

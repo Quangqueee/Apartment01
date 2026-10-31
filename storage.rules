@@ -34,7 +34,7 @@ service firebase.storage {
     function isAdmin() {
       return signedIn()
         && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role
-          == 'admin';
+          in ['admin', 'director'];
     }
 
     function isImageUnder15mb() {

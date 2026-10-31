@@ -39,6 +39,8 @@ import { useAuth as useFirebaseAuth } from "@/firebase/provider";
 import { useToast } from "@/hooks/use-toast";
 import { ADMIN_PATH } from "@/lib/constants";
 import { cn, normalizeSearchText } from "@/lib/utils";
+import { useAuth as useAccountAuth } from "@/context/auth-context";
+import { showAccessManagement, showSharedMenu } from "@/lib/customer-access-policy";
 
 const NAV_BUTTON_CLASS =
   "h-auto min-h-10 rounded-[6px] p-2.5 text-sm text-[#2e3033] hover:bg-[#f2f2f3] data-[active=true]:bg-[#f2f2f3] data-[active=true]:font-medium [&>svg]:size-5 group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-2.5";
@@ -54,6 +56,8 @@ type NavItemConfig = {
 };
 
 const MAIN_ITEMS: NavItemConfig[] = [
+  { href: `/${ADMIN_PATH}/access`, label: "Điều hành", tooltip: "Điều hành", icon: ShieldCheck, isActive: pathname => pathname.includes('/access') },
+  { href: "/profile/shared", label: "Dữ liệu được chia sẻ", tooltip: "Dữ liệu được chia sẻ", icon: Users },
   {
     href: `/${ADMIN_PATH}`,
     label: "Tổng quan",
@@ -282,6 +286,7 @@ function NavSection({
 }
 
 export function AdminSidebar() {
+  const { userData } = useAccountAuth();
   const auth = useFirebaseAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -292,8 +297,10 @@ export function AdminSidebar() {
   const collapsed = state === "collapsed";
 
   const mainItems = useMemo(
-    () => MAIN_ITEMS.filter((item) => matchesNavQuery(item.label, query)),
-    [query],
+    () => MAIN_ITEMS.filter((item) => matchesNavQuery(item.label, query)
+      && (item.href !== `/${ADMIN_PATH}/access` || showAccessManagement(userData?.role))
+      && (item.href !== '/profile/shared' || showSharedMenu(userData?.role))),
+    [query, userData?.role],
   );
   const reportItems = useMemo(
     () => REPORT_ITEMS.filter((item) => matchesNavQuery(item.label, query)),

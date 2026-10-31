@@ -191,6 +191,7 @@ function LandlordApartmentsContent() {
         newStatus,
       );
       if (result?.error) throw new Error(result.error);
+      await revalidateApartmentCacheAction(apartmentId);
 
       toast({
         title: "Cập nhật thành công!",
@@ -253,6 +254,7 @@ function LandlordApartmentsContent() {
       try {
         const result = await requestPushApartmentClient(id);
         if (result?.error) throw new Error(result.error);
+        await revalidateApartmentCacheAction(id);
         toast({
           title: "Đã gửi yêu cầu!",
           description: "Yêu cầu đẩy tin đã gửi tới Admin.",

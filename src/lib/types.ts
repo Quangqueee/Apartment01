@@ -40,7 +40,7 @@ export interface Apartment {
 
   listingSummary?: string;
   address: string; // For admin use
-  landlordPhoneNumber: string; // For admin use
+  landlordPhoneNumber: string; // Legacy field name: display contact only, never actual landlord phone.
   commission?: number | string;
   isFavorited?: boolean;
   imageUrls: string[];
@@ -51,6 +51,7 @@ export interface Apartment {
 
   // Landlord submission workflow fields
   submissionStatus?: SubmissionStatus;
+  ownerAdminId?: string;
   landlordId?: string; // UID của chủ nhà đã đăng thông tin căn hộ này
   adminNotes?: string; // Phản hồi từ quản trị viên, hiển thị cho chủ nhà khi bị từ chối hoặc chỉnh sửa
   design?: string; // Thiết kế
@@ -73,6 +74,7 @@ export interface Apartment {
 // Represents a document in the /users/{userId} collection
 export interface UserProfile {
   id: string;
+  ownerAdminId?: string;
   email: string;
   displayName?: string;
   phoneNumber?: string;
@@ -115,6 +117,13 @@ export interface ShortTermApartment {
   area: number; // m²
   district: string;
   nightlyPrice: number; // VND / đêm
+  hourlyPrice?: number; // VND / giờ; bỏ trống nếu không nhận khách theo giờ
+  weeklyPrice?: number; // VND / 7 đêm; bỏ trống nếu tính theo giá đêm
+  minHours?: number;
+  buildingName?: string;
+  unitCode?: string;
+  operationModel?: "self" | "partner";
+  distributionChannels?: string[];
   minNights: number; // số đêm tối thiểu
   maxGuests: number; // số khách tối đa
   checkInTime: string; // "14:00"
@@ -123,12 +132,13 @@ export interface ShortTermApartment {
   blockedDates: string[]; // ngày admin/chủ nhà chặn tay, dạng "YYYY-MM-DD"
   details: string;
   address: string; // For admin use
-  landlordPhoneNumber?: string; // For admin use
+  landlordPhoneNumber?: string; // Legacy field name: display contact only.
   contactPhone?: string; // SĐT liên hệ landlord tự khai
   imageUrls: string[];
   searchKeywords?: string[];
   status?: ApartmentStatus;
   submissionStatus?: SubmissionStatus;
+  ownerAdminId?: string;
   landlordId?: string;
   adminNotes?: string;
   aiContent?: AiContent | null;
@@ -166,6 +176,14 @@ export interface StayBooking {
   checkIn: string; // "YYYY-MM-DD"
   checkOut: string; // "YYYY-MM-DD" (ngày trả phòng, không tính là đêm ở)
   nights: number;
+  stayType?: "hourly" | "nightly";
+  hours?: number;
+  checkInAt?: string; // giờ địa phương, YYYY-MM-DDTHH:mm
+  checkOutAt?: string;
+  ctvId?: string;
+  ctvName?: string;
+  commissionSnapshot?: string;
+  rateLabel?: string;
   guestsCount: number;
   nightlyPrice: number; // VND, chốt tại thời điểm đặt
   totalAmount: number; // VND = nights × nightlyPrice (ước tính, môi giới — chưa thu online)

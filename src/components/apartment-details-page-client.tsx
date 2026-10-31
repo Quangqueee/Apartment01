@@ -1,4 +1,5 @@
 "use client";
+import { LandlordContact } from "@/components/landlord-contact";
 import JSZip from "jszip";
 import { Progress } from "@/components/ui/progress";
 import ReactMarkdown from "react-markdown";
@@ -543,7 +544,7 @@ export default function ApartmentDetailsPageClient({
     setShareOpen(true);
   };
 
-  const isAdmin = userData?.role === "admin";
+  const isAdmin = (userData?.role === "admin" || userData?.role === "director");
   const isCollaborator = userData?.role === "collaborator" || isAdmin;
   const displaySourceCode = getDisplaySourceCode(
     apartment.sourceCode,
@@ -862,7 +863,7 @@ export default function ApartmentDetailsPageClient({
       copyText = `📍 Mã căn: ${displaySourceCode}\n`;
       copyText += `💰 Giá: ${formatPrice(apartment.price)}/tháng\n`;
       copyText += `🤝 Hoa hồng: ${formatCommission(apartment.commission)}\n`;
-      copyText += `📞 SĐT Chủ nhà: ${apartment.landlordPhoneNumber || "Chưa có"}\n`;
+      copyText += `📞 Số liên hệ hiển thị: ${apartment.landlordPhoneNumber || "Chưa có"}\n`;
       copyText += `\n--- THÔNG TIN CHUNG ---\n${apartment.details || "Chưa có thông tin chi tiết."}`;
     } else {
       copyText = `📍 Mã căn: ${displaySourceCode}\n`;
@@ -1059,6 +1060,7 @@ export default function ApartmentDetailsPageClient({
           </DialogHeader>
 
           <div className="px-6 py-6 overflow-y-auto flex-1 pwa-safe-footer">
+            <LandlordContact id={apartment.id} editable />
             {isCollaborator ? (
               <div className="bg-white rounded-2xl mb-6">
                 <div className="grid grid-cols-2 gap-4 mb-5">
@@ -1074,7 +1076,7 @@ export default function ApartmentDetailsPageClient({
                   {isAdmin ? (
                     <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl shadow-sm">
                       <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
-                        SĐT Chủ nhà:
+                        Số liên hệ hiển thị:
                       </div>
                       <div className="text-gray-900 font-bold text-lg">
                         {apartment.landlordPhoneNumber || "Chưa có"}
@@ -1324,7 +1326,7 @@ export default function ApartmentDetailsPageClient({
                     {isAdmin ? (
                       <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl shadow-sm">
                         <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
-                          SĐT Chủ nhà:
+                          Số liên hệ hiển thị:
                         </div>
                         <div className="text-gray-900 font-bold text-lg">
                           {apartment.landlordPhoneNumber || "Chưa có"}

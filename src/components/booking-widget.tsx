@@ -89,7 +89,7 @@ export default function BookingWidget({
   });
 
   const role = userData?.role;
-  const isCollaborator = role === "collaborator" || role === "admin";
+  const isCollaborator = role === "collaborator" || (role === "admin" || role === "director");
   const isGuest = !user;
 
   const isCtvSelectedFromList = !!(
@@ -97,19 +97,25 @@ export default function BookingWidget({
   );
 
   useEffect(() => {
-    if (role === "admin") {
+    let cancelled = false;
+    setCtvList([]);
+    if ((role === "admin" || role === "director")) {
       const fetchCTVs = async () => {
+        try {
         const q = query(
           collection(db, "users"),
           where("role", "==", "collaborator"),
+          ...(userData?.role === "director" ? [] : [where("ownerAdminId", "==", user?.uid || "")]),
         );
         const snap = await getDocs(q);
         const ctvs = snap.docs.map((doc) => ({ uid: doc.id, ...doc.data() }));
-        setCtvList(ctvs);
+        if (!cancelled) setCtvList(ctvs);
+        } catch { if (!cancelled) { setCtvList([]); toast({ variant: "destructive", title: "Không thể tải danh sách CTV trong phạm vi của bạn" }); } }
       };
       fetchCTVs();
     }
-  }, [role]);
+    return () => { cancelled = true; };
+  }, [role, user?.uid]);
 
   const normalizedCtvSearchTerm = removeVietnameseTones(ctvSearchTerm);
   const filteredCtvs = ctvList.filter(
@@ -166,15 +172,16 @@ export default function BookingWidget({
 
       let payload: any = {
         apartmentId: apartment.id,
+        ...(apartment.ownerAdminId ? { ownerAdminId: apartment.ownerAdminId } : {}),
         apartmentCode: apartment.sourceCode,
         apartmentLink: window.location.href.slice(0, 500),
         notes: formData.notes,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        status: role === "admin" ? "approved" : "pending",
+        status: (role === "admin" || role === "director") ? "approved" : "pending",
       };
 
-      if (role === "admin") {
+      if ((role === "admin" || role === "director")) {
         if (formData.adminBookingType === "ctv") {
           collectionName = "ctv_bookings";
           payload = {
@@ -189,6 +196,7 @@ export default function BookingWidget({
             budget: formData.budget,
             dateTime: finalDateTime,
             createdByAdminId: user?.uid,
+            ownerAdminId: user?.uid,
           };
         } else {
           collectionName = "user_bookings";
@@ -201,6 +209,7 @@ export default function BookingWidget({
             dateTime: finalDateTime,
             isExternal: true,
             createdByAdminId: user?.uid,
+            ownerAdminId: user?.uid,
           };
         }
       } else if (role === "collaborator") {
@@ -312,14 +321,14 @@ export default function BookingWidget({
   };
 
   const getButtonText = () => {
-    if (role === "admin") return "Thêm lịch cho căn này";
+    if ((role === "admin" || role === "director")) return "Thêm lịch cho căn này";
     if (isCollaborator) return "Đặt lịch dẫn khách";
     if (role === "user") return "Đặt lịch xem phòng";
     return "Nhận tư vấn";
   };
 
   const getMobileButtonText = () => {
-    if (role === "admin") return "Thêm lịch";
+    if ((role === "admin" || role === "director")) return "Thêm lịch";
     if (isCollaborator) return "Đặt lịch";
     if (role === "user") return "Đặt lịch";
     return "Nhận tư vấn";
@@ -330,7 +339,7 @@ export default function BookingWidget({
       ? `₫${(apartment.price * 1000000).toLocaleString("vi-VN")}`
       : formatPrice(apartment.price);
 
-  const isAdminRole = role === "admin";
+  const isAdminRole = (role === "admin" || role === "director");
   const useCtvFields = role === "collaborator" || isAdminRole;
 
   const inputClass =
@@ -685,7 +694,7 @@ export default function BookingWidget({
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
-            {role === "admin" && (
+            {(role === "admin" || role === "director") && (
               <div className="flex bg-gray-100 p-1 rounded-xl mb-2">
                 <button
                   type="button"
@@ -708,7 +717,7 @@ export default function BookingWidget({
               </div>
             )}
 
-            {role === "admin" && formData.adminBookingType === "ctv" && (
+            {(role === "admin" || role === "director") && formData.adminBookingType === "ctv" && (
               <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3 animate-in slide-in-from-top-2">
                 <div className="space-y-1.5 relative">
                   <label className="text-xs font-bold text-blue-800">

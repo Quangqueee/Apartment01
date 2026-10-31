@@ -46,10 +46,10 @@ export default function Header() {
   const userRole = (userData?.role || "user").toLowerCase();
 
   const canSeeCollaboratorGuide =
-    userRole === "collaborator" || userRole === "admin";
+    userRole === "collaborator" || (userRole === "admin" || userRole === "director");
   const isLandlord = userRole === "landlord";
   const canRegisterAsPartner =
-    !isLandlord && userRole !== "admin" && userRole !== "collaborator";
+    !isLandlord && (userRole !== "admin" && userRole !== "director") && userRole !== "collaborator";
 
   const overlay =
     isHeroOverlayPath(pathname) && !scrolled && !isMobileMenuOpen;

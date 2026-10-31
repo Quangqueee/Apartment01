@@ -182,7 +182,7 @@ export default function StayBookingsList() {
                 </span>
                 <span className="font-bold text-gray-900 flex items-center gap-1">
                   <CalendarDays className="h-3.5 w-3.5 text-gray-400" />
-                  {formatVnDate(booking.checkIn)}
+                  {formatVnDate(booking.checkIn)}{booking.stayType === "hourly" ? ` · ${booking.checkInAt?.slice(11)}` : ""}
                 </span>
               </div>
               <div>
@@ -191,15 +191,15 @@ export default function StayBookingsList() {
                 </span>
                 <span className="font-bold text-gray-900 flex items-center gap-1">
                   <CalendarDays className="h-3.5 w-3.5 text-gray-400" />
-                  {formatVnDate(booking.checkOut)}
+                  {formatVnDate(booking.checkOut)}{booking.stayType === "hourly" ? ` · ${booking.checkOutAt?.slice(11)}` : ""}
                 </span>
               </div>
               <div>
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">
-                  Số đêm / khách
+                  Thời lượng / khách
                 </span>
                 <span className="font-bold text-gray-900">
-                  {booking.nights} đêm · {booking.guestsCount} khách
+                  {booking.stayType === "hourly" ? `${booking.hours} giờ` : `${booking.nights} đêm`} · {booking.guestsCount} khách
                 </span>
               </div>
               <div>
@@ -211,6 +211,7 @@ export default function StayBookingsList() {
                 </span>
               </div>
             </div>
+            {booking.ctvId === user?.uid && booking.commissionSnapshot ? <p className="text-sm font-semibold text-emerald-700">Hoa hồng dự kiến: {booking.commissionSnapshot}</p> : null}
 
             {booking.status === "pending" ||
             booking.status === "awaiting_payment" ? (
@@ -259,7 +260,7 @@ export default function StayBookingsList() {
             <AlertDialogTitle>Hủy đặt phòng?</AlertDialogTitle>
             <AlertDialogDescription>
               Bạn chắc chắn muốn hủy đặt phòng &quot;
-              {cancelTarget?.apartmentTitle}&quot; ({cancelTarget?.nights} đêm)?
+              {cancelTarget?.apartmentTitle}&quot; ({cancelTarget?.rateLabel || `${cancelTarget?.nights} đêm`})?
               Hành động này không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -40,7 +40,7 @@ const usersCollection = collection(firestore, "users");
 
 // DÁN ĐOẠN MỚI NÀY VÀO
 export const toApartment = (docSnap: DocumentData): Apartment => {
-  const data = docSnap.data();
+  const { actualLandlordPhone: _privatePhone, ownerPhone: _ownerPhone, ...data } = docSnap.data();
 
   // 1. Helper bóc tách Timestamp an toàn (chống lỗi cache)
   const toPlainTimestamp = (ts: any) => {
@@ -442,7 +442,7 @@ export const getCachedHomeApartments = unstable_cache(
     });
     return cloneListingPage(result);
   },
-  ["home-apartments-v3"],
+  ["home-apartments-v4"],
   { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
 );
 
@@ -462,7 +462,7 @@ export const getCachedHomeApartmentsPage = unstable_cache(
       totalResults: home.totalResults,
     });
   },
-  ["home-apartments-page-v4"],
+  ["home-apartments-page-v5"],
   { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
 );
 
@@ -492,7 +492,7 @@ export const getCachedPublishedApartments = unstable_cache(
     });
     return cloneListingPage(result);
   },
-  ["published-apartments-v1"],
+  ["published-apartments-v2"],
   { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
 );
 
@@ -506,7 +506,7 @@ export const getCachedFeaturedDistrictStats = unstable_cache(
     );
     return stats;
   },
-  ["featured-district-stats-v2"],
+  ["featured-district-stats-v3"],
   { revalidate: LISTING_REVALIDATE, tags: [APARTMENTS_CACHE_TAG] },
 );
 

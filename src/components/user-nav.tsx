@@ -15,11 +15,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth as useAccountAuth } from "@/context/auth-context";
+import { showSharedMenu } from "@/lib/customer-access-policy";
 
 export default function UserNav() {
   const { user } = useUser();
   // Lấy thêm userData từ Firestore để đảm bảo ảnh mới nhất được hiện
-  const userData = (useUser() as any).userData;
+  const { userData } = useAccountAuth();
   const auth = useAuth();
   const router = useRouter();
 
@@ -81,6 +83,7 @@ export default function UserNav() {
             </span>
           </Link>
         </DropdownMenuItem>
+        {showSharedMenu(userData?.role) && <DropdownMenuItem asChild><Link href="/profile/shared">Dữ liệu được chia sẻ</Link></DropdownMenuItem>}
         <DropdownMenuSeparator className="bg-gray-50" />
         <DropdownMenuItem
           onClick={() => signOut(auth).then(() => router.push("/"))}

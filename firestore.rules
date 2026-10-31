@@ -14,9 +14,7 @@ rules_version = '2';
  * DEPLOY BLOCKERS
  * - `notifications` create = false. Client `createNotification` /
  *   `notifyAdmins` sẽ fail cho đến khi có Cloud Function (Admin SDK).
- * - Đọc `apartments` vẫn trả CẢ document (PII còn trong cùng doc).
- *   Rule KHÔNG mask field. Chọn phương án (a) subcollection hoặc
- *   (b) callable view — xem comment khối apartments.
+ * - New actual landlord numbers live only in landlordContacts (director reads).
  *
  * File này là nguồn cho cả web và app. Deploy `firebase deploy --only firestore`.
  *
@@ -59,7 +57,90 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() && userRole() == 'admin';
+      return signedIn() && userRole() in ['admin', 'director'];
+    }
+
+
+    function isDirector() { return signedIn() && userRole() == 'director'; }
+    function isLegacyAdmin() {
+      return signedIn() && userRole() == 'admin'
+        && exists(/databases/$(database)/documents/accessConfig/legacyAdminAccess)
+        && request.auth.uid in get(/databases/$(database)/documents/accessConfig/legacyAdminAccess).data.get('adminUids', []);
+    }
+    function legacyBooking(key) {
+      return isLegacyAdmin() && exists(/databases/$(database)/documents/legacyBookingAccess/$(key))
+        && get(/databases/$(database)/documents/legacyBookingAccess/$(key)).data.get('enabled', false) == true;
+    }
+    function ownsManaged(data) {
+      return isAdmin() && data.get('ownerAdminId', '') == request.auth.uid;
+    }
+    function manages(data) { return isDirector() || ownsManaged(data); }
+    function shared(data, kind) {
+      let owner = data.get('ownerAdminId', '');
+      return signedIn() && (kind != 'bookings' || isAdmin()) && owner != ''
+        && get(/databases/$(database)/documents/shareGrants/$(owner + '~' + kind + '~' + request.auth.uid)).data.active == true;
+    }
+    function ownershipUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['ownerAdminId', 'createdByAdminId', 'assignedAdminId', 'assignedBy', 'assignedAt']);
+    }
+    function noAssignment(data) { return !data.keys().hasAny(['assignedAdminId', 'assignedBy', 'assignedAt']); }
+    // Frozen permissions bind a record identity: deleting it must not let a client
+    // recreate a different customer under the same ID and inherit those rights.
+    function freshBookingKey(key) {
+      return !exists(/databases/$(database)/documents/customerWork/$(key))
+        && !exists(/databases/$(database)/documents/customerLeadVisibility/$(key))
+        && !exists(/databases/$(database)/documents/legacyBookingAccess/$(key));
+    }
+    function assignedBooking(data) { return signedIn() && userRole() == 'admin' && data.get('assignedAdminId', '') == request.auth.uid; }
+    function assignedBookingUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return assignedBooking(resource.data) && changed.hasOnly(['status', 'adminNotes', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && (!changed.hasAny(['status']) || request.resource.data.status in ['pending', 'approved', 'contacted', 'failed'])
+        && (!changed.hasAny(['adminNotes']) || (request.resource.data.adminNotes is string && request.resource.data.adminNotes.size() <= 4000));
+    }
+    function noPrivatePhone(data) {
+      return !data.keys().hasAny(['actualLandlordPhone', 'ownerPhone']);
+    }
+    function adminBookingCreate(data) {
+      return isAdmin() && noAssignment(data) && data.ownerAdminId == request.auth.uid
+        && (!('createdByAdminId' in data) || data.createdByAdminId == request.auth.uid);
+    }
+    function bookingOwnerFromApartment(data) {
+      return data.get('ownerAdminId', '') ==
+        get(/databases/$(database)/documents/apartments/$(data.apartmentId)).data.get('ownerAdminId', '')
+        && !('createdByAdminId' in data);
+    }
+    function customerLegacy(userId) {
+      return exists(/databases/$(database)/documents/customerVisibility/$(userId))
+        && get(/databases/$(database)/documents/customerVisibility/$(userId)).data.get('legacy', false) == true;
+    }
+    function customerGranted(userId) {
+      return exists(/databases/$(database)/documents/customerVisibility/$(userId))
+        && request.auth.uid in get(/databases/$(database)/documents/customerVisibility/$(userId)).data.get('adminReaders', []);
+    }
+    function customerAssigned(key) {
+      return signedIn() && userRole() == 'admin'
+        && exists(/databases/$(database)/documents/customerWork/$(key))
+        && get(/databases/$(database)/documents/customerWork/$(key)).data.get('assignedAdminId', '') == request.auth.uid;
+    }
+    function leadReadable(key) {
+      return isAdmin() && (customerAssigned(key)
+        || (exists(/databases/$(database)/documents/customerLeadVisibility/$(key))
+          && (get(/databases/$(database)/documents/customerLeadVisibility/$(key)).data.get('legacy', false) == true
+            || request.auth.uid in get(/databases/$(database)/documents/customerLeadVisibility/$(key)).data.get('adminReaders', []))));
+    }
+    function userReadOk(userId, data) {
+      return isDirector()
+        || (data.role == 'user' && ((isAdmin() && (ownsManaged(data) || customerAssigned('users~' + userId) || customerLegacy(userId) || customerGranted(userId)))
+          || (customerLegacy(userId) && shared(data, 'customers'))))
+        || (data.role == 'collaborator' && (isLegacyAdmin() || ownsManaged(data) || shared(data, 'collaborators')))
+        || (data.role == 'landlord' && isAdmin());
+    }
+    function userProtectedUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['role', 'ownerAdminId', 'createdByAdminId', 'assignedAdminId', 'assignedAt', 'assignedBy', 'referralCtvId']);
     }
 
     function isLandlord() {
@@ -106,6 +187,7 @@ service cloud.firestore {
 
     function guestHasOnlyAllowedKeys() {
       return request.resource.data.keys().hasOnly([
+        'ownerAdminId',
         'apartmentId',
         'apartmentCode',
         'apartmentLink',
@@ -134,13 +216,13 @@ service cloud.firestore {
     }
 
     function userBookingCreateOk(data) {
-      return data.userId == request.auth.uid
+      return noAssignment(data) && data.userId == request.auth.uid
         && data.status == 'pending'
         && stringLen(data.apartmentId, 1, 128);
     }
 
     function ctvBookingCreateOk(data) {
-      return data.ctvId == request.auth.uid
+      return noAssignment(data) && data.ctvId == request.auth.uid
         && data.status == 'pending'
         && stringLen(data.apartmentId, 1, 128);
     }
@@ -195,19 +277,20 @@ service cloud.firestore {
         || isAdmin()
         || (signedIn() && resource.data.landlordId == request.auth.uid);
 
-      allow create: if isAdmin()
+      allow create: if noPrivatePhone(request.resource.data) && (isAdmin() && request.resource.data.ownerAdminId == request.auth.uid
         || (
           isLandlord()
           && request.resource.data.landlordId == request.auth.uid
           && request.resource.data.submissionStatus == 'pending'
-        );
+          && !('ownerAdminId' in request.resource.data)
+        ));
 
-      allow update: if isAdmin()
+      allow update: if noPrivatePhone(request.resource.data) && ownershipUnchanged() && (isAdmin()
         || (
           isLandlord()
           && landlordKeepsOwnership()
           && landlordDoesNotSelfPublish()
-        );
+        ));
 
       allow delete: if isAdmin()
         || (
@@ -227,44 +310,99 @@ service cloud.firestore {
           )
           || (docId == 'staff' && isCollaborator());
 
-        allow create, update: if isAdmin()
+        allow create, update: if noPrivatePhone(request.resource.data) && (isAdmin()
           || (
             isLandlord()
             && get(/databases/$(database)/documents/apartments/$(apartmentId)).data.landlordId
               == request.auth.uid
             && docId == 'contact'
-          );
+          ));
 
         allow delete: if isAdmin();
       }
     }
 
-    // ——— users ———
+
+    // Role and ownership mutations go through the authenticated, audited server API.
     match /users/{userId} {
-      allow create: if isOwner(userId)
-        && notSelfAdminEscalation()
-        && isValidUserCreate(request.resource.data);
-
-      allow get: if isOwner(userId) || isAdmin();
-
-      allow list: if isAdmin();
-
-      allow update: if isAdmin()
-        || (
-          isOwner(userId)
-          && roleUnchanged()
-          && notSelfAdminEscalation()
-        );
-
-      allow delete: if isAdmin();
-
+      allow create: if isOwner(userId) && isValidUserCreate(request.resource.data)
+        && !request.resource.data.keys().hasAny(['ownerAdminId', 'createdByAdminId', 'assignedAdminId', 'assignedAt', 'assignedBy', 'referralCtvId'])
+        && request.resource.data.get('landlordApprovalStatus', '') != 'approved';
+      allow get: if isOwner(userId) || userReadOk(userId, resource.data);
+      allow list: if userReadOk(userId, resource.data);
+      allow update: if userProtectedUnchanged() && (
+        (manages(resource.data) && !(resource.data.role in ['admin', 'director']))
+        || (isAdmin() && resource.data.role == 'landlord')
+        || (isAdmin() && resource.data.get('landlordApprovalStatus', '') == 'pending'
+          && request.resource.data.landlordApprovalStatus == 'rejected'
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['landlordApprovalStatus', 'landlordRejectionReason']))
+        || (isOwner(userId)
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['landlordApprovalStatus'])
+            || request.resource.data.landlordApprovalStatus == 'pending')
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['landlordRejectionReason', 'collaboratorStatus']))
+      );
+      allow delete: if manages(resource.data) && !(resource.data.role in ['admin', 'director']);
       match /favorites/{apartmentId} {
-        allow get, list: if isOwner(userId) || isAdmin();
+        allow get, list: if isOwner(userId) || isDirector()
+          || ownsManaged(get(/databases/$(database)/documents/users/$(userId)).data);
         allow create, delete: if isOwner(userId);
         allow update: if false;
       }
     }
-
+    match /landlordContacts/{contactId} {
+      allow read: if isDirector();
+      allow write: if false;
+    }
+    match /customerVisibility/{customerId} {
+      allow read: if isDirector();
+      allow write: if false;
+    }
+    match /customerLeadVisibility/{customerKey} {
+      allow read: if isDirector();
+      allow write: if false;
+    }
+    match /legacyBookingAccess/{bookingKey} {
+      allow read: if isDirector();
+      allow write: if false;
+    }
+    match /customerWork/{customerKey} {
+      allow get: if isDirector() || (isAdmin() && resource.data.get('assignedAdminId', '') == request.auth.uid);
+      allow list: if isDirector();
+      allow write: if false;
+    }
+    match /customerLeads/{customerId} {
+      allow read: if manages(resource.data) || leadReadable('customerLeads~' + customerId);
+      allow write: if false;
+    }
+    match /operationsBulk/{jobId} {
+      allow read, write: if false;
+      match /chunks/{chunkId} { allow read, write: if false; }
+    }
+    match /accessConfig/{configId} {
+      allow read: if isDirector();
+      allow write: if false;
+    }
+    match /customerAccessState/{stateId} {
+      allow read: if isAdmin() && stateId == 'records';
+      allow write: if false;
+    }
+    match /customerRegistrations/{userId} {
+      allow read: if isDirector();
+      allow write: if false;
+    }
+    match /shareRequests/{requestId} {
+      allow read: if isDirector();
+      allow write: if false;
+    }
+    match /shareGrants/{grantId} {
+      allow read: if isDirector() || (signedIn() && userRole() != 'admin' && resource.data.recipientUid == request.auth.uid);
+      allow write: if false;
+    }
+    match /accessAudit/{eventId} {
+      allow read: if isDirector();
+      allow write: if false;
+    }
     // ——— notifications ———
     // Create chỉ Admin SDK / Cloud Function (bỏ qua rules).
     match /notifications/{notificationId} {
@@ -286,46 +424,34 @@ service cloud.firestore {
 
     // ——— user_bookings ———
     match /user_bookings/{bookingId} {
-      allow read: if isAdmin()
-        || (signedIn() && resource.data.userId == request.auth.uid);
-
-      allow create: if isAdmin()
-        || (signedIn() && userBookingCreateOk(request.resource.data));
-
-      allow update: if isAdmin()
-        || (
-          signedIn()
-          && resource.data.userId == request.auth.uid
-          && userBookingMutableKeysOnly()
-        );
-
-      allow delete: if isAdmin();
+      allow read: if legacyBooking('user_bookings~' + bookingId) || leadReadable('user_bookings~' + bookingId) || assignedBooking(resource.data) || manages(resource.data) || shared(resource.data, 'bookings') || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if freshBookingKey('user_bookings~' + bookingId) && (adminBookingCreate(request.resource.data)
+        || ((signedIn() && userBookingCreateOk(request.resource.data)) && bookingOwnerFromApartment(request.resource.data)));
+      allow update: if ownershipUnchanged() && (manages(resource.data)
+        || assignedBookingUpdate()
+        || ((signedIn() && resource.data.userId == request.auth.uid) && userBookingMutableKeysOnly()));
+      allow delete: if manages(resource.data);
     }
 
     // ——— ctv_bookings ———
     match /ctv_bookings/{bookingId} {
-      allow read: if isAdmin()
-        || (isCollaborator() && resource.data.ctvId == request.auth.uid);
-
-      allow create: if isAdmin()
-        || (isCollaborator() && ctvBookingCreateOk(request.resource.data));
-
-      allow update: if isAdmin()
-        || (
-          isCollaborator()
-          && resource.data.ctvId == request.auth.uid
-          && ctvBookingMutableKeysOnly()
-        );
-
-      allow delete: if isAdmin();
+      allow read: if legacyBooking('ctv_bookings~' + bookingId) || leadReadable('ctv_bookings~' + bookingId) || assignedBooking(resource.data) || manages(resource.data) || shared(resource.data, 'bookings') || (isCollaborator() && resource.data.ctvId == request.auth.uid);
+      allow create: if freshBookingKey('ctv_bookings~' + bookingId) && (adminBookingCreate(request.resource.data)
+        || ((isCollaborator() && ctvBookingCreateOk(request.resource.data)) && bookingOwnerFromApartment(request.resource.data)));
+      allow update: if ownershipUnchanged() && (manages(resource.data)
+        || assignedBookingUpdate()
+        || ((isCollaborator() && resource.data.ctvId == request.auth.uid) && ctvBookingMutableKeysOnly()));
+      allow delete: if manages(resource.data);
     }
 
     // ——— guest_consultations ———
     // Create ẩn danh + validate field. KHÔNG rate-limit được ở rules.
     // Bổ sung App Check (app) / reCAPTCHA (web) + callable nếu spam.
     match /guest_consultations/{bookingId} {
-      allow create: if isValidGuestConsultation(request.resource.data);
-      allow read, update, delete: if isAdmin();
+      allow create: if freshBookingKey('guest_consultations~' + bookingId) && isValidGuestConsultation(request.resource.data) && bookingOwnerFromApartment(request.resource.data);
+      allow read: if legacyBooking('guest_consultations~' + bookingId) || leadReadable('guest_consultations~' + bookingId) || assignedBooking(resource.data) || manages(resource.data) || shared(resource.data, 'bookings');
+      allow update: if ownershipUnchanged() && (manages(resource.data) || assignedBookingUpdate());
+      allow delete: if manages(resource.data);
     }
 
     // Card-sized public feed snapshot. Admin SDK writes only.
@@ -343,25 +469,45 @@ service cloud.firestore {
         || isAdmin()
         || (signedIn() && resource.data.landlordId == request.auth.uid);
 
-      allow create: if isAdmin()
+      allow create: if noPrivatePhone(request.resource.data)
+        && !request.resource.data.keys().hasAny(['commission'])
+        && (isAdmin() && request.resource.data.ownerAdminId == request.auth.uid
         || (
           isLandlord()
           && request.resource.data.landlordId == request.auth.uid
           && request.resource.data.submissionStatus == 'pending'
-        );
+          && request.resource.data.get('operationModel', 'partner') == 'partner'
+          && !('ownerAdminId' in request.resource.data)
+        ));
 
-      allow update: if isAdmin()
+      allow update: if noPrivatePhone(request.resource.data)
+        && !request.resource.data.keys().hasAny(['commission'])
+        && ownershipUnchanged() && (isAdmin()
         || (
           isLandlord()
           && landlordKeepsOwnership()
           && landlordDoesNotSelfPublish()
-        );
+          && request.resource.data.get('operationModel', 'partner') == 'partner'
+        ));
 
       allow delete: if isAdmin()
         || (
           isLandlord()
           && resource.data.landlordId == request.auth.uid
         );
+    }
+
+    // Hoa hồng tách khỏi document public vì Firestore không che từng field.
+    match /short_term_commissions/{apartmentId} {
+      allow get: if isAdmin() || (isCollaborator()
+        && get(/databases/$(database)/documents/short_term_apartments/$(apartmentId)).data.submissionStatus == 'published');
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Phiên bản lịch để tuần tự hóa thao tác xác nhận qua Admin SDK.
+    match /stay_inventory/{apartmentId} {
+      allow read, write: if false;
     }
 
     // ——— stay_bookings (đơn đặt phòng ngắn hạn) ———
@@ -377,6 +523,7 @@ service cloud.firestore {
           signedIn()
           && request.resource.data.userId == request.auth.uid
           && request.resource.data.status == 'pending'
+          && !request.resource.data.keys().hasAny(['bookingSchemaVersion', 'stayType', 'hours', 'checkInAt', 'checkOutAt', 'ctvId', 'ctvName'])
           && stringLen(request.resource.data.apartmentId, 1, 128)
           && stringLen(request.resource.data.guestName, 2, 80)
           && isValidPhone(request.resource.data.guestPhone)

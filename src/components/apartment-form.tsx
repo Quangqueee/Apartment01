@@ -1,4 +1,5 @@
 "use client";
+import { LandlordContact } from "@/components/landlord-contact";
 import React from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -1506,7 +1507,7 @@ export default function ApartmentForm({
                     name="landlordPhoneNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>SĐT Chủ nhà</FormLabel>
+                        <FormLabel>Số liên hệ hiển thị</FormLabel>
                         <FormControl>
                           <Input placeholder="VD. 09xxxxxxxx" {...field} />
                         </FormControl>
@@ -1565,6 +1566,7 @@ export default function ApartmentForm({
             </Link>
           </Button>
         </div>
+        <LandlordContact id={apartment?.id} editable />
       </form>
     </Form>
   );

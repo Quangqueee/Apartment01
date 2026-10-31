@@ -8,9 +8,10 @@ import {
   getDoc,
   serverTimestamp,
   updateDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { deleteObject, ref as storageRef } from "firebase/storage";
-import { db, storage } from "@/firebase";
+import { auth, db, storage } from "@/firebase";
 import { generateSearchKeywords } from "@/lib/utils";
 import { createNotification, notifyAdmins } from "@/lib/notifications";
 import { ADMIN_PATH } from "@/lib/constants";
@@ -25,6 +26,14 @@ export type AdminShortTermWriteInput = {
   district: string;
   area: number;
   nightlyPrice: number; // VND / đêm
+  hourlyPrice?: number;
+  weeklyPrice?: number;
+  minHours?: number;
+  buildingName?: string;
+  unitCode?: string;
+  operationModel?: "self" | "partner";
+  distributionChannels?: string[];
+  commission?: string;
   minNights: number;
   maxGuests: number;
   checkInTime: string;
@@ -45,6 +54,13 @@ export type LandlordShortTermWriteInput = {
   district: string;
   area: number;
   nightlyPrice: number;
+  hourlyPrice?: number;
+  weeklyPrice?: number;
+  minHours?: number;
+  buildingName?: string;
+  unitCode?: string;
+  operationModel?: "self" | "partner";
+  distributionChannels?: string[];
   minNights: number;
   maxGuests: number;
   checkInTime: string;
@@ -88,6 +104,13 @@ export async function saveAdminShortTermClient(
       district: input.district,
       area: input.area,
       nightlyPrice: input.nightlyPrice,
+      hourlyPrice: input.hourlyPrice || 0,
+      weeklyPrice: input.weeklyPrice || 0,
+      minHours: input.minHours || 2,
+      buildingName: input.buildingName || "",
+      unitCode: input.unitCode || "",
+      operationModel: input.operationModel || "self",
+      distributionChannels: input.distributionChannels || ["website", "ctv"],
       minNights: input.minNights,
       maxGuests: input.maxGuests,
       checkInTime: input.checkInTime,
@@ -109,15 +132,23 @@ export async function saveAdminShortTermClient(
     };
 
     if (apartmentId) {
-      await updateDoc(doc(db, SHORT_TERM_COLLECTION, apartmentId), payload);
+      const batch = writeBatch(db);
+      batch.update(doc(db, SHORT_TERM_COLLECTION, apartmentId), payload);
+      batch.set(doc(db, "short_term_commissions", apartmentId), { commission: input.commission || "", updatedAt: serverTimestamp() }, { merge: true });
+      await batch.commit();
       return { id: apartmentId };
     }
 
-    const created = await addDoc(collection(db, SHORT_TERM_COLLECTION), {
+    const created = doc(collection(db, SHORT_TERM_COLLECTION));
+    const batch = writeBatch(db);
+    batch.set(created, {
       ...payload,
       submissionStatus: "published",
+      ownerAdminId: auth.currentUser!.uid,
       createdAt: serverTimestamp(),
     });
+    batch.set(doc(db, "short_term_commissions", created.id), { commission: input.commission || "", updatedAt: serverTimestamp() });
+    await batch.commit();
     return { id: created.id };
   } catch (error) {
     console.error("saveAdminShortTermClient:", error);
@@ -138,6 +169,13 @@ export async function saveLandlordShortTermClient(
       district: input.district,
       area: input.area,
       nightlyPrice: input.nightlyPrice,
+      hourlyPrice: input.hourlyPrice || 0,
+      weeklyPrice: input.weeklyPrice || 0,
+      minHours: input.minHours || 2,
+      buildingName: input.buildingName || "",
+      unitCode: input.unitCode || "",
+      operationModel: "partner",
+      distributionChannels: input.distributionChannels || ["website", "ctv"],
       minNights: input.minNights,
       maxGuests: input.maxGuests,
       checkInTime: input.checkInTime,
@@ -192,6 +230,7 @@ export async function deleteShortTermApartmentClient(
   try {
     await tryDeleteImages(imageUrls);
     await deleteDoc(doc(db, SHORT_TERM_COLLECTION, apartmentId));
+    try { await deleteDoc(doc(db, "short_term_commissions", apartmentId)); } catch { /* old listing without private terms */ }
   } catch (error) {
     console.error("deleteShortTermApartmentClient:", error);
     throw error;

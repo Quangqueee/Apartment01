@@ -1,4 +1,4 @@
-import { getCachedPublishedApartments } from "@/lib/data";
+import { getCachedHomeApartments, getCachedHomeApartmentsPage, getCachedPublishedApartments } from "@/lib/data";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
 import SortControls from "@/components/sort-controls";
@@ -72,17 +72,18 @@ export default async function SearchResults({
   let nextCursor: string | null = null;
 
   try {
-    const result = await getCachedPublishedApartments(
-      query,
-      district,
-      price,
-      roomType,
-      cursor || before ? 1 : requestedPage,
-      SEARCH_PAGE_SIZE,
-      sort,
-      cursor,
-      before,
-    );
+    // Cùng bộ dữ liệu/khóa cache với trang chủ khi không có bộ lọc.
+    // Cursor cũ trên URL vẫn điều hướng theo page để số lượng luôn đồng bộ.
+    const defaultListing = !query && !district && !price && !roomType && (!sort || sort === "newest");
+    const result = defaultListing
+      ? requestedPage === 1
+        ? await getCachedHomeApartments()
+        : await getCachedHomeApartmentsPage(requestedPage, SEARCH_PAGE_SIZE)
+      : await getCachedPublishedApartments(
+          query, district, price, roomType,
+          cursor || before ? 1 : requestedPage,
+          SEARCH_PAGE_SIZE, sort, cursor, before,
+        );
     apartments = result.apartments;
     totalResults = result.totalResults;
     nextCursor = result.nextCursor;

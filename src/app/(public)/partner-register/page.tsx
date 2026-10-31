@@ -123,7 +123,7 @@ export default function PartnerRegisterPage() {
   }
 
   // 2. Đã là chủ nhà hoặc admin
-  if (userData?.role === "landlord" || userData?.role === "admin") {
+  if (userData?.role === "landlord" || (userData?.role === "admin" || userData?.role === "director")) {
     return (
       <div className="flex min-h-screen flex-col bg-gray-50">
         <Header />

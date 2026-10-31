@@ -9,7 +9,7 @@ export function hasHyphenSourceCode(code: string | null | undefined): boolean {
 export function canViewInternalSourceCode(
   role: UserRole | string | null | undefined,
 ): boolean {
-  return role === "admin" || role === "collaborator";
+  return (role === "admin" || role === "director") || role === "collaborator";
 }
 
 export function getDisplaySourceCode(

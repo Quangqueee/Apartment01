@@ -636,6 +636,7 @@ export async function backfillSubmissionStatusAction() {
         updateDoc(doc(firestore, "apartments", docSnap.id), { submissionStatus: "published" })
       )
     );
+    if (toBackfill.length > 0) await revalidateApartmentListings();
     return { success: true, updatedCount: toBackfill.length };
   } catch (error) {
     console.error("Lỗi khi backfill submissionStatus:", error);

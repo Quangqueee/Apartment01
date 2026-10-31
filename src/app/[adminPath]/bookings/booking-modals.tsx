@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 // Format functions
 const formatCreationDate = (timestamp: any) => {
   if (!timestamp) return "N/A";
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(typeof timestamp.seconds === 'number' ? timestamp.seconds * 1000 : timestamp);
   return date.toLocaleString("vi-VN", {
     day: "2-digit",
     month: "2-digit",
@@ -188,7 +188,7 @@ export function NoteModal({ isOpen, booking, onClose, onSave, isSaving }: any) {
         >
           <div className="space-y-2">
             <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
-              Ghi chú ADMIN{" "}
+              Phản hồi cho người gửi lịch{" "}
               <span className="text-[10px] font-normal px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">
                 User/CTV sẽ thấy
               </span>
@@ -197,9 +197,11 @@ export function NoteModal({ isOpen, booking, onClose, onSave, isSaving }: any) {
               rows={4}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="VD: Đã check căn này chủ nhà đi vắng..."
-              className="w-full border border-gray-200 rounded-xl p-3 text-sm resize-none outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
+              placeholder="Ví dụ: Lịch đã được xác nhận, vui lòng đến đúng giờ..."
+              maxLength={booking?.canDelete === false ? 4000 : undefined}
+              className="w-full border border-gray-200 rounded-xl p-3 text-base resize-none outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533]"
             />
+            <p className="text-xs text-muted-foreground">Người gửi lịch có thể xem nội dung này. Không dùng ô này cho nhận xét nhân sự hoặc thông tin nội bộ.</p>
           </div>
           <div className="pt-2 flex justify-end gap-3">
             <button
@@ -234,6 +236,7 @@ export function DetailsModal({
   onClose,
   onSave,
   isSaving,
+  canEdit = true,
 }: any) {
   const { toast } = useToast();
   const [note, setNote] = useState("");
@@ -417,21 +420,22 @@ export function DetailsModal({
                 </div>
               </div>
 
-              <div className="pt-2 pb-2">
+              {canEdit && <div className="pt-2 pb-2">
                 <label className="text-[11px] sm:text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center gap-1.5 mb-2 ml-1">
-                  <MessageSquareText className="h-4 w-4" /> Ghi chú ADMIN (Sửa
-                  được)
+                  <MessageSquareText className="h-4 w-4" /> Phản hồi cho người gửi lịch
                 </label>
                 <textarea
                   rows={2}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="Nhập ghi chú nội bộ, lý do hủy..."
-                  className="w-full border border-gray-200 rounded-xl p-3.5 text-sm sm:text-base resize-none outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] bg-white shadow-sm transition-all"
+                  placeholder="Nhập phản hồi phù hợp để khách/CTV đọc..."
+                  maxLength={booking?.canDelete === false ? 4000 : undefined}
+                  className="w-full border border-gray-200 rounded-xl p-3.5 text-base resize-none outline-none focus:border-[#cda533] focus:ring-1 focus:ring-[#cda533] bg-white shadow-sm transition-all"
                 />
-              </div>
+                <p className="mt-2 text-xs text-muted-foreground">Người gửi lịch có thể xem nội dung này; đây chưa phải ghi chú nội bộ.</p>
+              </div>}
             </div>
-            <div className="shrink-0 p-3 sm:px-6 sm:py-4 border-t border-gray-200 bg-white z-20 pwa-safe-footer">
+            {canEdit && <div className="shrink-0 p-3 sm:px-6 sm:py-4 border-t border-gray-200 bg-white z-20 pwa-safe-footer">
               <button
                 type="submit"
                 disabled={isSaving}
@@ -443,7 +447,7 @@ export function DetailsModal({
                   "Lưu ghi chú Admin"
                 )}
               </button>
-            </div>
+            </div>}
           </form>
         )}
       </DialogContent>

@@ -1,10 +1,10 @@
 "use client";
+import { watchQuery } from "@/lib/firestore-listener";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   collection,
-  onSnapshot,
   orderBy,
   query,
 } from "firebase/firestore";
@@ -25,6 +25,7 @@ import { deleteShortTermApartmentClient } from "@/lib/short-term-write-client";
 import type { ShortTermApartment } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -61,18 +62,19 @@ export default function AdminShortTermPage() {
   const [apartments, setApartments] = useState<ShortTermApartment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [buildingFilter, setBuildingFilter] = useState("all");
   const [deleteTarget, setDeleteTarget] = useState<ShortTermApartment | null>(
     null,
   );
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    if (loading || userData?.role !== "admin") return;
+    if (loading || (userData?.role !== "admin" && userData?.role !== "director")) return;
     const q = query(
       collection(db, "short_term_apartments"),
       orderBy("createdAt", "desc"),
     );
-    const unsubscribe = onSnapshot(
+    const unsubscribe = watchQuery(
       q,
       (snap) => {
         setApartments(snap.docs.map(toShortTermApartment));
@@ -92,15 +94,17 @@ export default function AdminShortTermPage() {
   }, [loading, userData?.role, toast]);
 
   const filtered = useMemo(() => {
-    if (!searchTerm.trim()) return apartments;
+    const byBuilding = buildingFilter === "all" ? apartments : apartments.filter(apt => (apt.buildingName || "") === buildingFilter);
+    if (!searchTerm.trim()) return byBuilding;
     const needle = normalizeSearchText(searchTerm);
-    return apartments.filter(
+    return byBuilding.filter(
       (apt) =>
         normalizeSearchText(apt.title).includes(needle) ||
         normalizeSearchText(apt.sourceCode || "").includes(needle) ||
         normalizeSearchText(apt.district || "").includes(needle),
     );
-  }, [apartments, searchTerm]);
+  }, [apartments, searchTerm, buildingFilter]);
+  const buildings = useMemo(() => [...new Set(apartments.map(apt => apt.buildingName?.trim()).filter(Boolean) as string[])].sort(), [apartments]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -142,7 +146,7 @@ export default function AdminShortTermPage() {
             Căn hộ ngắn hạn
           </h2>
           <p className="text-gray-500">
-            Quản lý các căn hộ cho thuê theo đêm ({apartments.length}).
+            Quản lý căn theo giờ, đêm và tuần ({apartments.length} căn · {buildings.length} tòa/cơ sở).
           </p>
         </div>
         <Button
@@ -156,7 +160,8 @@ export default function AdminShortTermPage() {
       </div>
 
       <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4">
-        <div className="relative max-w-sm">
+        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative max-w-sm flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             value={searchTerm}
@@ -164,6 +169,8 @@ export default function AdminShortTermPage() {
             placeholder="Tìm theo tiêu đề, mã căn, quận..."
             className="pl-9 text-base"
           />
+        </div>
+        <Select value={buildingFilter} onValueChange={setBuildingFilter}><SelectTrigger className="sm:w-60"><SelectValue placeholder="Tòa nhà" /></SelectTrigger><SelectContent><SelectItem value="all">Tất cả tòa/cơ sở</SelectItem>{buildings.map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select>
         </div>
 
         <div className="rounded-xl border border-gray-100 overflow-x-auto">
@@ -173,7 +180,9 @@ export default function AdminShortTermPage() {
                 <TableHead>Căn hộ</TableHead>
                 <TableHead>Mã căn</TableHead>
                 <TableHead>Quận</TableHead>
+                <TableHead>Tòa / phòng</TableHead>
                 <TableHead>Giá/đêm</TableHead>
+                <TableHead>Mô hình</TableHead>
                 <TableHead>Tin đăng</TableHead>
                 <TableHead>Phòng</TableHead>
                 <TableHead className="text-center">Thao tác</TableHead>
@@ -183,7 +192,7 @@ export default function AdminShortTermPage() {
               {filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={9}
                     className="text-center py-12 text-gray-500"
                   >
                     <Building className="mx-auto h-12 w-12 text-gray-300 mb-3" />
@@ -213,9 +222,13 @@ export default function AdminShortTermPage() {
                       </TableCell>
                       <TableCell>{apt.sourceCode || "—"}</TableCell>
                       <TableCell>{apt.district}</TableCell>
+                      <TableCell className="text-sm">{apt.buildingName || "—"}{apt.unitCode ? ` · ${apt.unitCode}` : ""}</TableCell>
                       <TableCell className="font-bold text-green-600 whitespace-nowrap">
                         {(apt.nightlyPrice || 0).toLocaleString("vi-VN")}đ
+                        {apt.hourlyPrice ? <p className="text-xs font-normal text-gray-500">{apt.hourlyPrice.toLocaleString("vi-VN")}đ/giờ</p> : null}
+                        {apt.weeklyPrice ? <p className="text-xs font-normal text-gray-500">{apt.weeklyPrice.toLocaleString("vi-VN")}đ/tuần</p> : null}
                       </TableCell>
+                      <TableCell>{apt.operationModel === "partner" || apt.landlordId ? "Đối tác" : "Tự vận hành"}</TableCell>
                       <TableCell>
                         <Badge className={badge.className}>{badge.label}</Badge>
                       </TableCell>

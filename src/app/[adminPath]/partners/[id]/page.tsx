@@ -70,7 +70,7 @@ export default function PartnerDetailPage() {
   }, [user, partnerId, toast, router]);
 
   useEffect(() => {
-    if (!loading && user && userData?.role === "admin") {
+    if (!loading && user && (userData?.role === "admin" || userData?.role === "director")) {
       fetchData();
     }
   }, [user, userData, loading, fetchData]);

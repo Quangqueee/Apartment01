@@ -81,9 +81,9 @@ export default function AdminSubmissionsPage() {
   }, [user, toast]);
 
   useEffect(() => {
-    if (!loading && user && userData?.role === "admin") {
+    if (!loading && user && (userData?.role === "admin" || userData?.role === "director")) {
       fetchSubmissions();
-    } else if (!loading && (!user || userData?.role !== "admin")) {
+    } else if (!loading && (!user || (userData?.role !== "admin" && userData?.role !== "director"))) {
       setIsLoading(false);
     }
   }, [user, userData, loading, fetchSubmissions]);
@@ -115,7 +115,7 @@ export default function AdminSubmissionsPage() {
           variant: "destructive",
           title: "Thiếu thông tin",
           description:
-            "Vui lòng nhập Mã ID, Địa chỉ chính xác và SĐT chủ nhà trước khi xuất bản.",
+            "Vui lòng nhập Mã ID, Địa chỉ chính xác và Số liên hệ hiển thị trước khi xuất bản.",
         });
         return;
       }
@@ -158,7 +158,7 @@ export default function AdminSubmissionsPage() {
         toast({
           variant: "destructive",
           title: "Thiếu thông tin",
-          description: "Vui lòng nhập Mã ID, Địa chỉ chính xác và SĐT chủ nhà trước khi xuất bản.",
+          description: "Vui lòng nhập Mã ID, Địa chỉ chính xác và Số liên hệ hiển thị trước khi xuất bản.",
         });
         return;
       }
@@ -201,7 +201,7 @@ export default function AdminSubmissionsPage() {
     );
   }
 
-  if (userData?.role !== "admin") {
+  if ((userData?.role !== "admin" && userData?.role !== "director")) {
     return (
       <div className="text-center py-20">
         <h1 className="text-2xl font-bold text-red-600">Truy cập bị từ chối</h1>
@@ -397,7 +397,7 @@ export default function AdminSubmissionsPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase text-gray-600">SĐT Chủ nhà</label>
+                    <label className="text-xs font-bold uppercase text-gray-600">Số liên hệ hiển thị</label>
                     <Input
                       placeholder="VD. 0912345678"
                       value={landlordPhoneNumber}
@@ -531,7 +531,7 @@ export default function AdminSubmissionsPage() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold uppercase text-gray-600">
-                      SĐT Chủ nhà
+                      Số liên hệ hiển thị
                     </label>
                     <Input
                       placeholder="VD. 0912345678"

@@ -127,7 +127,7 @@ export default function LandlordShortTermList({ uid }: { uid: string }) {
     <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 space-y-4 overflow-x-hidden">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-gray-500">
-          Căn hộ cho thuê theo đêm bạn đã đăng ({apartments.length}).
+          Căn hộ ngắn ngày bạn đã đăng ({apartments.length}).
         </p>
         <Button
           asChild

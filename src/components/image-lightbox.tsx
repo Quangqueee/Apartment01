@@ -385,7 +385,7 @@ export default function ImageLightbox({
   const { userData } = useAuth();
 
   const canDownload =
-    userData?.role === "admin" || userData?.role === "collaborator";
+    (userData?.role === "admin" || userData?.role === "director") || userData?.role === "collaborator";
 
   const [api, setApi] = useState<CarouselApi>();
   const [currentSlide, setCurrentSlide] = useState(selectedIndex);

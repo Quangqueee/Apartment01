@@ -26,7 +26,7 @@ export default function ProfilePage() {
 
   const currentRole = userData?.role;
   const isPrivilegedUser =
-    currentRole === "collaborator" || currentRole === "admin";
+    currentRole === "collaborator" || (currentRole === "admin" || currentRole === "director");
 
   if (isUserLoading || !user)
     return (

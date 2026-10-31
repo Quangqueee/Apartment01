@@ -57,6 +57,7 @@ export function ShortTermCard({ apartment }: { apartment: ShortTermApartment }) 
         <h3 className="font-bold text-gray-900 line-clamp-2 leading-snug">
           {apartment.title}
         </h3>
+        {apartment.buildingName ? <p className="text-xs font-medium text-gray-500">{apartment.buildingName}{apartment.unitCode ? ` · ${apartment.unitCode}` : ""}</p> : null}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
           <span className="inline-flex items-center gap-1">
             <MapPin className="h-3.5 w-3.5" /> {apartment.district}
@@ -75,6 +76,8 @@ export function ShortTermCard({ apartment }: { apartment: ShortTermApartment }) 
           </span>
           <span className="text-sm text-gray-500"> /đêm</span>
         </p>
+        {apartment.hourlyPrice ? <p className="text-xs text-gray-500">Theo giờ từ {apartment.hourlyPrice.toLocaleString("vi-VN")}đ/giờ</p> : null}
+        {apartment.weeklyPrice ? <p className="text-xs text-gray-500">7 đêm {apartment.weeklyPrice.toLocaleString("vi-VN")}đ</p> : null}
       </div>
     </Link>
   );

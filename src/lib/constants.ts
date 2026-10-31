@@ -44,8 +44,8 @@ export const SORT_OPTIONS = [
 export const MAX_APARTMENT_IMAGES = 15;
 
 // ===== Căn hộ ngắn hạn =====
-/** Tạm ẩn nút/link truy cập ngắn hạn phía khách. Đặt `true` để hiện lại. Route + logic vẫn giữ nguyên. */
-export const SHORT_TERM_PUBLIC_ACCESS = false;
+/** Hiện danh sách, chi tiết và luồng gửi yêu cầu đặt căn ngắn hạn. */
+export const SHORT_TERM_PUBLIC_ACCESS = true;
 
 export const STAY_BOOKING_STATUS_LABELS: Record<string, string> = {
   pending: "Chờ duyệt",

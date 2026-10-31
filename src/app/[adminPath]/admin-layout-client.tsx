@@ -60,12 +60,12 @@ export default function AdminLayoutClient({
       return;
     }
 
-    if (user && userRole !== "admin") {
+    if (user && (userRole !== "admin" && userRole !== "director")) {
       router.replace("/");
     }
   }, [loading, user, userRole, router]);
 
-  if (loading || !user || (userData && userRole !== "admin")) {
+  if (loading || !user || (userRole !== "admin" && userRole !== "director")) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-white">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

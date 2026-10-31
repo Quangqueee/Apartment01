@@ -67,7 +67,7 @@ export default function BookingsManagementPage() {
   const { toast } = useToast();
 
   const role = userData?.role;
-  const isCollaborator = role === "collaborator" || role === "admin";
+  const isCollaborator = role === "collaborator" || (role === "admin" || role === "director");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -104,10 +104,10 @@ export default function BookingsManagementPage() {
       try {
         let fetchedData: Booking[] = [];
 
-        if (role === "admin") {
+        if ((role === "admin" || role === "director")) {
           const q1 = query(
             collection(db, "user_bookings"),
-            where("createdByAdminId", "==", user.uid),
+            where("ownerAdminId", "==", user.uid),
           );
           const snap1 = await getDocs(q1);
           snap1.docs.forEach((doc) =>
@@ -120,7 +120,7 @@ export default function BookingsManagementPage() {
 
           const q2 = query(
             collection(db, "ctv_bookings"),
-            where("ctvId", "==", user.uid),
+            where("ownerAdminId", "==", user.uid),
           );
           const snap2 = await getDocs(q2);
           snap2.docs.forEach((doc) =>

@@ -1,4 +1,5 @@
 "use client";
+import { LandlordContact } from "@/components/landlord-contact";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -17,6 +18,7 @@ import ApartmentImageGallery from "@/components/apartment-image-gallery";
 import StayBookingWidget from "@/components/stay-booking-widget";
 import { Calendar } from "@/components/ui/calendar";
 import { getUnavailableDatesClient } from "@/lib/short-term-data-client";
+import { getStayBookedIntervalsAction } from "@/app/stay-actions";
 import { ROOM_TYPES } from "@/lib/constants";
 import type { ShortTermApartment } from "@/lib/types";
 
@@ -28,12 +30,14 @@ export default function ShortTermDetailClient({
   const [unavailableDates, setUnavailableDates] = useState<Set<string>>(
     new Set(apartment.blockedDates || []),
   );
+  const [bookedIntervals, setBookedIntervals] = useState<Array<{ start: string; end: string }>>([]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   useEffect(() => {
     getUnavailableDatesClient(apartment.id, apartment.blockedDates || []).then(
       setUnavailableDates,
     );
+    getStayBookedIntervalsAction(apartment.id).then(setBookedIntervals).catch(() => setBookedIntervals([]));
   }, [apartment.id, apartment.blockedDates]);
 
   const disabledDays = useMemo(() => {
@@ -61,9 +65,10 @@ export default function ShortTermDetailClient({
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 px-5 md:px-0 pt-6">
           <div className="lg:col-span-2 space-y-8">
+            <LandlordContact id={apartment.id} collection="short_term_apartments" editable />
             <div>
               <span className="inline-block mb-2 rounded-full bg-[#cda533]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#b88e22]">
-                Căn hộ ngắn hạn · theo đêm
+                Căn hộ ngắn hạn · theo giờ / đêm / tuần
               </span>
               <h1 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900">
                 {apartment.title}
@@ -71,6 +76,7 @@ export default function ShortTermDetailClient({
               <p className="mt-2 flex items-center gap-1.5 text-sm text-gray-500">
                 <MapPin className="h-4 w-4" /> {apartment.district}, Hà Nội
               </p>
+              {apartment.buildingName ? <p className="mt-1 text-sm text-gray-600">{apartment.buildingName}{apartment.unitCode ? ` · Phòng ${apartment.unitCode}` : ""}</p> : null}
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -170,6 +176,7 @@ export default function ShortTermDetailClient({
             <StayBookingWidget
               apartment={apartment}
               unavailableDates={unavailableDates}
+              bookedIntervals={bookedIntervals}
               hideMobileBar={lightboxOpen}
             />
           </div>
