@@ -75,9 +75,7 @@ export async function generateMetadata({
       "căn hộ cho thuê gần hồ gươm",
       "căn hộ cho thuê gần các trường đại học",
       "căn hộ cho thuê gần các khu công nghiệp",
-      "cho thuê phòng trọ",
       "cho thuê nhà nguyên căn",
-      "cho thuê nhà trọ",
     ],
     alternates: {
       canonical: `/apartments/${id}`,

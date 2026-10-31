@@ -1,7 +1,6 @@
 "use client";
 import { useAuth } from "@/context/auth-context";
-import { db } from "@/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { fetchFavoriteApartmentsByIds } from "@/lib/favorites-client";
 import { useEffect, useState } from "react";
 import ApartmentCard from "@/components/apartment-card";
 import { Apartment } from "@/lib/types";
@@ -9,63 +8,51 @@ import { Heart, Loader2, House, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/header";
 import Footer from "@/components/footer";
-import MobileNav from "@/components/mobile-nav";
+import { toast } from "@/hooks/use-toast";
 
 export default function FavoritesPage() {
-  const { user, userData, loading: authLoading } = useAuth();
+  const { user, favoriteIds, favoritesReady, loading: authLoading } =
+    useAuth();
   const [favorites, setFavorites] = useState<Apartment[]>([]);
+  const [unavailableCount, setUnavailableCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchFavorites() {
-      if (authLoading) return;
+      if (authLoading || !favoritesReady) return;
 
-      if (!user || !userData?.favorites || userData.favorites.length === 0) {
+      if (!user || favoriteIds.length === 0) {
         setFavorites([]);
+        setUnavailableCount(0);
         setLoading(false);
         return;
       }
 
       try {
-        // BƯỚC 1: Đảo ngược mảng ID để lấy những cái mới nhất lên đầu
-        // Tạo bản sao [...favorites] để tránh mutation, sau đó reverse
-        const reversedFavoriteIds = [...userData.favorites].reverse();
-
-        // Chỉ lấy 30 căn mới nhất
-        const idsToFetch = reversedFavoriteIds.slice(0, 30);
-
-        const q = query(
-          collection(db, "apartments"),
-          where("__name__", "in", idsToFetch),
-        );
-
-        const snapshot = await getDocs(q);
-        const fetchedDocs = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Apartment[];
-
-        // BƯỚC 2: Sắp xếp lại kết quả trả về theo đúng thứ tự của idsToFetch
-        // Vì Firestore 'IN' query không bảo đảm thứ tự trả về
-        const orderedDocs = idsToFetch
-          .map((id) => fetchedDocs.find((doc) => doc.id === id))
-          .filter((doc) => doc !== undefined) as Apartment[]; // Lọc bỏ các căn có thể đã bị xóa khỏi DB
-
-        setFavorites(orderedDocs);
+        const { apartments, unavailableCount: missing } =
+          await fetchFavoriteApartmentsByIds(favoriteIds);
+        setFavorites(apartments);
+        setUnavailableCount(missing);
       } catch (err) {
         console.error("Lỗi lấy danh sách yêu thích:", err);
+        setFavorites([]);
+        setUnavailableCount(0);
+        toast({
+          variant: "destructive",
+          title: "Không tải được danh sách yêu thích",
+          description: "Vui lòng thử lại sau.",
+        });
       } finally {
         setLoading(false);
       }
     }
 
     fetchFavorites();
-  }, [user, userData?.favorites, authLoading]);
+  }, [user, favoriteIds, favoritesReady, authLoading]);
 
-  // ... (Phần render UI bên dưới giữ nguyên không đổi) ...
-  if (authLoading || loading)
+  if (authLoading || !favoritesReady || loading)
     return (
-      <div className="flex min-h-screen flex-col bg-white">
+      <div className="flex min-h-screen flex-col overflow-x-hidden bg-white">
         <Header />
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
@@ -76,18 +63,16 @@ export default function FavoritesPage() {
           </div>
         </div>
         <Footer />
-        <MobileNav />
       </div>
     );
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-white">
       <Header />
 
       <main className="flex-1">
-        {/* SECTION 1: HERO BANNER */}
         <section className="relative bg-gray-50 border-b border-gray-100 py-16 lg:py-28">
-          <div className="max-w-7xl mx-auto px-6">
+          <div className="max-w-[1920px] mx-auto px-6">
             <Link
               href="/"
               className="hidden md:inline-flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-primary transition-colors mb-8"
@@ -101,8 +86,7 @@ export default function FavoritesPage() {
           </div>
         </section>
 
-        {/* SECTION 2: DANH SÁCH */}
-        <section className="max-w-7xl mx-auto px-6 py-5 lg:py-5">
+        <section className="max-w-[1920px] mx-auto px-6 py-5 lg:py-5">
           {!user ? (
             <div className="max-w-md mx-auto text-center py-20 bg-gray-50 rounded-[3rem] border border-gray-100 shadow-sm px-10">
               <Heart className="h-12 w-12 text-gray-200 mx-auto mb-6" />
@@ -123,8 +107,15 @@ export default function FavoritesPage() {
             <div className="py-32 text-center border-2 border-dashed border-gray-100 rounded-[3rem]">
               <House className="mx-auto h-16 w-16 text-gray-200 mb-8" />
               <h3 className="text-xl font-black text-gray-400 uppercase tracking-widest">
-                Danh sách đang trống
+                {unavailableCount > 0
+                  ? "Không hiển thị được căn đã lưu"
+                  : "Danh sách đang trống"}
               </h3>
+              <p className="mt-4 text-sm text-gray-500">
+                {unavailableCount > 0
+                  ? `${unavailableCount} căn đã lưu hiện không còn xem được (đã gỡ hoặc chưa công khai).`
+                  : "Bạn chưa có căn hộ yêu thích nào."}
+              </p>
               <Link
                 href="/apartments"
                 className="mt-8 inline-block text-primary font-black text-[10px] uppercase tracking-[0.2em] border-b-2 border-primary pb-1 hover:opacity-70 transition-all"
@@ -134,10 +125,15 @@ export default function FavoritesPage() {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-12 border-b border-gray-50 pb-8">
+              <div className="flex flex-col gap-3 mb-12 border-b border-gray-50 pb-8 md:flex-row md:items-center md:justify-between">
                 <span className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">
                   Số lượng: {favorites.length} Căn hộ
                 </span>
+                {unavailableCount > 0 && (
+                  <span className="text-xs text-gray-400">
+                    {unavailableCount} căn đã lưu hiện không còn xem được.
+                  </span>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 lg:gap-16 mb-20">
@@ -151,7 +147,6 @@ export default function FavoritesPage() {
       </main>
 
       <Footer />
-      <MobileNav />
     </div>
   );
 }

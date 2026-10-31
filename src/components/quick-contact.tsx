@@ -5,7 +5,7 @@ export default function QuickContact() {
     <section className="bg-gray-50/50 py-20 lg:py-32 border-t border-gray-100">
       <div className="container mx-auto px-6">
         <div className="lg:grid lg:grid-cols-12 lg:gap-20 items-center">
-          
+
           {/* Trái/Trên: Branding & Slogan */}
           <div className="lg:col-span-6 mb-16 lg:mb-0">
             <h2 className="font-headline text-5xl lg:text-7xl font-black tracking-tighter italic leading-none text-gray-900">
@@ -24,7 +24,7 @@ export default function QuickContact() {
                 <Phone size={24} className="text-primary group-hover:text-white" />
               </div>
               <span className="block text-[10px] font-black uppercase text-gray-400 tracking-widest mb-1">Hotline 24/7</span>
-              <a href="tel:+84355885851" className="text-lg font-black text-gray-900 hover:text-primary transition-colors">+84 355 885 851</a>
+              <a href="tel:+84812442111" className="text-lg font-black text-gray-900 hover:text-primary transition-colors">+84 81 2442 111</a>
             </div>
 
             <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 hover:shadow-xl transition-all group">

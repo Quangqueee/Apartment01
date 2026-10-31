@@ -18,8 +18,9 @@ import { getFirestore } from "firebase/firestore";
 import { initializeFirebase } from "@/firebase";
 import { Apartment, UserProfile } from "./types";
 import { toApartment } from "./data"; // Assuming toApartment can be used on client
-import { removeVietnameseTones } from "./utils";
+import { matchesApartmentSearch } from "./utils";
 import { isPriceInRange, parsePriceRange } from "./price-range";
+import { mergeFavoriteIds } from "./favorites";
 
 
 // Initialize Firebase on the client
@@ -56,6 +57,7 @@ export async function getApartments(
     limit?: number;
     sortBy?: string;
     searchBy?: "title" | "sourceCode" | "sourceCodeOrAddress" | "titleOrSourceCode";
+    landlordId?: string;
   } = {}
 ) {
   const {
@@ -67,12 +69,16 @@ export async function getApartments(
     limit: pageSize = 1000, // Default to a large number for admin
     sortBy = "newest",
     searchBy = "sourceCodeOrAddress",
+    landlordId,
   } = options;
 
   let baseQuery: Query = apartmentsCollection;
   let whereClauses = [];
 
   // --- Build Where Clauses (excluding price) ---
+  if (landlordId) {
+    whereClauses.push(where("landlordId", "==", landlordId));
+  }
   if (district) {
     whereClauses.push(where("district", "==", district));
   }
@@ -96,34 +102,11 @@ export async function getApartments(
     );
   }
 
-  // --- Client-side Text Search linh hoạt cho Admin ---
+  // --- Client-side Text Search linh hoạt ---
   if (searchQuery) {
-    // 1. Chuẩn hóa từ khóa gõ vào: chuyển thường, bỏ dấu, thay thế mọi ký tự đặc biệt thành khoảng trắng
-    const normalizedQuery = removeVietnameseTones(searchQuery)
-      .toLowerCase()
-      .replace(/[\/,\-_?]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    // Tách các từ khóa người dùng gõ thành từng từ đơn (Ví dụ: "279 đội cấn" -> ["279", "doi", "can"])
-    const queryWords = normalizedQuery.split(" ").filter(Boolean);
-
-    allMatchingApartments = allMatchingApartments.filter((apt) => {
-      // 2. Chuẩn hóa địa chỉ và mã ID của căn hộ trong database
-      const normalizedAddress = removeVietnameseTones(apt.address || "")
-        .toLowerCase()
-        .replace(/[\/,\-_?]/g, " ")
-        .replace(/\s+/g, " ");
-
-      const normalizedCode = removeVietnameseTones(apt.sourceCode || "")
-        .toLowerCase();
-
-      // Kiểm tra xem tất cả các từ người dùng gõ có cùng xuất hiện trong địa chỉ hoặc mã ID hay không
-      const matchAddress = queryWords.every(word => normalizedAddress.includes(word));
-      const matchCode = queryWords.every(word => normalizedCode.includes(word));
-
-      return matchAddress || matchCode;
-    });
+    allMatchingApartments = allMatchingApartments.filter((apt) =>
+      matchesApartmentSearch(apt, searchQuery),
+    );
   }
   // --- Client-side Sorting ---
   if (sortBy === 'price-asc') {
@@ -176,15 +159,26 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 export async function getFullFavoriteApartments(userId: string): Promise<Apartment[]> {
   if (!userId) return [];
 
-  const favoritesCol = collection(usersCollection, userId, "favorites");
-  const q = query(favoritesCol, orderBy("addedAt", "desc"));
-  const snapshot = await getDocs(q);
-  const favoriteIds = snapshot.docs.map(doc => doc.id);
+  try {
+    const favoritesCol = collection(usersCollection, userId, "favorites");
+    const q = query(favoritesCol, orderBy("addedAt", "desc"));
+    const snapshot = await getDocs(q);
+    const subcollectionIds = snapshot.docs.map((favDoc) => favDoc.id);
 
-  if (favoriteIds.length === 0) return [];
+    const userSnap = await getDoc(doc(usersCollection, userId));
+    const favoriteIds = mergeFavoriteIds(
+      userSnap.data()?.favorites,
+      subcollectionIds,
+    );
 
-  const apartmentPromises = favoriteIds.map(id => getApartmentById(id));
-  const apartments = await Promise.all(apartmentPromises);
+    if (favoriteIds.length === 0) return [];
 
-  return apartments.filter((apt): apt is Apartment => apt !== null);
+    const apartmentPromises = favoriteIds.map((id) => getApartmentById(id));
+    const apartments = await Promise.all(apartmentPromises);
+
+    return apartments.filter((apt): apt is Apartment => apt !== null);
+  } catch (error) {
+    console.error("getFullFavoriteApartments:", error);
+    return [];
+  }
 }

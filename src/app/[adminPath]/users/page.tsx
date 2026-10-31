@@ -1,4 +1,5 @@
 "use client";
+import { watchDoc } from "@/lib/firestore-listener";
 
 import {
   Table,
@@ -18,7 +19,8 @@ import {
   Phone,
   CheckCircle2,
   Loader2,
-  Trash2, // <-- Thêm icon Trash2
+  Trash2,
+  Download,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo } from "react";
@@ -30,14 +32,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { customerAccessApi, accessApi } from "@/lib/access-client";
+import { useAuth } from "@/context/auth-context";
 import { db } from "@/firebase";
 import {
-  collection,
-  deleteField,
   doc,
-  onSnapshot,
-  updateDoc,
-  deleteDoc, // <-- Thêm hàm deleteDoc
+  deleteDoc,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -49,6 +49,11 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import CustomerWorkPanel from "@/components/customer-work-panel";
+
+// IMPORT date-fns ĐỂ XỬ LÝ THỜI GIAN
+import { formatDistanceToNow } from "date-fns";
+import { vi } from "date-fns/locale";
 
 interface UserData {
   uid: string;
@@ -59,68 +64,119 @@ interface UserData {
   dob?: string;
   gender?: string;
   interests?: string;
+  ownerAdminId?: string;
+  canManage?: boolean;
+  canExport?: boolean;
   ctvIntroduction?: string;
-  role?: "user" | "collaborator" | "admin";
+  role?: "user" | "collaborator" | "admin" | "landlord" | "director";
   requestStatus?: "pending" | string;
-  createdAt?: any; // <-- Khai báo thêm trường createdAt
+  createdAt?: any;
+  lastActiveAt?: any; // THÊM TRƯỜNG lastActiveAt
 }
 
 type ManageableRole = "user" | "collaborator";
 
 export default function UsersPage() {
   const { toast } = useToast();
+  const { user, userData } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [processingUserId, setProcessingUserId] = useState<string | null>(null);
+
+  // State cho bộ lọc
   const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
 
   useEffect(() => {
-    setIsLoadingUsers(true);
-    const usersRef = collection(db, "users");
-    const unsubscribe = onSnapshot(
-      usersRef,
-      (querySnapshot) => {
-        const usersData: UserData[] = [];
-        querySnapshot.forEach((doc) => {
-          usersData.push({ uid: doc.id, ...doc.data() } as UserData);
-        });
+    let cancelled = false, running = false, queued = false, revision = 0;
+    setUsers([]); setIsLoadingUsers(true);
+    if (!user || !userData) return;
+    const refresh = async (invalidate = false) => {
+      if (invalidate) { revision++; setUsers([]); }
+      if (running) { queued = true; return; }
+      running = true;
+      const current = revision;
+      try {
+        const result = await customerAccessApi('list');
+        if (!cancelled && current === revision) {
+          const rows = result.rows as UserData[];
+          rows.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+          setUsers(rows);
+        }
+      } catch {
+        if (!cancelled) { setUsers([]); toast({ variant: 'destructive', title: 'Không thể tải danh sách người dùng' }); }
+      } finally { running = false; if (!cancelled) { setIsLoadingUsers(false); if (queued) { queued = false; void refresh(); } } }
+    };
+    void refresh();
+    const unsubscribe = watchDoc(doc(db, 'customerAccessState', 'records'), () => { void refresh(true); }, () => { revision++; setUsers([]); });
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 60000);
+    const onFocus = () => { void refresh(); };
+    window.addEventListener('focus', onFocus);
+    return () => { cancelled = true; unsubscribe(); clearInterval(interval); window.removeEventListener('focus', onFocus); };
+  }, [toast, user?.uid, userData?.role]);
 
-        // SẮP XẾP MỚI NHẤT LÊN ĐẦU
-        usersData.sort((a, b) => {
-          const timeA = a.createdAt?.seconds || 0;
-          const timeB = b.createdAt?.seconds || 0;
-          return timeB - timeA;
-        });
-
-        setUsers(usersData);
-        setIsLoadingUsers(false);
-      },
-      (error) => {
-        console.error("Lỗi tải danh sách người dùng:", error);
-        toast({
-          variant: "destructive",
-          title: "Không thể tải danh sách người dùng",
-          description: "Vui lòng thử lại sau.",
-        });
-        setIsLoadingUsers(false);
-      },
-    );
-
-    return () => unsubscribe();
-  }, []);
-
+  // Logic lọc danh sách user (Tìm kiếm + Bộ lọc vai trò)
   const filteredUsers = useMemo(() => {
-    const q = query.toLowerCase();
-    if (!q) {
-      return users;
-    }
-    return users.filter(
-      (u) =>
+    return users.filter((u) => {
+      const q = query.toLowerCase();
+      const matchesQuery =
+        !q ||
         u.email?.toLowerCase().includes(q) ||
         u.displayName?.toLowerCase().includes(q) ||
-        u.phoneNumber?.includes(q),
+        u.phoneNumber?.includes(q);
+
+      const currentRole = u.role || "user";
+      const matchesRole = roleFilter === "all" || currentRole === roleFilter;
+
+      return matchesQuery && matchesRole;
+    });
+  }, [users, query, roleFilter]);
+
+  // Hàm xuất file CSV
+  const exportToCSV = async () => {
+    try {
+    if (filteredUsers.length === 0) {
+      toast({ title: "Không có dữ liệu để xuất", variant: "destructive" });
+      return;
+    }
+
+    const headers = ["Tên", "Email", "SĐT", "Vai trò", "Nhu cầu/Ghi chú"];
+    const exportable = filteredUsers.filter(u => u.canExport);
+    if (!exportable.length) { toast({ title: "Không có dữ liệu để xuất", variant: "destructive" }); return; }
+    const result = await customerAccessApi('export', { ids: exportable.map(u => u.uid) });
+    const csvRows = (result.rows as UserData[]).map((u) => {
+      return [
+        u.displayName || "Chưa đặt tên",
+        u.email || "",
+        u.phoneNumber || "",
+        u.role || "user",
+        (u.interests || u.ctvIntroduction || "").replace(/\n/g, " "),
+      ].map((item) => `"${(/^[=+@\-\t\r]/.test(item) ? "'" : "") + item.replace(/"/g, '""')}"`);
+    });
+
+    const csvContent = [
+      headers.join(","),
+      ...csvRows.map((row) => row.join(",")),
+    ].join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `danh_sach_khach_hang_${new Date().getTime()}.csv`,
     );
-  }, [users, query]);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({ title: "Đã xuất file thành công!" });
+    } catch (error) { toast({ variant: 'destructive', title: error instanceof Error ? error.message : 'Không thể xuất dữ liệu' }); }
+  };
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -128,28 +184,62 @@ export default function UsersPage() {
   };
 
   const getRoleLabel = (role: UserData["role"]) => {
+    if (role === "director") return "Giám đốc";
     if (role === "admin") return "Admin";
     if (role === "collaborator") return "CTV";
+    if (role === "landlord") return "Chủ nhà";
     return "Người dùng";
   };
 
   const getRoleBadgeClass = (role: UserData["role"]) => {
-    if (role === "admin") {
-      return "bg-red-50 text-red-700 border-red-200";
-    }
-    if (role === "collaborator") {
+    if ((role === "admin" || role === "director")) return "bg-red-50 text-red-700 border-red-200";
+    if (role === "collaborator")
       return "bg-blue-50 text-blue-700 border-blue-200";
-    }
+    if (role === "landlord")
+      return "bg-amber-50 text-amber-700 border-amber-200";
     return "bg-gray-50 text-gray-700 border-gray-200";
+  };
+
+  // HÀM RENDER TRẠNG THÁI HOẠT ĐỘNG
+  const renderActiveStatus = (lastActiveAt?: any) => {
+    if (!lastActiveAt || !lastActiveAt.seconds) {
+      return (
+        <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-1">
+          <div className="w-1.5 h-1.5 rounded-full bg-gray-300"></div>
+          <span>Chưa rõ</span>
+        </div>
+      );
+    }
+
+    const lastActiveDate = new Date(lastActiveAt.seconds * 1000);
+    const now = new Date();
+    const diffInMinutes =
+      (now.getTime() - lastActiveDate.getTime()) / (1000 * 60);
+
+    if (diffInMinutes < 20) {
+      return (
+        <div className="flex items-center gap-1 text-[10px] text-green-600 mt-1 font-medium">
+          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+          <span>Online</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-1">
+        <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+        <span>
+          {formatDistanceToNow(lastActiveDate, { addSuffix: true, locale: vi })}
+        </span>
+      </div>
+    );
   };
 
   const updateUserRole = async (
     targetUser: UserData,
     nextRole: ManageableRole,
   ) => {
-    if (processingUserId) {
-      return;
-    }
+    if (processingUserId) return;
     if (nextRole !== "user" && nextRole !== "collaborator") {
       toast({
         variant: "destructive",
@@ -161,19 +251,7 @@ export default function UsersPage() {
 
     setProcessingUserId(targetUser.uid);
     try {
-      await updateDoc(doc(db, "users", targetUser.uid), {
-        role: nextRole,
-        requestStatus: deleteField(),
-      });
-
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.uid === targetUser.uid
-            ? { ...u, role: nextRole, requestStatus: undefined }
-            : u,
-        ),
-      );
-
+      await accessApi("role", { uid: targetUser.uid, role: nextRole });
       toast({
         title: "Cập nhật vai trò thành công",
         description: `Đã chuyển vai trò sang ${nextRole}.`,
@@ -191,22 +269,10 @@ export default function UsersPage() {
   };
 
   const approveCollaboratorRequest = async (targetUser: UserData) => {
-    if (processingUserId) {
-      return;
-    }
+    if (processingUserId) return;
     setProcessingUserId(targetUser.uid);
     try {
-      await updateDoc(doc(db, "users", targetUser.uid), {
-        role: "collaborator",
-        requestStatus: deleteField(),
-      });
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.uid === targetUser.uid
-            ? { ...u, role: "collaborator", requestStatus: undefined }
-            : u,
-        ),
-      );
+      await accessApi("role", { uid: targetUser.uid, role: "collaborator" });
       toast({
         title: "Duyệt CTV thành công",
         description: "Người dùng đã được chuyển thành cộng tác viên.",
@@ -223,7 +289,6 @@ export default function UsersPage() {
     }
   };
 
-  // HÀM XÓA NGƯỜI DÙNG KHỎI FIRESTORE
   const handleDeleteUser = async (targetUser: UserData) => {
     const confirmDelete = window.confirm(
       `Bạn có chắc chắn muốn xóa hồ sơ của ${targetUser.email}? Hành động này sẽ xóa dữ liệu hiển thị (không xóa tài khoản Auth).`,
@@ -233,10 +298,7 @@ export default function UsersPage() {
     setProcessingUserId(targetUser.uid);
     try {
       await deleteDoc(doc(db, "users", targetUser.uid));
-
-      // Xóa khỏi UI
-      setUsers((prev) => prev.filter((u) => u.uid !== targetUser.uid));
-
+      setUsers(previous => previous.filter(u => u.uid !== targetUser.uid));
       toast({
         title: "Đã xóa khách hàng",
         description: "Bản ghi đã được gỡ khỏi danh sách.",
@@ -254,15 +316,22 @@ export default function UsersPage() {
   };
 
   const renderRoleControl = (u: UserData) => {
-    if (u.role === "admin") {
+    if (!u.canManage) return <Badge variant="outline" className={getRoleBadgeClass(u.role)}>{getRoleLabel(u.role)}</Badge>;
+    if ((u.role === "admin" || u.role === "director") || u.role === "landlord") {
       return (
         <div className="space-y-1">
           <Badge variant="outline" className={getRoleBadgeClass(u.role)}>
             {getRoleLabel(u.role)}
           </Badge>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">
-            Tài khoản quản trị
-          </p>
+          {(u.role === "admin" || u.role === "director") ? (
+            <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">
+              Tài khoản quản trị
+            </p>
+          ) : (
+            <p className="text-[10px] font-medium text-amber-600">
+              Quản lý tại tab Đối tác
+            </p>
+          )}
         </div>
       );
     }
@@ -276,12 +345,12 @@ export default function UsersPage() {
         onValueChange={(value: ManageableRole) => updateUserRole(u, value)}
         disabled={processingUserId === u.uid}
       >
-        <SelectTrigger className="h-9 w-[170px] bg-white">
+        <SelectTrigger className="h-9 w-[170px] bg-white transition-all hover:border-gray-400">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="user">user</SelectItem>
-          <SelectItem value="collaborator">collaborator</SelectItem>
+          <SelectItem value="user">Người dùng</SelectItem>
+          <SelectItem value="collaborator">Cộng tác viên</SelectItem>
         </SelectContent>
       </Select>
     );
@@ -296,17 +365,44 @@ export default function UsersPage() {
         <p className="text-gray-500">Thông tin người dùng đã đăng ký.</p>
       </div>
 
+      <CustomerWorkPanel />
+
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <div className="relative w-full md:max-w-sm mb-4">
-          <Input
-            placeholder="Tìm tên, email, SĐT..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pr-10 bg-gray-50"
-          />
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        {/* THANH CÔNG CỤ: TÌM KIẾM, LỌC VÀ XUẤT CSV */}
+        <div className="flex flex-col md:flex-row items-center gap-3 mb-4">
+          <div className="relative w-full md:max-w-sm">
+            <Input
+              placeholder="Tìm tên, email, SĐT..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pr-10 bg-gray-50 focus-visible:ring-1 transition-all"
+            />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          </div>
+
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="w-full md:w-[200px] bg-white">
+              <SelectValue placeholder="Lọc theo vai trò" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả vai trò</SelectItem>
+              <SelectItem value="user">Người dùng</SelectItem>
+              <SelectItem value="collaborator">Cộng tác viên</SelectItem>
+              <SelectItem value="landlord">Chủ nhà</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button
+            onClick={exportToCSV}
+            variant="outline"
+            className="w-full md:w-auto md:ml-auto bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200"
+          >
+            <Download className="mr-2 h-4 w-4" /> Xuất CSV
+          </Button>
         </div>
 
+        {/* GIAO DIỆN BẢNG TRÊN DESKTOP */}
         <div className="hidden md:block rounded-lg border border-gray-100 overflow-hidden">
           <Table>
             <TableHeader>
@@ -320,134 +416,164 @@ export default function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((u) => (
-                <TableRow key={u.uid} className="hover:bg-gray-50">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9 border border-gray-200">
-                        <AvatarImage src={u.photoURL} />
-                        <AvatarFallback>
-                          {u.email?.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-sm">
-                          {u.displayName || "Chưa đặt tên"}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {u.uid.slice(0, 6)}...
-                        </span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1 text-sm">
-                      <span className="text-gray-600 text-xs">{u.email}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-blue-600">
-                          {u.phoneNumber || "--"}
-                        </span>
-                        {u.phoneNumber && (
-                          <ClipboardCopy
-                            className="h-3 w-3 cursor-pointer text-gray-400"
-                            onClick={() => handleCopy(u.phoneNumber!)}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm space-y-1">
-                      <div className="flex items-center gap-2 text-gray-500">
-                        <Calendar className="h-3 w-3" />{" "}
-                        <span>{u.dob ? u.dob : "--"}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-500 capitalize">
-                        <User className="h-3 w-3" />{" "}
-                        <span>{u.gender || "--"}</span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="max-w-[250px]">
-                    {(() => {
-                      const noteContent = u.interests || u.ctvIntroduction;
-                      return noteContent ? (
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <div className="cursor-pointer hover:bg-gray-100 p-1 rounded group">
-                              <p className="line-clamp-2 text-xs group-hover:text-primary">
-                                <FileText className="inline h-3 w-3 mr-1" />{" "}
-                                {noteContent}
-                              </p>
-                            </div>
-                          </DialogTrigger>
-                          <DialogContent className="bg-white z-[100] shadow-2xl">
-                            <DialogHeader>
-                              <DialogTitle>Thông tin chi tiết</DialogTitle>
-                            </DialogHeader>
-                            <div className="p-4 bg-gray-50 rounded text-sm whitespace-pre-wrap">
-                              {noteContent}
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      ) : (
-                        <span className="text-gray-300 text-xs italic">--</span>
-                      );
-                    })()}
-                  </TableCell>
-                  <TableCell>{renderRoleControl(u)}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {u.requestStatus === "pending" && (
-                        <Button
-                          onClick={() => approveCollaboratorRequest(u)}
-                          disabled={processingUserId === u.uid}
-                          className="bg-amber-500 hover:bg-amber-600 text-white"
-                          size="sm"
-                        >
-                          {processingUserId === u.uid ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                              Đang duyệt
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="h-4 w-4 mr-1" />
-                              Duyệt CTV
-                            </>
-                          )}
-                        </Button>
-                      )}
-                      {/* Nút Xóa */}
-                      {u.role !== "admin" && (
-                        <Button
-                          onClick={() => handleDeleteUser(u)}
-                          disabled={processingUserId === u.uid}
-                          variant="ghost"
-                          size="icon"
-                          className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                          title="Xóa bản ghi này"
-                        >
-                          {processingUserId === u.uid ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      )}
+              {filteredUsers.length === 0 && !isLoadingUsers ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="h-32 text-center text-gray-400"
+                  >
+                    <div className="flex flex-col items-center justify-center">
+                      <Search className="h-8 w-8 mb-2 text-gray-300" />
+                      <p>Không tìm thấy người dùng nào phù hợp</p>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredUsers.map((u) => (
+                  <TableRow
+                    key={u.uid}
+                    className="hover:bg-slate-50/80 transition-all duration-200 group"
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9 border border-gray-200 group-hover:ring-2 group-hover:ring-blue-100 transition-all">
+                          <AvatarImage src={u.photoURL} />
+                          <AvatarFallback>
+                            {u.email?.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-sm">
+                            {u.displayName || "Chưa đặt tên"}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {u.uid.slice(0, 6)}...
+                          </span>
+                          {/* HIỂN THỊ TRẠNG THÁI HOẠT ĐỘNG DESKTOP */}
+                          {renderActiveStatus(u.lastActiveAt)}
+                          {userData?.role === "director" && <p className="text-xs text-gray-500 break-all">Admin sở hữu: {u.ownerAdminId || "Chưa phân công"}</p>}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1 text-sm">
+                        <span className="text-gray-600 text-xs">{u.email}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-blue-600">
+                            {u.phoneNumber || "--"}
+                          </span>
+                          {u.phoneNumber && (
+                            <ClipboardCopy
+                              className="h-3 w-3 cursor-pointer text-gray-400 hover:text-blue-500 transition-colors"
+                              onClick={() => handleCopy(u.phoneNumber!)}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm space-y-1">
+                        <div className="flex items-center gap-2 text-gray-500">
+                          <Calendar className="h-3 w-3" />{" "}
+                          <span>{u.dob ? u.dob : "--"}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-500 capitalize">
+                          <User className="h-3 w-3" />{" "}
+                          <span>{u.gender || "--"}</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-[250px]">
+                      {(() => {
+                        const noteContent = u.interests || u.ctvIntroduction;
+                        return noteContent ? (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <div className="cursor-pointer hover:bg-gray-100 p-1 rounded transition-colors group/note">
+                                <p className="line-clamp-2 text-xs group-hover/note:text-primary">
+                                  <FileText className="inline h-3 w-3 mr-1" />{" "}
+                                  {noteContent}
+                                </p>
+                              </div>
+                            </DialogTrigger>
+                            <DialogContent className="bg-white z-[100] shadow-2xl">
+                              <DialogHeader>
+                                <DialogTitle>Thông tin chi tiết</DialogTitle>
+                              </DialogHeader>
+                              <div className="p-4 bg-gray-50 rounded text-sm whitespace-pre-wrap">
+                                {noteContent}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        ) : (
+                          <span className="text-gray-300 text-xs italic">
+                            --
+                          </span>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell>{renderRoleControl(u)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {u.canManage && u.requestStatus === "pending" && (
+                          <Button
+                            onClick={() => approveCollaboratorRequest(u)}
+                            disabled={processingUserId === u.uid}
+                            className="bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-transform active:scale-95"
+                            size="sm"
+                          >
+                            {processingUserId === u.uid ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                Đang duyệt
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="h-4 w-4 mr-1" />
+                                Duyệt CTV
+                              </>
+                            )}
+                          </Button>
+                        )}
+
+                        {(u.canManage && u.role !== "admin" && u.role !== "director") && (
+                          <Button
+                            onClick={() => handleDeleteUser(u)}
+                            disabled={processingUserId === u.uid}
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:bg-red-50 hover:text-red-600 active:scale-95 transition-transform"
+                            title="Xóa bản ghi này"
+                          >
+                            {processingUserId === u.uid ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
 
+        {/* GIAO DIỆN DANH SÁCH TRÊN MOBILE */}
         <div className="space-y-4 md:hidden">
+          {filteredUsers.length === 0 && !isLoadingUsers && (
+            <div className="py-8 text-center text-gray-400">
+              <Search className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+              <p className="text-sm">Không tìm thấy dữ liệu</p>
+            </div>
+          )}
+
           {filteredUsers.map((u) => (
             <Card
               key={u.uid}
-              className="bg-white border border-gray-200 shadow-sm"
+              className="bg-white border-slate-200/60 shadow-sm hover:shadow-md transition-shadow duration-300"
             >
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -461,24 +587,27 @@ export default function UsersPage() {
                     <div>
                       <p className="font-bold text-sm">{u.displayName}</p>
                       <p className="text-xs text-gray-500">{u.email}</p>
+                      {/* HIỂN THỊ TRẠNG THÁI HOẠT ĐỘNG MOBILE */}
+                      {renderActiveStatus(u.lastActiveAt)}
+                      {userData?.role === "director" && <p className="text-xs text-gray-500 break-all">Admin sở hữu: {u.ownerAdminId || "Chưa phân công"}</p>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {u.phoneNumber && (
                       <a
                         href={`tel:${u.phoneNumber}`}
-                        className="p-2 bg-green-50 text-green-600 rounded-full"
+                        className="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-full transition-colors"
                       >
                         <Phone size={16} />
                       </a>
                     )}
-                    {u.role !== "admin" && (
+                    {(u.canManage && u.role !== "admin" && u.role !== "director") && (
                       <Button
                         onClick={() => handleDeleteUser(u)}
                         disabled={processingUserId === u.uid}
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-red-500 hover:bg-red-50"
+                        className="h-8 w-8 text-red-500 hover:bg-red-50 active:scale-95 transition-all"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -507,11 +636,11 @@ export default function UsersPage() {
                   <span className="text-xs text-gray-400 block">Vai trò</span>
                   {renderRoleControl(u)}
                 </div>
-                {u.requestStatus === "pending" && (
+                {u.canManage && u.requestStatus === "pending" && (
                   <Button
                     onClick={() => approveCollaboratorRequest(u)}
                     disabled={processingUserId === u.uid}
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-white mt-2"
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white mt-2 active:scale-[0.98] transition-transform"
                     size="sm"
                   >
                     {processingUserId === u.uid ? (
@@ -532,8 +661,9 @@ export default function UsersPage() {
           ))}
         </div>
 
+        {/* LOADING STATE */}
         {isLoadingUsers && (
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
         )}

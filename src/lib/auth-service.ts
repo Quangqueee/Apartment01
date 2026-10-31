@@ -13,8 +13,7 @@ import {
     confirmPasswordReset as firebaseConfirmPasswordReset
 } from "firebase/auth";
 import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
-import { notifyAdmins } from "@/lib/notifications";
-import { ADMIN_PATH } from "@/lib/constants";
+import { customerAccessApi } from "@/lib/access-client";
 
 export const login = async (email: string, pass: string) => {
     return await signInWithEmailAndPassword(auth, email, pass);
@@ -32,19 +31,37 @@ export const signup = async (email: string, pass: string, fullName: string, phon
         favorites: [],
         createdAt: serverTimestamp(),
     });
-    await notifyAdmins({
-        title: "Thành viên mới đăng ký",
-        message: `${fullName || email} vừa đăng ký tài khoản mới trên hệ thống.`,
-        type: "system",
-        link: `/${ADMIN_PATH}/users`,
-    });
+    // Registration remains successful if a background refresh signal fails.
+    // Unapproved customer data is never announced to Admin accounts.
+    try { await customerAccessApi('register'); } catch { /* Director list also refreshes periodically. */ }
     return res.user;
 };
 
 // ĐÃ THÊM: Sửa lỗi Build cho Google Login
 export const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    return await signInWithPopup(auth, provider);
+    const res = await signInWithPopup(auth, provider);
+    try {
+        const userRef = doc(db, "users", res.user.uid);
+        const snap = await getDoc(userRef);
+        if (!snap.exists()) {
+            await setDoc(userRef, {
+                uid: res.user.uid,
+                email: res.user.email || "",
+                displayName: res.user.displayName || "",
+                phoneNumber: res.user.phoneNumber || "",
+                role: "user",
+                favorites: [],
+                createdAt: serverTimestamp(),
+            });
+            // Registration remains successful if a background refresh signal fails.
+    // Unapproved customer data is never announced to Admin accounts.
+    try { await customerAccessApi('register'); } catch { /* Director list also refreshes periodically. */ }
+        }
+    } catch (error) {
+        console.error("Lỗi tạo hồ sơ Google:", error);
+    }
+    return res;
 };
 
 export const resetPassword = async (email: string) => {

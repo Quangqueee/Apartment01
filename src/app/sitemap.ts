@@ -1,64 +1,195 @@
-import { MetadataRoute } from 'next'
-import { collection, getDocs } from 'firebase/firestore'
-import { firestore } from '@/firebase/server-init'
+import { MetadataRoute } from "next";
+import {
+  collection,
+  getDocs,
+  limit,
+  query,
+  startAfter,
+  where,
+  type DocumentData,
+  type QueryDocumentSnapshot,
+} from "firebase/firestore";
+import { firestore } from "@/firebase/server-init";
+import { DISTRICT_LANDINGS } from "@/lib/districts";
+import { SITE, SITE_PATHS, absoluteUrl } from "@/lib/site";
 
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://hanoiresidence.site'
+/** Giữ sitemap đến khi có thay đổi tin (revalidateApartmentListings). Literal bắt buộc — Next.js không theo dõi import (invalid-page-config). */
+export const revalidate = false;
 
-// Lấy danh sách căn hộ từ Firestore để build URL động cho từng trang chi tiết
-async function getApartmentEntries(): Promise<MetadataRoute.Sitemap> {
-  try {
-    const snapshot = await getDocs(collection(firestore, 'apartments'))
+const PAGE_SIZE = 100;
+const MAX_PAGES = 20;
+const FIRESTORE_TIMEOUT_MS = 8_000;
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data()
-      const lastModified =
-        data.updatedAt?.toDate?.() ?? data.createdAt?.toDate?.() ?? new Date()
+function toLastModified(value: unknown): Date {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
 
-      return {
-        url: `${baseUrl}/apartments/${doc.id}`,
-        lastModified,
-        changeFrequency: 'weekly',
-        priority: 0.9, // Ưu tiên cao vì đây là trang chuyển đổi (conversion page)
+  if (value && typeof value === "object") {
+    const withToDate = value as { toDate?: () => Date };
+    if (typeof withToDate.toDate === "function") {
+      try {
+        const parsed = withToDate.toDate();
+        if (parsed instanceof Date && !Number.isNaN(parsed.getTime())) {
+          return parsed;
+        }
+      } catch {
+        // Fall through to seconds / default.
       }
-    })
-  } catch (error) {
-    // Nếu fetch Firestore lỗi lúc build, không để sập toàn bộ sitemap —
-    // trả về mảng rỗng, các trang tĩnh bên dưới vẫn được tạo bình thường
-    console.error('Lỗi khi lấy danh sách căn hộ cho sitemap:', error)
-    return []
+    }
+
+    const withSeconds = value as { seconds?: number };
+    if (typeof withSeconds.seconds === "number") {
+      const parsed = new Date(withSeconds.seconds * 1000);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return new Date();
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`sitemap Firestore timeout after ${ms}ms`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const apartmentEntries = await getApartmentEntries()
-
-  const staticEntries: MetadataRoute.Sitemap = [
+function staticEntries(): MetadataRoute.Sitemap {
+  const now = new Date();
+  return [
     {
-      url: baseUrl, // Trang chủ
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
+      url: SITE.url,
+      lastModified: now,
+      changeFrequency: "daily",
       priority: 1,
     },
     {
-      url: `${baseUrl}/about`, // Trang giới thiệu — xác nhận route này tồn tại thật
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/apartments`, // Trang danh sách căn hộ
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
+      url: absoluteUrl(SITE_PATHS.search),
+      lastModified: now,
+      changeFrequency: "daily",
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/huong-dan-cong-viec`, // Trang hướng dẫn
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
+      url: absoluteUrl(SITE_PATHS.about),
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: absoluteUrl(SITE_PATHS.faq),
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: absoluteUrl(SITE_PATHS.privacy),
+      lastModified: now,
+      changeFrequency: "yearly",
+      priority: 0.4,
+    },
+    {
+      url: absoluteUrl(SITE_PATHS.terms),
+      lastModified: now,
+      changeFrequency: "yearly",
+      priority: 0.4,
+    },
+    {
+      url: absoluteUrl(SITE_PATHS.partnerRegister),
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: absoluteUrl("/huong-dan-cong-viec"),
+      lastModified: now,
+      changeFrequency: "monthly",
       priority: 0.5,
     },
-    // Đã bỏ /ctv-register khỏi sitemap để nhất quán với robots.ts (đã disallow route này)
-  ]
+    {
+      url: absoluteUrl(SITE_PATHS.llms),
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    ...DISTRICT_LANDINGS.map((district) => ({
+      url: absoluteUrl(`/${district.slug}`),
+      lastModified: now,
+      changeFrequency: "daily" as const,
+      priority: 0.85,
+    })),
+  ];
+}
 
-  return [...staticEntries, ...apartmentEntries]
+async function getPublishedApartmentEntries(): Promise<MetadataRoute.Sitemap> {
+  const entries: MetadataRoute.Sitemap = [];
+  const apartmentsRef = collection(firestore, "apartments");
+  let lastDoc: QueryDocumentSnapshot<DocumentData> | undefined;
+
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const pageQuery = lastDoc
+      ? query(
+          apartmentsRef,
+          where("submissionStatus", "==", "published"),
+          startAfter(lastDoc),
+          limit(PAGE_SIZE),
+        )
+      : query(
+          apartmentsRef,
+          where("submissionStatus", "==", "published"),
+          limit(PAGE_SIZE),
+        );
+
+    const snapshot = await withTimeout(
+      getDocs(pageQuery),
+      FIRESTORE_TIMEOUT_MS,
+    );
+    if (snapshot.empty) break;
+
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      entries.push({
+        url: absoluteUrl(`/apartments/${docSnap.id}`),
+        lastModified: toLastModified(data.updatedAt ?? data.createdAt),
+        changeFrequency: "weekly",
+        priority: 0.9,
+      });
+    }
+
+    lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    if (snapshot.size < PAGE_SIZE) break;
+  }
+
+  return entries;
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const staticUrls = staticEntries();
+
+  try {
+    const apartmentEntries = await getPublishedApartmentEntries();
+    return [...staticUrls, ...apartmentEntries];
+  } catch (error) {
+    console.error("Lỗi khi tạo sitemap căn hộ:", error);
+    return staticUrls;
+  }
 }

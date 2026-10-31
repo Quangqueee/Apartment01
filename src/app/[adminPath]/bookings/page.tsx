@@ -1,18 +1,15 @@
 "use client";
+import { customerAccessApi } from "@/lib/access-client";
+import { watchDoc } from "@/lib/firestore-listener";
 
 import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/context/auth-context";
 import { db } from "@/firebase";
 import {
-  collection,
   doc,
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  onSnapshot,
-  query,
-  orderBy,
-  limit,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { createNotification } from "@/lib/notifications";
@@ -76,18 +73,26 @@ interface AdminBooking {
   status: string;
   isExternal?: boolean;
   createdByAdminId?: string;
+  ownerAdminId?: string;
+  canManage?: boolean;
+  canDelete?: boolean;
+  assignedAdminId?: string | null;
+  assignedAdminName?: string;
+  isAssignedToMe?: boolean;
   createdAt?: any;
   updatedAt?: any;
 }
 
 export default function AdminBookingsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, userData, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const [ctvBookings, setCtvBookings] = useState<AdminBooking[]>([]);
   const [userBookings, setUserBookings] = useState<AdminBooking[]>([]);
   const [guestBookings, setGuestBookings] = useState<AdminBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [assignmentFilter, setAssignmentFilter] = useState('all');
 
   const [activeTab, setActiveTab] = useState<
     "all" | "ctv" | "user" | "external" | "guest"
@@ -128,78 +133,30 @@ export default function AdminBookingsPage() {
   }, [searchTerm]);
 
   useEffect(() => {
-    setLoading(true);
-    let isCtvLoaded = false;
-    let isUserLoaded = false;
-    let isGuestLoaded = false;
-    const checkLoading = () => {
-      if (isCtvLoaded && isUserLoaded && isGuestLoaded) setLoading(false);
+    if (authLoading || !user || !userData) return;
+    let cancelled = false, running = false, queued = false, revision = 0;
+    setCtvBookings([]); setUserBookings([]); setGuestBookings([]); setLoading(true);
+    const refresh = async (invalidate = false) => {
+      if (invalidate) { revision++; setCtvBookings([]); setUserBookings([]); setGuestBookings([]); setSelectedBooking(null); }
+      if (running) { queued = true; return; }
+      running = true; const current = revision;
+      try {
+        const result = await customerAccessApi('bookings');
+        if (cancelled || current !== revision) return;
+        const rows = result.rows as AdminBooking[];
+        setCtvBookings(rows.filter(b => b.type === 'ctv'));
+        setUserBookings(rows.filter(b => b.type === 'user' || b.type === 'external'));
+        setGuestBookings(rows.filter(b => b.type === 'guest'));
+        setSelectedBooking(previous => previous ? rows.find(b => b.id === previous.id && b.type === previous.type) || null : null);
+      } catch { if (!cancelled) { setCtvBookings([]); setUserBookings([]); setGuestBookings([]); setSelectedBooking(null); toast({ variant: 'destructive', title: 'Không thể tải lịch hẹn' }); } }
+      finally { running = false; if (!cancelled) { setLoading(false); if (queued) { queued = false; void refresh(); } } }
     };
-
-    const unsubCTV = onSnapshot(
-      query(
-        collection(db, "ctv_bookings"),
-        orderBy("createdAt", "desc"),
-        limit(500),
-      ),
-      (snap) => {
-        setCtvBookings(
-          snap.docs.map(
-            (doc) =>
-              ({ id: doc.id, type: "ctv", ...doc.data() }) as AdminBooking,
-          ),
-        );
-        isCtvLoaded = true;
-        checkLoading();
-      },
-    );
-
-    const unsubUser = onSnapshot(
-      query(
-        collection(db, "user_bookings"),
-        orderBy("createdAt", "desc"),
-        limit(500),
-      ),
-      (snap) => {
-        setUserBookings(
-          snap.docs.map((doc) => {
-            const d = doc.data();
-            return {
-              id: doc.id,
-              type: d.isExternal ? "external" : "user",
-              ...d,
-            } as AdminBooking;
-          }),
-        );
-        isUserLoaded = true;
-        checkLoading();
-      },
-    );
-
-    const unsubGuest = onSnapshot(
-      query(
-        collection(db, "guest_consultations"),
-        orderBy("createdAt", "desc"),
-        limit(500),
-      ),
-      (snap) => {
-        setGuestBookings(
-          snap.docs.map(
-            (doc) =>
-              ({ id: doc.id, type: "guest", ...doc.data() }) as AdminBooking,
-          ),
-        );
-        isGuestLoaded = true;
-        checkLoading();
-      },
-    );
-
-    return () => {
-      unsubCTV();
-      unsubUser();
-      unsubGuest();
-    };
-  }, []);
+    void refresh();
+    const unsubscribe = watchDoc(doc(db, 'customerAccessState', 'records'), () => { void refresh(true); }, () => { revision++; setCtvBookings([]); setUserBookings([]); setGuestBookings([]); setSelectedBooking(null); });
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 60000);
+    const onFocus = () => { void refresh(); }; window.addEventListener('focus', onFocus);
+    return () => { cancelled = true; unsubscribe(); clearInterval(interval); window.removeEventListener('focus', onFocus); };
+  }, [user?.uid, userData?.role, authLoading, toast, refreshTick]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -210,26 +167,23 @@ export default function AdminBookingsPage() {
     startDate,
     endDate,
     statusFilter,
+    assignmentFilter,
   ]);
 
   const searchFilteredBookings = useMemo(() => {
     const combined = [...ctvBookings, ...userBookings, ...guestBookings].sort(
       (a, b) => {
         return (
-          (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)
+          (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
         );
       },
     );
 
     return combined.filter((b) => {
-      if (
-        b.type === "external" &&
-        b.createdByAdminId &&
-        b.createdByAdminId !== user?.uid
-      )
-        return false;
       if (activeTab !== "all" && b.type !== activeTab) return false;
       if (statusFilter !== "all" && b.status !== statusFilter) return false;
+      if (assignmentFilter === 'mine' && !b.isAssignedToMe) return false;
+      if (assignmentFilter === 'unassigned' && b.assignedAdminId) return false;
 
       if (dateFilterType !== "all") {
         if (!b.dateTime) return false;
@@ -286,6 +240,7 @@ export default function AdminBookingsPage() {
     endDate,
     statusFilter,
     user?.uid,
+    assignmentFilter,
   ]);
 
   const totalPages = Math.ceil(searchFilteredBookings.length / itemsPerPage);
@@ -295,6 +250,13 @@ export default function AdminBookingsPage() {
     startIndex + itemsPerPage,
   );
 
+  const patchBooking = (booking: AdminBooking, patch: Partial<AdminBooking> | null) => {
+    const update = (previous: AdminBooking[]) => patch ? previous.map(row => row.id === booking.id ? { ...row, ...patch } : row)
+      : previous.filter(row => row.id !== booking.id);
+    if (booking.type === 'ctv') setCtvBookings(update);
+    else if (booking.type === 'guest') setGuestBookings(update);
+    else setUserBookings(update);
+  };
   const getCollectionNameByType = (type: string) => {
     if (type === "ctv") return "ctv_bookings";
     if (type === "guest") return "guest_consultations";
@@ -335,6 +297,7 @@ export default function AdminBookingsPage() {
     booking: AdminBooking,
     newStatus: string,
   ) => {
+    if (!booking.canManage) return;
     if (newStatus === "failed") {
       setCancelConfirm({ isOpen: true, booking });
       return;
@@ -345,6 +308,7 @@ export default function AdminBookingsPage() {
         { status: newStatus, updatedAt: serverTimestamp() },
       );
       await notifyStatusChange(booking, newStatus);
+      patchBooking(booking, { status: newStatus });
       toast({
         title: "Đã cập nhật trạng thái",
         className: "bg-green-50 text-green-900 border-green-200",
@@ -355,7 +319,7 @@ export default function AdminBookingsPage() {
   };
 
   const executeCancelBooking = async () => {
-    if (!cancelConfirm.booking) return;
+    if (!cancelConfirm.booking?.canManage) return;
     try {
       await updateDoc(
         doc(
@@ -366,6 +330,7 @@ export default function AdminBookingsPage() {
         { status: "failed", updatedAt: serverTimestamp() },
       );
       await notifyStatusChange(cancelConfirm.booking, "failed");
+      patchBooking(cancelConfirm.booking, { status: "failed" });
       toast({
         title: "Đã đổi trạng thái Hủy",
         className: "bg-red-50 text-red-900 border-red-200",
@@ -378,7 +343,7 @@ export default function AdminBookingsPage() {
   };
 
   const executeDeleteBooking = async () => {
-    if (!deleteConfirm.booking) return;
+    if (!deleteConfirm.booking?.canDelete) return;
     try {
       await deleteDoc(
         doc(
@@ -387,6 +352,7 @@ export default function AdminBookingsPage() {
           deleteConfirm.booking.id,
         ),
       );
+      patchBooking(deleteConfirm.booking, null);
       toast({
         title: "Đã xóa vĩnh viễn lịch hẹn",
         className: "bg-green-50 text-green-900 border-green-200",
@@ -399,7 +365,8 @@ export default function AdminBookingsPage() {
   };
 
   const handleSaveNote = async (newNoteContent: string) => {
-    if (!selectedBooking) return;
+    if (!selectedBooking?.canManage) return;
+    if (!selectedBooking.canDelete && newNoteContent.length > 4000) { toast({ variant: 'destructive', title: 'Ghi chú xử lý tối đa 4000 ký tự' }); return; }
     setIsSavingNote(true);
     try {
       await updateDoc(
@@ -410,6 +377,7 @@ export default function AdminBookingsPage() {
         ),
         { adminNotes: newNoteContent, updatedAt: serverTimestamp() },
       );
+      patchBooking(selectedBooking, { adminNotes: newNoteContent });
       const recipientId = getBookingRecipientId(selectedBooking);
       if (recipientId && newNoteContent.trim()) {
         await createNotification({
@@ -450,7 +418,7 @@ export default function AdminBookingsPage() {
 
   const formatCreationDate = (timestamp: any) => {
     if (!timestamp) return "N/A";
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(typeof timestamp.seconds === 'number' ? timestamp.seconds * 1000 : timestamp);
     return date.toLocaleString("vi-VN", {
       day: "2-digit",
       month: "2-digit",
@@ -480,7 +448,7 @@ export default function AdminBookingsPage() {
     if (type === "ctv")
       return (
         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-bold text-[10px] uppercase tracking-wider whitespace-nowrap">
-          <ShieldCheck className="h-3.5 w-3.5" /> CTV
+          <ShieldCheck className="h-3.5 w-3.5" /> CTV gửi khách
         </div>
       );
     if (type === "user")
@@ -520,6 +488,9 @@ export default function AdminBookingsPage() {
       </div>
 
       <div className="flex flex-col gap-5">
+        <select aria-label="Lọc lịch theo phân công" className="w-full sm:w-auto rounded-xl border border-gray-200 p-3 text-base bg-white" value={assignmentFilter} onChange={e => setAssignmentFilter(e.target.value)}>
+          <option value="all">Tất cả lịch được xem</option><option value="mine">Lịch tôi nhận dẫn khách</option><option value="unassigned">Chưa có Admin phụ trách</option>
+        </select>
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="relative w-full lg:w-[400px]">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -716,6 +687,8 @@ export default function AdminBookingsPage() {
                             ? booking.clientPhone
                             : booking.phone}
                         </div>
+                        <p className="mt-1 text-xs text-gray-600 break-words">Admin dẫn khách: {booking.assignedAdminName || 'Chưa phân công'}</p>
+                        {userData?.role === "director" && <p className="text-xs text-gray-500 break-all">Admin quản lý dữ liệu: {booking.ownerAdminId || "Chưa xác định"}</p>}
                         {booking.type === "ctv" && (
                           <div className="mt-1.5 flex items-center">
                             <div className="px-2 py-1 bg-gray-100 rounded-md border border-gray-200/60 flex items-center gap-1.5 w-max">
@@ -751,7 +724,7 @@ export default function AdminBookingsPage() {
                     <td className="px-5 py-4 align-middle text-center">
                       <div className="relative inline-block w-[130px]">
                         <select
-                          value={booking.status}
+                          disabled={!booking.canManage} value={booking.status}
                           onChange={(e) =>
                             handleStatusChange(booking, e.target.value)
                           }
@@ -801,7 +774,7 @@ export default function AdminBookingsPage() {
                         <div
                           onClick={() => {
                             setSelectedBooking(booking);
-                            setIsNoteModalOpen(true);
+                            if (booking.canManage) setIsNoteModalOpen(true);
                           }}
                           className="group flex flex-col items-center justify-center min-h-[36px] p-2 rounded-xl bg-blue-50/50 hover:bg-blue-50 border border-transparent hover:border-blue-100 cursor-pointer w-[120px] mx-auto transition-colors"
                         >
@@ -814,9 +787,10 @@ export default function AdminBookingsPage() {
                         </div>
                       ) : (
                         <button
+                          disabled={!booking.canManage}
                           onClick={() => {
                             setSelectedBooking(booking);
-                            setIsNoteModalOpen(true);
+                            if (booking.canManage) setIsNoteModalOpen(true);
                           }}
                           className="inline-flex items-center justify-center gap-1.5 w-[120px] h-9 text-[11px] font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors shadow-sm mx-auto"
                         >
@@ -837,8 +811,9 @@ export default function AdminBookingsPage() {
                           <FileText className="h-4 w-4" />
                         </button>
                         <button
+                          disabled={!booking.canDelete}
                           onClick={() =>
-                            setDeleteConfirm({ isOpen: true, booking })
+                            booking.canDelete && setDeleteConfirm({ isOpen: true, booking })
                           }
                           className="p-2 text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg transition-colors shadow-sm"
                           title="Xóa vĩnh viễn"
@@ -876,7 +851,8 @@ export default function AdminBookingsPage() {
                     </span>
                   </div>
                   <button
-                    onClick={() => setDeleteConfirm({ isOpen: true, booking })}
+                    disabled={!booking.canDelete}
+                    onClick={() => booking.canDelete && setDeleteConfirm({ isOpen: true, booking })}
                     className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -895,6 +871,8 @@ export default function AdminBookingsPage() {
                         ? booking.clientPhone
                         : booking.phone}
                     </div>
+                    <p className="mt-1 text-xs text-gray-600 break-words">Admin dẫn khách: {booking.assignedAdminName || 'Chưa phân công'}</p>
+                    {userData?.role === "director" && <p className="text-xs text-gray-500 break-all">Admin quản lý dữ liệu: {booking.ownerAdminId || "Chưa xác định"}</p>}
                     {booking.type === "ctv" && (
                       <div className="mt-1.5 w-max text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
                         CTV: {booking.ctvName || "Không rõ"}
@@ -943,7 +921,7 @@ export default function AdminBookingsPage() {
                 <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-50">
                   <div className="relative w-full">
                     <select
-                      value={booking.status}
+                      disabled={!booking.canManage} value={booking.status}
                       onChange={(e) =>
                         handleStatusChange(booking, e.target.value)
                       }
@@ -976,9 +954,10 @@ export default function AdminBookingsPage() {
                     </select>
                   </div>
                   <button
+                    disabled={!booking.canManage}
                     onClick={() => {
                       setSelectedBooking(booking);
-                      setIsNoteModalOpen(true);
+                      if (booking.canManage) setIsNoteModalOpen(true);
                     }}
                     className="w-full h-10 px-2 text-[12px] font-bold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors shadow-sm flex items-center justify-center gap-1.5 whitespace-nowrap"
                   >
@@ -1044,7 +1023,7 @@ export default function AdminBookingsPage() {
       {/* CÁC COMPONENT ĐƯỢC TÁCH RA */}
       <AddBookingModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => { setIsAddModalOpen(false); setRefreshTick(previous => previous + 1); }}
       />
 
       <CancelConfirmModal
@@ -1075,6 +1054,7 @@ export default function AdminBookingsPage() {
         onClose={() => setIsDetailsModalOpen(false)}
         onSave={handleSaveNote}
         isSaving={isSavingNote}
+        canEdit={selectedBooking?.canManage === true}
       />
     </div>
   );

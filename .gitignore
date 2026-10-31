@@ -12,9 +12,12 @@
 
 # testing
 /coverage
+/.test-runtime/
+*-migration-report.json
 
 # next.js
 /.next/
+/.next-turbo/
 /out/
 
 # production
@@ -43,3 +46,16 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+serviceAccountKey.json
+firebase-service-account.json
+*firebase-adminsdk*.json
+
+# Graphify ML Outputs & Cache
+graphify-out/
+
+# Bỏ qua cấu hình editor cá nhân
+.vscode/
+.cursor/
+.claude/
+
+

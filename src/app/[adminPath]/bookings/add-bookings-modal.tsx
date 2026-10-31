@@ -13,7 +13,7 @@ import {
   where,
 } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { createNotification } from "@/lib/notifications";
+import { notifyAdmins } from "@/lib/notifications";
 import { ADMIN_PATH } from "@/lib/constants";
 import { Loader2, Search, UserPlus, Users } from "lucide-react";
 import {
@@ -42,7 +42,7 @@ export function AddBookingModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const { user } = useAuth();
+  const { user, userData } = useAuth();
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
   const [ctvList, setCtvList] = useState<any[]>([]);
@@ -69,16 +69,22 @@ export function AddBookingModal({
   );
 
   useEffect(() => {
+    let cancelled = false;
+    setCtvList([]);
     const fetchCTVs = async () => {
+      try {
       const q = query(
         collection(db, "users"),
         where("role", "==", "collaborator"),
+          ...(userData?.role === "director" ? [] : [where("ownerAdminId", "==", user?.uid || "")]),
       );
       const snap = await getDocs(q);
-      setCtvList(snap.docs.map((doc) => ({ uid: doc.id, ...doc.data() })));
+      if (!cancelled) setCtvList(snap.docs.map((doc) => ({ uid: doc.id, ...doc.data() })));
+      } catch { if (!cancelled) { setCtvList([]); toast({ variant: "destructive", title: "Không thể tải danh sách CTV trong phạm vi của bạn" }); } }
     };
     fetchCTVs();
-  }, []);
+    return () => { cancelled = true; };
+  }, [user?.uid, userData?.role]);
 
   const filteredCtvs = ctvList.filter(
     (c) =>
@@ -120,20 +126,12 @@ export function AddBookingModal({
     apartmentCode?: string,
   ) => {
     try {
-      const adminsSnap = await getDocs(
-        query(collection(db, "users"), where("role", "==", "admin")),
-      );
-      await Promise.all(
-        adminsSnap.docs.map((adminDoc) =>
-          createNotification({
-            recipientId: adminDoc.id,
-            title: "Lịch hẹn thủ công mới",
-            message: `Đã tạo lịch hẹn thủ công cho khách ${clientName || "khách hàng"}${apartmentCode ? ` - mã căn ${apartmentCode}` : ""}.`,
-            type: "new_booking",
-            link: `/${ADMIN_PATH}/bookings`,
-          }),
-        ),
-      );
+      await notifyAdmins({
+        title: "Lịch hẹn thủ công mới",
+        message: `Đã tạo lịch hẹn thủ công cho khách ${clientName || "khách hàng"}${apartmentCode ? ` - mã căn ${apartmentCode}` : ""}.`,
+        type: "new_booking",
+        link: `/${ADMIN_PATH}/bookings`,
+      });
     } catch (error) {
       console.error("Lỗi gửi thông báo cho admin:", error);
     }
@@ -166,6 +164,7 @@ export function AddBookingModal({
           clientName: addForm.name,
           clientPhone: addForm.phone,
           createdByAdminId: user?.uid,
+          ownerAdminId: user?.uid,
         };
         await addDoc(collection(db, "ctv_bookings"), payload);
       } else {
@@ -175,6 +174,7 @@ export function AddBookingModal({
           phone: addForm.phone,
           isExternal: true,
           createdByAdminId: user?.uid,
+          ownerAdminId: user?.uid,
         };
         await addDoc(collection(db, "user_bookings"), payload);
       }

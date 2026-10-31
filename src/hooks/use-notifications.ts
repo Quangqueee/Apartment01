@@ -1,4 +1,5 @@
 "use client";
+import { watchQuery } from "@/lib/firestore-listener";
 
 import { useEffect, useState } from "react";
 import {
@@ -7,7 +8,6 @@ import {
   where,
   orderBy,
   limit,
-  onSnapshot,
   doc,
   updateDoc,
   writeBatch,
@@ -45,7 +45,7 @@ export function useNotifications(userId?: string | null) {
       limit(20),
     );
 
-    const unsubscribe = onSnapshot(
+    const unsubscribe = watchQuery(
       q,
       (snap) => {
         setNotifications(

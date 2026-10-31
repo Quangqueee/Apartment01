@@ -31,12 +31,12 @@ export async function checkAdminAccess(uid: string | undefined): Promise<{
     const role: UserRole = userData.role || "user";
 
     // Log unauthorized admin access attempts
-    if (role !== "admin") {
+    if ((role !== "admin" && role !== "director")) {
       console.warn(`[Security] Unauthorized admin access attempt by user: ${uid} with role: ${role}`);
     }
 
     return {
-      isAdmin: role === "admin",
+      isAdmin: (role === "admin" || role === "director"),
       role,
       email: userData.email,
     };

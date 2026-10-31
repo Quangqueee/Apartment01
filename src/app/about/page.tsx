@@ -142,7 +142,7 @@ export default function AboutSection() {
 
               <div className="pt-6">
                 <a
-                  href="tel:+84355885851"
+                  href="/partner-register"
                   className="inline-flex items-center gap-3 bg-white text-black px-8 py-4 rounded-xl font-bold uppercase tracking-widest hover:bg-[#cda533] hover:text-white transition-all shadow-lg"
                 >
                   <Phone className="h-5 w-5" /> Liên hệ hợp tác

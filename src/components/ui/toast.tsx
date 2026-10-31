@@ -15,9 +15,11 @@ const ToastViewport = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Viewport
     ref={ref}
-    // Sửa flex-col-reverse thành flex-col vì toast xuất hiện từ top-0
+    tabIndex={-1}
+    suppressHydrationWarning
+    // flex-col + top-0: toast xếp từ trên xuống, tránh lệch class SSR/client
     className={cn(
-      "fixed top-0 left-1/2 z-[100] flex max-h-screen -translate-x-1/2 flex-col p-4 w-[360px] max-w-[95vw] sm:w-[420px]",
+      "fixed top-0 left-1/2 z-[100] flex max-h-screen w-[360px] max-w-[95vw] -translate-x-1/2 flex-col p-4 pt-[max(1rem,var(--safe-top))] sm:w-[420px]",
       className,
     )}
     {...props}

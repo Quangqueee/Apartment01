@@ -4,7 +4,9 @@ import { useState } from "react";
 import { Phone, X, MessageSquareText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/context/auth-context";
 import { ADMIN_PATH } from "@/lib/constants";
+import { isAdmin, isCollaborator } from "@/lib/rbac";
 
 /* SVG FACEBOOK */
 const FacebookSvgIcon = () => (
@@ -59,13 +61,20 @@ const ZaloSvgIcon = () => (
 
 export default function MultiContact() {
   const pathname = usePathname();
+  const { user, userData, loading } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const isStaffUi =
+    isAdmin(userData?.role) || isCollaborator(userData?.role);
 
   if (pathname.startsWith(`/${ADMIN_PATH}`)) return null;
+  if (pathname.startsWith("/huong-dan-cong-viec")) return null;
+  if (/^\/apartments\/[^/]+/.test(pathname)) return null;
+  if (isStaffUi) return null;
+  if (loading && user) return null;
 
   return (
     <>
-      <div className="fixed z-[150] bottom-20 right-4 md:bottom-8 md:right-8 flex flex-col items-end gap-3 pointer-events-none">
+      <div className="fixed z-30 bottom-[calc(5rem+var(--safe-bottom))] right-4 md:bottom-8 md:right-8 flex flex-col items-end gap-3 pointer-events-none">
         {/* KHUNG POP-UP LIÊN HỆ */}
         <div
           className={cn(
@@ -77,7 +86,7 @@ export default function MultiContact() {
         >
           {/* 1. Messenger */}
           <a
-            href="https://m.me/hanoiiresidence"
+            href="https://www.facebook.com/hanoiiresidence/"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Truy cập trang Facebook của chúng tôi"
@@ -87,13 +96,13 @@ export default function MultiContact() {
               <FacebookSvgIcon />
             </div>
             <span className="text-sm font-semibold text-gray-700 group-hover:text-[#039be5] whitespace-nowrap pr-2">
-              Facebook 
+              Facebook
             </span>
           </a>
 
           {/* 2. Zalo Chat */}
           <a
-            href="https://zalo.me/0355885851"
+            href="https://zalo.me/0812442111"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors group"
@@ -102,20 +111,20 @@ export default function MultiContact() {
               <ZaloSvgIcon />
             </div>
             <span className="text-sm font-semibold text-gray-700 group-hover:text-[#2962ff] whitespace-nowrap pr-2">
-              Zalo 
+              Zalo
             </span>
           </a>
 
           {/* 3. Gọi điện thoại */}
           <a
-            href="tel:+84355885851"
+            href="tel:+84812442111"
             className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors group"
           >
             <div className="w-7 h-7 rounded-full bg-yellow-600 text-white flex items-center justify-center shrink-0 shadow-sm">
               <Phone size={14} className="animate-tada-hard" />
             </div>
             <span className="text-sm font-semibold text-gray-700 group-hover:text-yellow-600 whitespace-nowrap pr-2">
-              0355 885 851
+              081 2442 111
             </span>
           </a>
         </div>
